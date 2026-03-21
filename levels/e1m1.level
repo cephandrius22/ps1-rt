@@ -3,17 +3,17 @@
 
 spawn 0 0 3 0
 
-# --- Materials ---
-material concrete    concrete     0.4 0.35 0.3
-material dark_metal  metal_panel  0.3 0.3 0.35
-material rust_wall   rust         0.5 0.3 0.15
-material grate       metal_grate  0.4 0.4 0.4
-material brick       brick        0.5 0.4 0.3
-material floor_tile  floor_tile   0.35 0.35 0.35
-material pipe_mat    pipe         0.45 0.45 0.5
+# --- Materials (darker, grittier) ---
+material concrete    concrete     0.3 0.25 0.2
+material dark_metal  metal_panel  0.2 0.2 0.22
+material rust_wall   rust         0.4 0.2 0.1
+material grate       metal_grate  0.3 0.3 0.3
+material brick       brick        0.35 0.25 0.18
+material floor_tile  floor_tile   0.25 0.22 0.18
+material pipe_mat    pipe         0.3 0.3 0.32
 material health_mat  none         0.9 0.2 0.2
 material ammo_mat    none         0.9 0.8 0.2
-material door_mat    rust         0.5 0.3 0.15
+material door_mat    rust         0.4 0.2 0.1
 
 # =====================
 # Main Hall
@@ -70,39 +70,31 @@ room -6 0 -20 6 3 -15 brick floor_tile concrete
 entity health 3 0.5 -3 amount=25 mat=7
 entity health -5 0.5 -8 amount=50 mat=7
 entity ammo -2 0.5 -2 amount=10 mat=8
-entity door 0 0 -8 hinge_x=0 hinge_z=-8 mat=9
-
 # Pickups in storage room
 entity ammo 11 0.5 -7 amount=15 mat=8
 entity health 13 0.5 -7 amount=25 mat=7
 
 # =====================
-# Lights
+# Lights — sparse, sickly yellow, eerie
 # =====================
 
-# Warm overhead light near spawn
-light 0 3.5 1 1.0 0.9 0.7 3.0 20.0 shadows=1
+# Single dim bulb near spawn — off-white yellow
+light 0 3.5 1 1.0 0.9 0.5 2.0 15.0 shadows=1 flicker_speed=1.5 flicker_amount=0.1
 
-# Flickering red light near health pickup
-light 3 2.5 -3 1.0 0.3 0.2 2.5 12.0 shadows=1 flicker_speed=3.0 flicker_amount=0.4
+# Flickering dying bulb near health pickup — harsh yellow
+light 3 2.5 -3 1.0 0.8 0.3 1.8 10.0 shadows=1 flicker_speed=7.0 flicker_amount=0.6
 
-# Blue light deep in main hall
-light -2 3.0 -11 0.3 0.4 1.0 3.0 16.0 shadows=1
+# Deep in main hall — single weak sickly light
+light -2 3.0 -13 0.9 0.8 0.4 1.5 12.0 shadows=1 flicker_speed=2.5 flicker_amount=0.3
 
-# Yellow light near ammo
-light -2 2.0 -2 1.0 0.9 0.4 2.0 10.0
+# Bare bulb on a string from the ceiling — slow, subtle swing
+light 0 3.0 -8 1.0 0.85 0.4 2.5 13.0 shadows=1 flicker_speed=6.0 flicker_amount=0.2 anchor_x=0 anchor_y=3.95 anchor_z=-8 cord=0.95 swing_speed=0.8 swing_angle=0.15
 
-# Flickering torch light near steps
-light 7 2.5 -2 1.0 0.6 0.2 3.0 14.0 shadows=1 flicker_speed=5.0 flicker_amount=0.3
+# Dying fluorescent in back passage — buzzing, unstable
+light -1 2.5 -17 0.8 0.9 0.5 1.5 10.0 shadows=1 flicker_speed=12.0 flicker_amount=0.7
 
-# Swinging bare bulb in corridor — creepy pendulum
-light 0 2.5 -8 1.0 0.85 0.5 3.5 14.0 shadows=1 flicker_speed=8.0 flicker_amount=0.15 anchor_x=0 anchor_y=3.8 anchor_z=-8 cord=1.3 swing_speed=2.0 swing_angle=0.35
+# Storage room — single weak bulb, swinging slightly
+light 11 2.8 -8 1.0 0.85 0.45 1.8 12.0 shadows=1 flicker_speed=4.0 flicker_amount=0.35 anchor_x=11 anchor_y=3.3 anchor_z=-8 cord=0.5 swing_speed=0.8 swing_angle=0.15
 
-# Slow-swinging green light in back passage
-light -3 2.0 -17 0.2 1.0 0.3 2.5 14.0 shadows=1 anchor_x=-3 anchor_y=2.8 anchor_z=-17 cord=0.8 swing_speed=1.2 swing_angle=0.5
-
-# Fast-swinging red warning light in storage room
-light 11 2.5 -8 1.0 0.1 0.05 3.0 16.0 shadows=1 flicker_speed=6.0 flicker_amount=0.5 anchor_x=11 anchor_y=3.2 anchor_z=-8 cord=0.7 swing_speed=3.5 swing_angle=0.25
-
-# Dim light in side corridor
-light -11 2.2 -8 0.7 0.7 0.9 2.0 12.0 shadows=1 flicker_speed=2.0 flicker_amount=0.2
+# Side corridor — almost nothing, just a faint glow
+light -11 2.2 -8 0.9 0.8 0.4 1.2 8.0 shadows=1 flicker_speed=3.0 flicker_amount=0.5

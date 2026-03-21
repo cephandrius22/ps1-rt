@@ -42,13 +42,14 @@ static void gen_concrete(Texture *tex) {
     tex_alloc(tex, 32, 32);
     for (int y = 0; y < 32; y++) {
         for (int x = 0; x < 32; x++) {
-            float base = 0.45f + noise01(x, y) * 0.12f - 0.06f;
+            float base = 0.28f + noise01(x, y) * 0.14f - 0.07f;
             /* Darker stain patches */
-            float stain = noise01(x / 4, y / 4) * 0.08f;
-            float v = base - stain;
-            uint8_t c = clamp8(v * 255.0f);
-            /* Slight warm tint */
-            tex_set(tex, x, y, c, clamp8(v * 245.0f), clamp8(v * 235.0f));
+            float stain = noise01(x / 4, y / 4) * 0.12f;
+            /* Water damage streaks */
+            float streak = noise01(x, y / 5) * 0.06f;
+            float v = base - stain - streak;
+            /* Grimy yellow-brown tint */
+            tex_set(tex, x, y, clamp8(v * 270.0f), clamp8(v * 255.0f), clamp8(v * 210.0f));
         }
     }
 }
@@ -68,23 +69,23 @@ static void gen_brick(Texture *tex) {
             int bx = (x + offset) % 64;
             int x_in_brick = bx % brick_w;
 
-            /* Mortar lines */
+            /* Mortar lines — dark, crumbling */
             if (y_in_brick < mortar || x_in_brick < mortar) {
-                float mv = 0.35f + noise01(x + 200, y + 200) * 0.06f;
-                uint8_t mc = clamp8(mv * 255.0f);
-                tex_set(tex, x, y, mc, mc, clamp8(mv * 240.0f));
+                float mv = 0.18f + noise01(x + 200, y + 200) * 0.08f;
+                tex_set(tex, x, y, clamp8(mv * 260), clamp8(mv * 240), clamp8(mv * 200));
                 continue;
             }
 
-            /* Brick face — per-brick color variation using brick grid coords */
+            /* Brick face — darker, dirtier, more variation */
             int brick_id_x = bx / brick_w;
             int brick_id_y = row;
-            float variation = noise01(brick_id_x * 7 + 31, brick_id_y * 13 + 47) * 0.15f - 0.075f;
-            float detail = noise01(x * 3 + 100, y * 3 + 100) * 0.04f - 0.02f;
+            float variation = noise01(brick_id_x * 7 + 31, brick_id_y * 13 + 47) * 0.20f - 0.10f;
+            float detail = noise01(x * 3 + 100, y * 3 + 100) * 0.06f - 0.03f;
+            float grime = noise01(x + 500, y / 2 + 500) * 0.08f;
 
-            float r = 0.55f + variation + detail;
-            float g = 0.32f + variation * 0.6f + detail;
-            float b = 0.25f + variation * 0.4f + detail;
+            float r = 0.38f + variation + detail - grime;
+            float g = 0.22f + variation * 0.5f + detail - grime;
+            float b = 0.15f + variation * 0.3f + detail - grime;
             tex_set(tex, x, y, clamp8(r * 255), clamp8(g * 255), clamp8(b * 255));
         }
     }
@@ -94,7 +95,7 @@ static void gen_metal_panel(Texture *tex) {
     tex_alloc(tex, 32, 32);
     for (int y = 0; y < 32; y++) {
         for (int x = 0; x < 32; x++) {
-            float base = 0.35f + noise01(x, y) * 0.04f;
+            float base = 0.22f + noise01(x, y) * 0.06f;
 
             /* Bevel edges */
             int dx = (x < 16) ? x : 31 - x;
@@ -102,23 +103,37 @@ static void gen_metal_panel(Texture *tex) {
             int edge = (dx < dy) ? dx : dy;
 
             if (edge == 0) {
-                base -= 0.08f; /* dark outer edge */
+                base -= 0.06f;
             } else if (edge == 1) {
-                base += 0.06f; /* highlight bevel */
+                base += 0.04f;
             }
 
-            /* Corner rivets (4 corners, 2px radius) */
+            /* Corner rivets */
             int corners[4][2] = {{4, 4}, {27, 4}, {4, 27}, {27, 27}};
             for (int c = 0; c < 4; c++) {
                 int rx = x - corners[c][0];
                 int ry = y - corners[c][1];
-                if (rx * rx + ry * ry <= 2) {
-                    base += 0.1f;
+                if (rx * rx + ry * ry <= 2)
+                    base += 0.07f;
+            }
+
+            /* Rust bleed from rivets */
+            for (int c = 0; c < 4; c++) {
+                int dy2 = y - corners[c][1];
+                int dx2 = x - corners[c][0];
+                if (dy2 > 0 && dy2 < 8 && dx2 > -2 && dx2 < 3) {
+                    float rust = 0.04f * (1.0f - (float)dy2 / 8.0f);
+                    base -= rust * 0.5f;
+                    tex_set(tex, x, y,
+                        clamp8((base + rust) * 255),
+                        clamp8(base * 240),
+                        clamp8((base - rust) * 220));
+                    goto next_metal;
                 }
             }
 
-            uint8_t cv = clamp8(base * 255);
-            tex_set(tex, x, y, cv, cv, clamp8(base * 260));
+            tex_set(tex, x, y, clamp8(base * 250), clamp8(base * 250), clamp8(base * 260));
+            next_metal:;
         }
     }
 }
@@ -134,14 +149,14 @@ static void gen_metal_grate(Texture *tex) {
             int on_v_bar = (x % bar_spacing) < bar_width;
 
             if (on_h_bar || on_v_bar) {
-                /* Metal bar */
-                float v = 0.45f + noise01(x, y) * 0.05f;
-                if (on_h_bar && on_v_bar)
-                    v += 0.05f; /* intersection brighter */
-                tex_set(tex, x, y, clamp8(v * 255), clamp8(v * 255), clamp8(v * 260));
+                float v = 0.30f + noise01(x, y) * 0.06f;
+                /* Rust spots on bars */
+                if (noise01(x * 3 + 70, y * 3 + 70) > 0.7f)
+                    tex_set(tex, x, y, clamp8(v * 300), clamp8(v * 230), clamp8(v * 180));
+                else
+                    tex_set(tex, x, y, clamp8(v * 250), clamp8(v * 250), clamp8(v * 255));
             } else {
-                /* Hole — very dark */
-                float v = 0.08f + noise01(x + 50, y + 50) * 0.04f;
+                float v = 0.04f + noise01(x + 50, y + 50) * 0.03f;
                 tex_set(tex, x, y, clamp8(v * 255), clamp8(v * 255), clamp8(v * 255));
             }
         }
@@ -152,20 +167,24 @@ static void gen_rust(Texture *tex) {
     tex_alloc(tex, 32, 32);
     for (int y = 0; y < 32; y++) {
         for (int x = 0; x < 32; x++) {
-            /* Vertical streak bias: stretch noise in Y */
             float n1 = noise01(x, y / 3);
             float n2 = noise01(x * 2 + 77, y + 33);
-            float blend = n1 * 0.6f + n2 * 0.4f;
+            float n3 = noise01(x / 2 + 40, y + 60);
+            float blend = n1 * 0.5f + n2 * 0.3f + n3 * 0.2f;
 
-            float r = 0.50f + blend * 0.20f;
-            float g = 0.28f + blend * 0.10f;
-            float b = 0.12f + blend * 0.06f;
+            float r = 0.40f + blend * 0.25f;
+            float g = 0.18f + blend * 0.10f;
+            float b = 0.06f + blend * 0.04f;
 
-            /* Occasional darker pitting */
-            if (noise01(x * 5, y * 5) > 0.85f) {
-                r -= 0.1f;
-                g -= 0.06f;
-                b -= 0.03f;
+            /* Heavy pitting and corrosion */
+            if (noise01(x * 5, y * 5) > 0.75f) {
+                r -= 0.12f;
+                g -= 0.08f;
+                b -= 0.04f;
+            }
+            /* Flaking — very dark spots */
+            if (noise01(x * 7 + 13, y * 7 + 17) > 0.92f) {
+                r = 0.10f; g = 0.06f; b = 0.03f;
             }
 
             tex_set(tex, x, y, clamp8(r * 255), clamp8(g * 255), clamp8(b * 255));
@@ -183,22 +202,22 @@ static void gen_floor_tile(Texture *tex) {
             int tx = x % tile_size;
             int ty = y % tile_size;
 
-            /* Grout lines */
+            /* Grout lines — dark, dirty */
             if (tx < grout || ty < grout) {
-                float v = 0.25f + noise01(x + 300, y + 300) * 0.04f;
-                uint8_t c = clamp8(v * 255);
-                tex_set(tex, x, y, c, c, c);
+                float v = 0.12f + noise01(x + 300, y + 300) * 0.04f;
+                tex_set(tex, x, y, clamp8(v * 260), clamp8(v * 245), clamp8(v * 220));
                 continue;
             }
 
-            /* Two-tone checkerboard tiles */
+            /* Stained, cracked tiles */
             int tile_col = x / tile_size;
             int tile_row = y / tile_size;
-            float base = ((tile_col + tile_row) % 2 == 0) ? 0.38f : 0.32f;
-            base += noise01(x, y) * 0.03f;
+            float base = ((tile_col + tile_row) % 2 == 0) ? 0.25f : 0.20f;
+            base += noise01(x, y) * 0.05f;
+            /* Dirt accumulation */
+            base -= noise01(x / 3 + 400, y / 3 + 400) * 0.06f;
 
-            uint8_t c = clamp8(base * 255);
-            tex_set(tex, x, y, c, c, clamp8(base * 250));
+            tex_set(tex, x, y, clamp8(base * 265), clamp8(base * 250), clamp8(base * 220));
         }
     }
 }
@@ -207,21 +226,23 @@ static void gen_pipe(Texture *tex) {
     tex_alloc(tex, 32, 32);
     for (int y = 0; y < 32; y++) {
         for (int x = 0; x < 32; x++) {
-            /* Cylindrical highlight: brightest at center column */
-            float cx = (float)x / 31.0f; /* 0 to 1 across width */
-            float highlight = 1.0f - fabsf(cx - 0.5f) * 2.0f; /* peak at center */
-            highlight = highlight * highlight; /* sharpen falloff */
+            float cx = (float)x / 31.0f;
+            float highlight = 1.0f - fabsf(cx - 0.5f) * 2.0f;
+            highlight = highlight * highlight;
 
-            float base = 0.25f + highlight * 0.25f;
-            base += noise01(x, y) * 0.03f;
+            float base = 0.18f + highlight * 0.18f;
+            base += noise01(x, y) * 0.04f;
 
             /* Band/rivet lines every 8 pixels */
-            if (y % 8 == 0) {
-                base += 0.08f;
-            }
+            if (y % 8 == 0)
+                base += 0.06f;
 
-            /* Slight metallic blue tint */
-            tex_set(tex, x, y, clamp8(base * 245), clamp8(base * 250), clamp8(base * 260));
+            /* Corroded, brownish */
+            float rust_spot = noise01(x * 3 + 90, y * 3 + 90);
+            if (rust_spot > 0.8f)
+                tex_set(tex, x, y, clamp8(base * 300), clamp8(base * 220), clamp8(base * 160));
+            else
+                tex_set(tex, x, y, clamp8(base * 250), clamp8(base * 245), clamp8(base * 240));
         }
     }
 }

@@ -19,8 +19,8 @@ uint32_t color_rgb(uint8_t r, uint8_t g, uint8_t b) {
 
 Vec3 sky_color(Vec3 dir) {
     float t = 0.5f * (dir.y + 1.0f);
-    Vec3 sky_top = vec3(0.15f, 0.05f, 0.25f);
-    Vec3 sky_bot = vec3(0.6f, 0.3f, 0.1f);
+    Vec3 sky_top = vec3(0.02f, 0.01f, 0.04f);
+    Vec3 sky_bot = vec3(0.08f, 0.06f, 0.03f);
     return vec3_lerp(sky_bot, sky_top, t);
 }
 
@@ -84,7 +84,7 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
         if (sun_ndl > 0) {
             Ray shadow_ray = {vec3_add(hit_pos, vec3_mul(normal, 0.01f)), params->sun_dir};
             if (!scene_occluded(scene, shadow_ray, 0.001f, 100.0f))
-                lighting = vec3_add(lighting, vec3_mul(vec3(1, 1, 1), sun_ndl * 0.5f));
+                lighting = vec3_add(lighting, vec3_mul(vec3(1, 0.95f, 0.7f), sun_ndl * 0.15f));
         }
 
         /* Point lights */
@@ -187,10 +187,10 @@ static RenderParams make_render_params(const Scene *scene, const Camera *cam,
                                        bool flashlight) {
     RenderParams p = {
         .sun_dir   = vec3_normalize(vec3(0.5f, 1.0f, -0.3f)),
-        .ambient   = 0.12f,
-        .fog_start = 10.0f,
-        .fog_end   = 30.0f,
-        .fog_color = vec3(0.25f, 0.12f, 0.35f),
+        .ambient   = 0.04f,
+        .fog_start = 8.0f,
+        .fog_end   = 22.0f,
+        .fog_color = vec3(0.04f, 0.03f, 0.02f),
         .materials = scene->materials,
         .textures  = scene->textures,
         .mat_count = scene->material_count,
