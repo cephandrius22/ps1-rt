@@ -160,6 +160,33 @@ static void setup_lights(Scene *scene) {
         .intensity = 1.8f, .radius = 10.0f, .cast_shadows = true,
         .flicker_speed = 5.0f, .flicker_amount = 0.3f
     });
+
+    /* Swinging bare bulb in the corridor — creepy pendulum */
+    light_add(&scene->lights, (PointLight){
+        .position = vec3(0, 2.5f, -8), .color = vec3(1.0f, 0.85f, 0.5f),
+        .intensity = 2.5f, .radius = 10.0f, .cast_shadows = true,
+        .flicker_speed = 8.0f, .flicker_amount = 0.15f,
+        .anchor = vec3(0, 3.8f, -8), .cord_length = 1.3f,
+        .swing_speed = 2.0f, .swing_angle = 0.35f
+    });
+
+    /* Slow-swinging green light deep in the back — eerie */
+    light_add(&scene->lights, (PointLight){
+        .position = vec3(-5, 2.0f, -15), .color = vec3(0.2f, 1.0f, 0.3f),
+        .intensity = 1.5f, .radius = 9.0f, .cast_shadows = true,
+        .flicker_speed = 0, .flicker_amount = 0,
+        .anchor = vec3(-5, 3.5f, -15), .cord_length = 1.5f,
+        .swing_speed = 1.2f, .swing_angle = 0.5f
+    });
+
+    /* Fast-swinging red warning light near wall */
+    light_add(&scene->lights, (PointLight){
+        .position = vec3(10, 2.5f, -10), .color = vec3(1.0f, 0.1f, 0.05f),
+        .intensity = 2.0f, .radius = 12.0f, .cast_shadows = true,
+        .flicker_speed = 6.0f, .flicker_amount = 0.5f,
+        .anchor = vec3(10, 3.5f, -10), .cord_length = 1.0f,
+        .swing_speed = 3.5f, .swing_angle = 0.25f
+    });
 }
 
 int main(int argc, char *argv[]) {
@@ -253,6 +280,9 @@ int main(int argc, char *argv[]) {
 
         /* Update entities (bobbing, door animation) */
         entity_update(&scene.entities, dt, game_time);
+
+        /* Update animated lights (swinging bulbs, etc.) */
+        light_update(&scene.lights, game_time);
 
         /* Rebuild dynamic BVH from entity geometry */
         scene_rebuild_dynamic(&scene);

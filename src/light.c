@@ -28,6 +28,26 @@ int light_add(LightList *list, PointLight light) {
     return idx;
 }
 
+void light_update(LightList *list, float time) {
+    for (int i = 0; i < list->count; i++) {
+        PointLight *l = &list->items[i];
+        if (l->swing_speed <= 0) continue;
+
+        /* Pendulum: angle = max_angle * sin(speed * time)
+         * Position swings in XZ plane around anchor point.
+         * Use two slightly different frequencies for an elliptical path. */
+        float angle_x = l->swing_angle * sinf(l->swing_speed * time);
+        float angle_z = l->swing_angle * sinf(l->swing_speed * time * 0.7f + 1.0f);
+        float sx = sinf(angle_x);
+        float sz = sinf(angle_z);
+        float cy = cosf(angle_x) * cosf(angle_z);
+
+        l->position.x = l->anchor.x + l->cord_length * sx;
+        l->position.z = l->anchor.z + l->cord_length * sz;
+        l->position.y = l->anchor.y - l->cord_length * cy;
+    }
+}
+
 float light_effective_intensity(const PointLight *light, float time) {
     if (light->flicker_speed <= 0 || light->flicker_amount <= 0)
         return light->intensity;

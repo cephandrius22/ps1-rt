@@ -17,6 +17,12 @@ typedef struct {
     bool cast_shadows;
     float flicker_speed;  /* 0 = no flicker */
     float flicker_amount; /* 0-1, how much intensity varies */
+
+    /* Swing animation (pendulum on a cord) — set swing_speed > 0 to enable */
+    Vec3 anchor;       /* ceiling attachment point */
+    float cord_length; /* distance from anchor to bulb */
+    float swing_speed; /* angular frequency (rad/s) */
+    float swing_angle; /* max swing angle in radians */
 } PointLight;
 
 typedef struct {
@@ -28,6 +34,9 @@ typedef struct {
 void light_list_init(LightList *list);
 void light_list_free(LightList *list);
 int  light_add(LightList *list, PointLight light);
+
+/* Update animated lights (swing, etc.). Call once per frame. */
+void light_update(LightList *list, float time);
 
 /* Get effective intensity for a light at a given time (applies flicker) */
 float light_effective_intensity(const PointLight *light, float time);
