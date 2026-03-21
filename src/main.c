@@ -139,7 +139,6 @@ int main(int argc, char *argv[]) {
 
         /* Render with point lights and shadow rays (multithreaded) */
         render_scene_lit_mt(&fb, &player.cam, &scene, game_time, &pool, player.flashlight_on);
-        weapon_draw_crosshair(fb.pixels, SCREEN_W, SCREEN_H);
         weapon_draw_viewmodel(fb.pixels, SCREEN_W, SCREEN_H, &weapon);
 
         SDL_UpdateTexture(texture, NULL, fb.pixels, SCREEN_W * sizeof(uint32_t));
