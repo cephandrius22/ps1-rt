@@ -11,11 +11,11 @@
 - Weapon viewmodel with muzzle flash
 - Shoot input (left mouse button)
 
-## Tier 3: Dynamic Objects & Entities
+## Tier 3: Dynamic Objects & Entities ✅
 - Two-level BVH: static world (bottom) + dynamic objects (top, rebuilt per frame)
-- Entity system: position, rotation, health, type
-- Pickup items (ammo, health)
-- Doors / moving platforms
+- Entity system: position, rotation, health, type (growable array)
+- Pickup items (ammo, health) — bob, rotate, walk-over collect
+- Doors — swing open/closed on E key press
 
 ## Tier 4: AI Enemies
 - Enemy spawning and placement
@@ -24,12 +24,12 @@
 - Enemy takes damage from hitscan, dies, ragdoll or death animation
 - Enemy attacks player (melee or projectile)
 
-## Tier 5: Lighting & Atmosphere
-- Point lights with attenuation
-- Shadow rays (hard shadows via BVH occlusion test)
-- Flickering / colored lights for atmosphere
-- Light maps or baked lighting for static geometry
-- Improved fog (per-light fog interaction, volumetric approximation)
+## Tier 5: Lighting & Atmosphere ✅
+- Point lights with distance attenuation and colored light
+- Shadow rays (hard shadows via BVH occlusion test, sun + point lights)
+- Flickering lights via layered sine waves
+- Real-time only (no baked lighting)
+- Distance fog retained from original renderer
 
 ## Tier 6: Audio
 - SDL2 audio / SDL_mixer integration
