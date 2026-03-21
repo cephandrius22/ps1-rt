@@ -16,6 +16,7 @@ typedef struct {
     bool jump;
     bool shoot;
     bool use;
+    bool flashlight_toggle; /* true on the frame F is pressed */
     int mouse_dx, mouse_dy;
 } InputState;
 

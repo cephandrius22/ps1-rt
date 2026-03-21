@@ -15,6 +15,8 @@ tests/test_scene
 tests/test_audio
 tests/test_threadpool
 tests/test_render
+tests/test_proctex
+tests/test_level
 
 # macOS
 .DS_Store

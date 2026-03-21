@@ -36,11 +36,12 @@ Vec3 sky_color(Vec3 dir);
 void render_scene(Framebuffer *fb, const Camera *cam, const BVH *bvh, const SceneMaterials *mats);
 
 /* Full scene render with point lights and shadow rays */
-void render_scene_lit(Framebuffer *fb, const Camera *cam, const struct Scene *scene, float time);
+void render_scene_lit(Framebuffer *fb, const Camera *cam, const struct Scene *scene,
+                      float time, bool flashlight);
 
 /* Multithreaded version — splits scanlines across thread pool workers */
 struct ThreadPool;
 void render_scene_lit_mt(Framebuffer *fb, const Camera *cam, const struct Scene *scene,
-                         float time, struct ThreadPool *pool);
+                         float time, struct ThreadPool *pool, bool flashlight);
 
 #endif

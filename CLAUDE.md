@@ -6,9 +6,10 @@ Real-time software raytracer in C + SDL2. Renders at 320x240, upscaled 3x. PS1 a
 
 ```bash
 make rt          # build the binary
-make test        # build and run all 14 test suites (126 tests)
+make test        # build and run all 16 test suites (144 tests)
 make clean       # remove all build artifacts
-./rt             # run the game (WASD + mouse look, click to shoot, E to interact)
+./rt             # run with default level (levels/e1m1.level)
+./rt levels/foo.level  # run with a specific level file
 ```
 
 Requires: SDL2 (`sdl2-config`), C compiler, pthreads, `-lm`.
@@ -17,7 +18,7 @@ Requires: SDL2 (`sdl2-config`), C compiler, pthreads, `-lm`.
 
 ### Core Pipeline
 
-`main.c` — Game loop: input → physics → light update → render → audio triggers → SDL blit
+`main.c` — Game loop: level load → input → physics → light update → render → audio triggers → SDL blit
 
 Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH) → `shade_pixel_lit()` → PS1 dither → framebuffer
 
@@ -34,6 +35,8 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH) → `shad
 | `render` | Shading: directional sun + point lights + shadows + fog + light billboards |
 | `light` | Point light system: attenuation, flicker (layered sine), pendulum swing animation |
 | `texture` | TGA loader, nearest-neighbor sampling |
+| `proctex` | Procedural texture generation: concrete, brick, metal_panel, metal_grate, rust, floor_tile, pipe |
+| `level` | Text-based `.level` file loader — parses materials, geometry, entities, lights |
 | `ps1_effects` | Vertex jitter (1/128 grid), affine UV, 4x4 Bayer dither, 15-bit color quantize |
 | `player` | First-person movement with gravity, wall sliding, ground snap via BVH raycasts |
 | `weapon` | Hitscan weapon with cooldown and pitch recoil |
@@ -43,19 +46,38 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH) → `shad
 
 ### Key Patterns
 
-- **Two-level BVH:** `scene.world_bvh` is static (built once). `scene.entity_bvh` is rebuilt each frame from entity triangles. `scene_intersect()` tests both.
+- **Level files:** Scenes defined in `levels/*.level` text files. `level_load()` parses materials, generates procedural textures, builds geometry, places entities/lights, and constructs the static BVH.
+- **Two-level BVH:** `scene.static_bvh` is built once at level load. `scene.dynamic_bvh` is rebuilt each frame from entity triangles. `scene_intersect()` tests both.
+- **Procedural textures:** `proctex.c` generates 32x32/64x64 textures in code using hash-based noise. Materials in level files reference them by name (e.g., `concrete`, `brick`).
 - **Multithreaded render:** `render_scene_lit_mt()` splits screen rows across thread pool workers. Each worker gets a pre-assigned chunk — no work stealing.
 - **Audio triggers in main loop:** Player struct carries per-frame event flags (`collected`, `door_action`, `walk_distance`). `main.c` reads these and calls `audio_play()` — audio module has no scene dependency.
-- **Materials:** `SceneMaterials` holds parallel arrays of `Material` and `Texture`. Triangles reference materials by index. Fallback is checkerboard.
+- **Materials:** `Scene` holds parallel arrays of `Material` and `Texture`. Triangles reference materials by index. Fallback is checkerboard.
 - **Shadow rays:** Capped at `MAX_SHADOW_LIGHTS` (4) per pixel for performance. Sun shadow is separate.
+
+### Level File Format
+
+```
+spawn <x> <y> <z> <yaw_degrees>
+material <name> <texture_name> <r> <g> <b>
+room <x1> <y1> <z1> <x2> <y2> <z2> <wall_mat> <floor_mat> <ceil_mat>
+box <x1> <y1> <z1> <x2> <y2> <z2> <mat>
+quad <12 floats> <mat>
+obj <filename> <x> <y> <z> <rot_y> <scale> <mat>
+entity <type> <x> <y> <z> [key=value ...]
+light <x> <y> <z> <r> <g> <b> <intensity> <radius> [key=value ...]
+```
+
+`room` generates inner-facing geometry (you're inside it). `box` generates outer-facing geometry (obstacles). UVs auto-tile based on world dimensions.
 
 ### Adding Content
 
-**New level geometry:** Load OBJ via `mesh_load_obj()`, add triangles to `scene.world_tris`, call `scene_build()` to construct BVH.
+**New level:** Create a `.level` file in `levels/`. See `levels/e1m1.level` for reference. Run with `./rt levels/yourmap.level`.
 
-**New entity type:** Add to `EntityType` enum in `entity.h`, handle in `entity_update()` and interaction functions.
+**New procedural texture:** Add to `ProceduralTextureID` enum in `proctex.h`, write generator function in `proctex.c`, add to `proctex_names[]` and `proctex_generators[]` arrays.
 
-**New light:** Call `light_add()` with a `PointLight` struct. Set `swing_speed > 0` for pendulum motion, `flicker_speed > 0` for flicker.
+**New entity type:** Add to `EntityType` enum in `entity.h`, handle in `entity_update()` and interaction functions. Add parsing in `level.c:parse_entity()`.
+
+**New light:** Use the `light` directive in a level file. Keys: `shadows`, `flicker_speed`, `flicker_amount`, `anchor_x/y/z`, `cord`, `swing_speed`, `swing_angle`.
 
 **New sound:** Add to `SoundID` enum, generate in `audio_generate_sounds()` or load WAV via `audio_load_wav()`. Trigger with `audio_play()` from main loop.
 

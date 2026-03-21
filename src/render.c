@@ -54,6 +54,9 @@ typedef struct {
     const Material *materials;
     const Texture *textures;
     int mat_count, tex_count;
+    bool flashlight;
+    Vec3 flashlight_pos;
+    Vec3 flashlight_dir;
 } RenderParams;
 
 static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
@@ -111,6 +114,29 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
             lighting.z += pl->color.z * contribution;
         }
 
+        /* Flashlight (player-held spotlight) */
+        if (params->flashlight) {
+            Vec3 to_hit = vec3_sub(hit_pos, params->flashlight_pos);
+            float dist = vec3_length(to_hit);
+            if (dist > 0.01f && dist < 20.0f) {
+                Vec3 light_dir = vec3_mul(to_hit, 1.0f / dist);
+                float spot = vec3_dot(light_dir, params->flashlight_dir);
+                /* Cone: ~25 degree half-angle (cos 25 ~ 0.9) */
+                if (spot > 0.9f) {
+                    float ndl = vec3_dot(normal, vec3_mul(light_dir, -1.0f));
+                    if (ndl > 0) {
+                        float falloff = (spot - 0.9f) / 0.1f; /* 0 at edge, 1 at center */
+                        falloff *= falloff;
+                        float atten = 1.0f / (1.0f + dist * 0.15f);
+                        float contrib = ndl * falloff * atten * 2.5f;
+                        lighting.x += contrib;
+                        lighting.y += contrib;
+                        lighting.z += contrib * 0.9f; /* slightly warm */
+                    }
+                }
+            }
+        }
+
         col.x = surface_col.x * lighting.x;
         col.y = surface_col.y * lighting.y;
         col.z = surface_col.z * lighting.z;
@@ -153,8 +179,9 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
     return ps1_dither_color(cr, cg, cb, x, y);
 }
 
-static RenderParams make_render_params(const Scene *scene) {
-    return (RenderParams){
+static RenderParams make_render_params(const Scene *scene, const Camera *cam,
+                                       bool flashlight) {
+    RenderParams p = {
         .sun_dir   = vec3_normalize(vec3(0.5f, 1.0f, -0.3f)),
         .ambient   = 0.12f,
         .fog_start = 10.0f,
@@ -164,7 +191,15 @@ static RenderParams make_render_params(const Scene *scene) {
         .textures  = scene->textures,
         .mat_count = scene->material_count,
         .tex_count = scene->texture_count,
+        .flashlight = flashlight,
     };
+    if (flashlight) {
+        p.flashlight_pos = cam->position;
+        /* Compute camera forward direction */
+        Mat4 rot = mat4_mul(mat4_rotation_y(cam->yaw), mat4_rotation_x(cam->pitch));
+        p.flashlight_dir = vec3_normalize(mat4_mul_vec3(rot, vec3(0, 0, -1), 0.0f));
+    }
+    return p;
 }
 
 /* --- Original single-BVH render (kept for tests) --- */
@@ -213,8 +248,9 @@ void render_scene(Framebuffer *fb, const Camera *cam, const BVH *bvh, const Scen
 
 /* --- Single-threaded lit render --- */
 
-void render_scene_lit(Framebuffer *fb, const Camera *cam, const Scene *scene, float time) {
-    RenderParams params = make_render_params(scene);
+void render_scene_lit(Framebuffer *fb, const Camera *cam, const Scene *scene,
+                      float time, bool flashlight) {
+    RenderParams params = make_render_params(scene, cam, flashlight);
 
     for (int y = 0; y < SCREEN_H; y++)
         for (int x = 0; x < SCREEN_W; x++)
@@ -243,11 +279,11 @@ static void render_chunk_func(void *arg) {
 }
 
 void render_scene_lit_mt(Framebuffer *fb, const Camera *cam, const Scene *scene,
-                         float time, ThreadPool *pool) {
+                         float time, ThreadPool *pool, bool flashlight) {
     int n = pool->worker_count;
     RenderChunk chunks[THREADPOOL_MAX_WORKERS];
     void *args[THREADPOOL_MAX_WORKERS];
-    RenderParams params = make_render_params(scene);
+    RenderParams params = make_render_params(scene, cam, flashlight);
 
     int rows_per = SCREEN_H / n;
     for (int i = 0; i < n; i++) {

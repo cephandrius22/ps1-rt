@@ -116,13 +116,13 @@ TEST(test_mt_render_matches_st) {
 
     /* Render single-threaded */
     Framebuffer fb_st;
-    render_scene_lit(&fb_st, &cam, &scene, time);
+    render_scene_lit(&fb_st, &cam, &scene, time, false);
 
     /* Render multi-threaded */
     ThreadPool pool;
     threadpool_create(&pool, 4);
     Framebuffer fb_mt;
-    render_scene_lit_mt(&fb_mt, &cam, &scene, time, &pool);
+    render_scene_lit_mt(&fb_mt, &cam, &scene, time, &pool, false);
     threadpool_destroy(&pool);
 
     /* Compare pixel-by-pixel */
@@ -148,7 +148,7 @@ TEST(test_mt_render_various_thread_counts) {
 
     /* Get reference from single-threaded */
     Framebuffer fb_ref;
-    render_scene_lit(&fb_ref, &cam, &scene, 0);
+    render_scene_lit(&fb_ref, &cam, &scene, 0, false);
 
     /* Test with 1, 2, 3, 7 threads (including non-power-of-two) */
     int counts[] = {1, 2, 3, 7};
@@ -156,7 +156,7 @@ TEST(test_mt_render_various_thread_counts) {
         ThreadPool pool;
         threadpool_create(&pool, counts[c]);
         Framebuffer fb;
-        render_scene_lit_mt(&fb, &cam, &scene, 0, &pool);
+        render_scene_lit_mt(&fb, &cam, &scene, 0, &pool, false);
         threadpool_destroy(&pool);
 
         for (int i = 0; i < SCREEN_W * SCREEN_H; i++)

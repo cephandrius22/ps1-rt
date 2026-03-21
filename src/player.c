@@ -8,6 +8,7 @@ Player player_create(Vec3 pos) {
     p.cam = camera_create(pos, 0.0f, 0.0f, 1.2f);
     p.velocity = vec3(0, 0, 0);
     p.on_ground = false;
+    p.flashlight_on = false;
     p.walk_distance = 0;
     p.collected = 0;
     p.door_action = 0;
@@ -18,7 +19,7 @@ static float ground_check(Vec3 head_pos, const BVH *world) {
     Ray down = {vec3(head_pos.x, head_pos.y + STEP_HEIGHT + 0.1f, head_pos.z),
                 vec3(0, -1, 0)};
     HitRecord rec = bvh_intersect(world, down, 0.0f, PLAYER_HEIGHT + STEP_HEIGHT + 1.0f);
-    if (rec.hit)
+    if (rec.hit && rec.normal.y > 0.5f)
         return rec.point.y;
     return -1000.0f;
 }
@@ -142,7 +143,7 @@ static float ground_check_scene(Vec3 head_pos, const Scene *scene) {
     Ray down = {vec3(head_pos.x, head_pos.y + STEP_HEIGHT + 0.1f, head_pos.z),
                 vec3(0, -1, 0)};
     HitRecord rec = scene_intersect(scene, down, 0.0f, PLAYER_HEIGHT + STEP_HEIGHT + 1.0f);
-    if (rec.hit)
+    if (rec.hit && rec.normal.y > 0.5f)
         return rec.point.y;
     return -1000.0f;
 }
@@ -235,6 +236,10 @@ void player_update_scene(Player *p, const InputState *input, float dt, Scene *sc
     }
 
     p->cam.position = pos;
+
+    /* Flashlight toggle */
+    if (input->flashlight_toggle)
+        p->flashlight_on = !p->flashlight_on;
 
     /* Entity interaction: collect pickups */
     p->collected = entity_try_collect(&scene->entities, pos, COLLECT_RADIUS);

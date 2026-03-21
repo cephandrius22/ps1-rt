@@ -1,0 +1,20 @@
+# Test level fixture
+spawn 5 0 10 90
+
+# Materials
+material stone concrete 0.4 0.4 0.4
+material floor floor_tile 0.35 0.35 0.35
+material ceil none 0.3 0.3 0.3
+material red_flat none 0.9 0.2 0.2
+
+# Geometry
+room -5 0 -5 5 3 5 stone floor ceil
+box -1 0 -1 1 2 1 stone
+
+# Entities
+entity health 3 0.5 0 amount=50
+entity door 0 0 -5 hinge_x=0 hinge_z=-5
+
+# Lights
+light 0 2.5 0 1.0 0.9 0.7 3.0 15.0 shadows=1
+light 3 2.0 3 1.0 0.3 0.2 2.0 10.0 flicker_speed=3.0 flicker_amount=0.4

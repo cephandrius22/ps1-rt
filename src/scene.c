@@ -41,7 +41,12 @@ void scene_free(Scene *s) {
     free(s->materials);
     s->materials = NULL;
     s->material_count = 0;
-    /* Note: textures freed by caller (they may be shared) */
+
+    for (int i = 0; i < s->texture_count; i++)
+        texture_free(&s->textures[i]);
+    free(s->textures);
+    s->textures = NULL;
+    s->texture_count = 0;
 }
 
 void scene_build_static(Scene *s, Triangle *tris, int count) {

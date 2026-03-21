@@ -7,13 +7,18 @@ void input_init(void) {
 void input_update(InputState *state, bool *running) {
     state->mouse_dx = 0;
     state->mouse_dy = 0;
+    state->flashlight_toggle = false;
 
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT)
             *running = false;
-        if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE)
-            *running = false;
+        if (e.type == SDL_KEYDOWN) {
+            if (e.key.keysym.sym == SDLK_ESCAPE)
+                *running = false;
+            if (e.key.keysym.sym == SDLK_f && !e.key.repeat)
+                state->flashlight_toggle = true;
+        }
         if (e.type == SDL_MOUSEMOTION) {
             state->mouse_dx += e.motion.xrel;
             state->mouse_dy += e.motion.yrel;
