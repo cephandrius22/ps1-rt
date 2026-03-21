@@ -28,6 +28,9 @@ typedef struct {
     Vec3 velocity;
     float foot_y;
     bool on_ground;
+    float walk_distance;  /* accumulates distance walked for footstep sounds */
+    float collected;      /* amount collected this frame (0 if none) */
+    int door_action;      /* 1=opened, -1=closed, 0=none this frame */
 } Player;
 
 Player player_create(Vec3 pos);

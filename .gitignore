@@ -12,6 +12,7 @@ tests/test_weapon
 tests/test_entity
 tests/test_light
 tests/test_scene
+tests/test_audio
 tests/test_threadpool
 tests/test_render
 

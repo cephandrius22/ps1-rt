@@ -8,6 +8,9 @@ Player player_create(Vec3 pos) {
     p.cam = camera_create(pos, 0.0f, 0.0f, 1.2f);
     p.velocity = vec3(0, 0, 0);
     p.on_ground = false;
+    p.walk_distance = 0;
+    p.collected = 0;
+    p.door_action = 0;
     return p;
 }
 
@@ -123,6 +126,13 @@ void player_update(Player *p, const InputState *input, float dt, const BVH *worl
     }
 
     pos.y = p->foot_y + PLAYER_HEIGHT + PLAYER_EYE_OFFSET;
+
+    if (p->on_ground) {
+        float dx = pos.x - p->cam.position.x;
+        float dz = pos.z - p->cam.position.z;
+        p->walk_distance += sqrtf(dx * dx + dz * dz);
+    }
+
     p->cam.position = pos;
 }
 
@@ -216,12 +226,21 @@ void player_update_scene(Player *p, const InputState *input, float dt, Scene *sc
     }
 
     pos.y = p->foot_y + PLAYER_HEIGHT + PLAYER_EYE_OFFSET;
+
+    /* Track horizontal distance walked (for footstep sounds) */
+    if (p->on_ground) {
+        float dx = pos.x - p->cam.position.x;
+        float dz = pos.z - p->cam.position.z;
+        p->walk_distance += sqrtf(dx * dx + dz * dz);
+    }
+
     p->cam.position = pos;
 
     /* Entity interaction: collect pickups */
-    entity_try_collect(&scene->entities, pos, COLLECT_RADIUS);
+    p->collected = entity_try_collect(&scene->entities, pos, COLLECT_RADIUS);
 
     /* Entity interaction: use doors */
+    p->door_action = 0;
     if (input->use)
-        entity_try_use_door(&scene->entities, pos, forward, USE_RANGE);
+        p->door_action = entity_try_use_door(&scene->entities, pos, forward, USE_RANGE);
 }

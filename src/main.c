@@ -11,6 +11,7 @@
 #include "weapon.h"
 #include "scene.h"
 #include "threadpool.h"
+#include "audio.h"
 
 #define WINDOW_SCALE 3
 
@@ -164,7 +165,7 @@ static void setup_lights(Scene *scene) {
 int main(int argc, char *argv[]) {
     (void)argc; (void)argv;
 
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
@@ -224,6 +225,17 @@ int main(int argc, char *argv[]) {
     threadpool_create(&pool, num_threads);
     printf("Render threads: %d\n", num_threads);
 
+    /* Initialize audio */
+    AudioSystem audio;
+    if (audio_init(&audio) == 0) {
+        printf("Audio initialized\n");
+        audio_play_loop(&audio, SND_AMBIENT, 0.3f);
+    } else {
+        printf("Audio init failed (continuing without sound)\n");
+    }
+
+    #define FOOTSTEP_INTERVAL 2.5f  /* distance between footstep sounds */
+
     bool running = true;
     Uint64 freq = SDL_GetPerformanceFrequency();
     Uint64 last_time = SDL_GetPerformanceCounter();
@@ -249,6 +261,23 @@ int main(int argc, char *argv[]) {
         player_update_scene(&player, &input_state, dt, &scene);
         weapon_update_scene(&weapon, &input_state, &player.cam, &scene, dt);
 
+        /* Audio triggers */
+        if (weapon.fired_this_frame) {
+            audio_play(&audio, SND_WEAPON_FIRE, 0.8f);
+            if (weapon.last_hit.hit)
+                audio_play(&audio, SND_WEAPON_IMPACT, 0.5f);
+        }
+        if (player.walk_distance >= FOOTSTEP_INTERVAL) {
+            player.walk_distance -= FOOTSTEP_INTERVAL;
+            audio_play(&audio, SND_FOOTSTEP, 0.4f);
+        }
+        if (player.collected > 0)
+            audio_play(&audio, SND_PICKUP, 0.6f);
+        if (player.door_action == 1)
+            audio_play(&audio, SND_DOOR_OPEN, 0.7f);
+        else if (player.door_action == -1)
+            audio_play(&audio, SND_DOOR_CLOSE, 0.7f);
+
         /* Render with point lights and shadow rays (multithreaded) */
         render_scene_lit_mt(&fb, &player.cam, &scene, game_time, &pool);
         weapon_draw_crosshair(fb.pixels, SCREEN_W, SCREEN_H);
@@ -267,6 +296,7 @@ int main(int argc, char *argv[]) {
     }
 
     printf("\n");
+    audio_shutdown(&audio);
     threadpool_destroy(&pool);
     scene_free(&scene);
     mesh_free(&world_mesh);

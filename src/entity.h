@@ -73,8 +73,9 @@ void entity_update(EntityList *list, float dt, float time);
 /* Check if player is close enough to collect a pickup. Returns amount, deactivates entity. */
 float entity_try_collect(EntityList *list, Vec3 player_pos, float collect_radius);
 
-/* Check if player can interact with a door. Opens/closes nearest door in range. */
-void entity_try_use_door(EntityList *list, Vec3 player_pos, Vec3 player_forward, float use_range);
+/* Check if player can interact with a door. Opens/closes nearest door in range.
+ * Returns: 1 = opened, -1 = closed, 0 = no interaction */
+int entity_try_use_door(EntityList *list, Vec3 player_pos, Vec3 player_forward, float use_range);
 
 /* Write transformed triangles for all active entities into output buffer.
  * Returns number of triangles written. Caller must provide sufficient space. */

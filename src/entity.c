@@ -167,7 +167,7 @@ float entity_try_collect(EntityList *list, Vec3 player_pos, float collect_radius
 
 #define DOOR_OPEN_ANGLE 1.5f  /* ~86 degrees */
 
-void entity_try_use_door(EntityList *list, Vec3 player_pos, Vec3 player_forward, float use_range) {
+int entity_try_use_door(EntityList *list, Vec3 player_pos, Vec3 player_forward, float use_range) {
     float best_dist = use_range;
     Entity *best_door = NULL;
 
@@ -194,11 +194,15 @@ void entity_try_use_door(EntityList *list, Vec3 player_pos, Vec3 player_forward,
 
     if (best_door) {
         /* Toggle door open/closed */
-        if (best_door->door.target_angle > 0.1f)
+        if (best_door->door.target_angle > 0.1f) {
             best_door->door.target_angle = 0;
-        else
+            return -1; /* closing */
+        } else {
             best_door->door.target_angle = DOOR_OPEN_ANGLE;
+            return 1; /* opening */
+        }
     }
+    return 0;
 }
 
 /* --- Triangle generation --- */
