@@ -156,7 +156,7 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
 static RenderParams make_render_params(const Scene *scene) {
     return (RenderParams){
         .sun_dir   = vec3_normalize(vec3(0.5f, 1.0f, -0.3f)),
-        .ambient   = 0.08f,
+        .ambient   = 0.12f,
         .fog_start = 10.0f,
         .fog_end   = 30.0f,
         .fog_color = vec3(0.25f, 0.12f, 0.35f),

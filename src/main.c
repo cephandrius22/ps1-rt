@@ -129,42 +129,42 @@ static void setup_lights(Scene *scene) {
     /* Warm overhead light near spawn */
     light_add(&scene->lights, (PointLight){
         .position = vec3(0, 3.5f, 1), .color = vec3(1.0f, 0.9f, 0.7f),
-        .intensity = 2.0f, .radius = 15.0f, .cast_shadows = true,
+        .intensity = 3.0f, .radius = 20.0f, .cast_shadows = true,
         .flicker_speed = 0, .flicker_amount = 0
     });
 
     /* Flickering red light near health pickup */
     light_add(&scene->lights, (PointLight){
         .position = vec3(3, 2.5f, -3), .color = vec3(1.0f, 0.3f, 0.2f),
-        .intensity = 1.5f, .radius = 8.0f, .cast_shadows = true,
+        .intensity = 2.5f, .radius = 12.0f, .cast_shadows = true,
         .flicker_speed = 3.0f, .flicker_amount = 0.4f
     });
 
     /* Blue light deep in the scene */
     light_add(&scene->lights, (PointLight){
         .position = vec3(-2, 3.0f, -11), .color = vec3(0.3f, 0.4f, 1.0f),
-        .intensity = 2.0f, .radius = 12.0f, .cast_shadows = true,
+        .intensity = 3.0f, .radius = 16.0f, .cast_shadows = true,
         .flicker_speed = 0, .flicker_amount = 0
     });
 
     /* Yellow light near ammo */
     light_add(&scene->lights, (PointLight){
         .position = vec3(-2, 2.0f, -2), .color = vec3(1.0f, 0.9f, 0.4f),
-        .intensity = 1.0f, .radius = 6.0f, .cast_shadows = false,
+        .intensity = 2.0f, .radius = 10.0f, .cast_shadows = false,
         .flicker_speed = 0, .flicker_amount = 0
     });
 
     /* Flickering torch light near steps */
     light_add(&scene->lights, (PointLight){
         .position = vec3(7, 2.5f, -2), .color = vec3(1.0f, 0.6f, 0.2f),
-        .intensity = 1.8f, .radius = 10.0f, .cast_shadows = true,
+        .intensity = 3.0f, .radius = 14.0f, .cast_shadows = true,
         .flicker_speed = 5.0f, .flicker_amount = 0.3f
     });
 
     /* Swinging bare bulb in the corridor — creepy pendulum */
     light_add(&scene->lights, (PointLight){
         .position = vec3(0, 2.5f, -8), .color = vec3(1.0f, 0.85f, 0.5f),
-        .intensity = 2.5f, .radius = 10.0f, .cast_shadows = true,
+        .intensity = 3.5f, .radius = 14.0f, .cast_shadows = true,
         .flicker_speed = 8.0f, .flicker_amount = 0.15f,
         .anchor = vec3(0, 3.8f, -8), .cord_length = 1.3f,
         .swing_speed = 2.0f, .swing_angle = 0.35f
@@ -173,7 +173,7 @@ static void setup_lights(Scene *scene) {
     /* Slow-swinging green light deep in the back — eerie */
     light_add(&scene->lights, (PointLight){
         .position = vec3(-5, 2.0f, -15), .color = vec3(0.2f, 1.0f, 0.3f),
-        .intensity = 1.5f, .radius = 9.0f, .cast_shadows = true,
+        .intensity = 2.5f, .radius = 14.0f, .cast_shadows = true,
         .flicker_speed = 0, .flicker_amount = 0,
         .anchor = vec3(-5, 3.5f, -15), .cord_length = 1.5f,
         .swing_speed = 1.2f, .swing_angle = 0.5f
@@ -182,7 +182,7 @@ static void setup_lights(Scene *scene) {
     /* Fast-swinging red warning light near wall */
     light_add(&scene->lights, (PointLight){
         .position = vec3(10, 2.5f, -10), .color = vec3(1.0f, 0.1f, 0.05f),
-        .intensity = 2.0f, .radius = 12.0f, .cast_shadows = true,
+        .intensity = 3.0f, .radius = 16.0f, .cast_shadows = true,
         .flicker_speed = 6.0f, .flicker_amount = 0.5f,
         .anchor = vec3(10, 3.5f, -10), .cord_length = 1.0f,
         .swing_speed = 3.5f, .swing_angle = 0.25f

@@ -62,9 +62,9 @@ float light_effective_intensity(const PointLight *light, float time) {
 
 float light_attenuation(const PointLight *light, float distance) {
     if (distance >= light->radius) return 0;
-    /* Smooth inverse-square with range falloff */
+    /* Smooth windowed falloff: inverse-square that fades to zero at radius */
     float d = distance / light->radius;
-    float falloff = 1.0f - d * d;
-    if (falloff < 0) falloff = 0;
-    return falloff * falloff / (1.0f + distance * distance);
+    float window = 1.0f - d * d;
+    window = window * window; /* smooth fade at edge */
+    return window / (1.0f + distance * 0.5f);
 }
