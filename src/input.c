@@ -27,4 +27,5 @@ void input_update(InputState *state, bool *running) {
     state->right   = keys[SDL_SCANCODE_D];
     state->jump    = keys[SDL_SCANCODE_SPACE];
     state->shoot   = SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT);
+    state->use     = keys[SDL_SCANCODE_E];
 }

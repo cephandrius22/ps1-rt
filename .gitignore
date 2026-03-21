@@ -9,6 +9,9 @@ tests/test_texture
 tests/test_ps1_effects
 tests/test_player
 tests/test_weapon
+tests/test_entity
+tests/test_light
+tests/test_scene
 tests/test_render
 
 # macOS

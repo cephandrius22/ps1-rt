@@ -38,14 +38,23 @@ tests/test_texture: tests/test_texture.c src/texture.o
 tests/test_ps1_effects: tests/test_ps1_effects.c src/ps1_effects.o src/mesh.o
 	$(CC) $(CFLAGS) -o $@ $< src/ps1_effects.o src/mesh.o -lm
 
-tests/test_player: tests/test_player.c src/player.o src/camera.o src/input.o src/bvh.o src/mesh.o
-	$(CC) $(CFLAGS) -o $@ $< src/player.o src/camera.o src/input.o src/bvh.o src/mesh.o $(LDFLAGS)
+tests/test_player: tests/test_player.c src/player.o src/camera.o src/input.o src/bvh.o src/mesh.o src/scene.o src/entity.o src/light.o
+	$(CC) $(CFLAGS) -o $@ $< src/player.o src/camera.o src/input.o src/bvh.o src/mesh.o src/scene.o src/entity.o src/light.o $(LDFLAGS)
 
-tests/test_weapon: tests/test_weapon.c src/weapon.o src/camera.o src/bvh.o src/mesh.o
-	$(CC) $(CFLAGS) -o $@ $< src/weapon.o src/camera.o src/bvh.o src/mesh.o -lm
+tests/test_weapon: tests/test_weapon.c src/weapon.o src/camera.o src/bvh.o src/mesh.o src/scene.o src/entity.o src/light.o
+	$(CC) $(CFLAGS) -o $@ $< src/weapon.o src/camera.o src/bvh.o src/mesh.o src/scene.o src/entity.o src/light.o -lm
 
-tests/test_render: tests/test_render.c src/render.o src/camera.o src/mesh.o src/bvh.o src/texture.o src/ps1_effects.o
-	$(CC) $(CFLAGS) -o $@ $< src/render.o src/camera.o src/mesh.o src/bvh.o src/texture.o src/ps1_effects.o -lm
+tests/test_entity: tests/test_entity.c src/entity.o src/mesh.o
+	$(CC) $(CFLAGS) -o $@ $< src/entity.o src/mesh.o -lm
+
+tests/test_light: tests/test_light.c src/light.o
+	$(CC) $(CFLAGS) -o $@ $< src/light.o -lm
+
+tests/test_scene: tests/test_scene.c src/scene.o src/entity.o src/bvh.o src/mesh.o src/light.o
+	$(CC) $(CFLAGS) -o $@ $< src/scene.o src/entity.o src/bvh.o src/mesh.o src/light.o -lm
+
+tests/test_render: tests/test_render.c src/render.o src/camera.o src/mesh.o src/bvh.o src/texture.o src/ps1_effects.o src/scene.o src/entity.o src/light.o
+	$(CC) $(CFLAGS) -o $@ $< src/render.o src/camera.o src/mesh.o src/bvh.o src/texture.o src/ps1_effects.o src/scene.o src/entity.o src/light.o -lm
 
 test: $(TEST_BIN)
 	@echo ""

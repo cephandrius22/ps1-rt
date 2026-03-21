@@ -12,6 +12,8 @@
 #include "input.h"
 #include "bvh.h"
 
+struct Scene;
+
 #define PLAYER_HEIGHT     1.6f
 #define PLAYER_EYE_OFFSET 0.1f
 #define PLAYER_RADIUS     0.3f
@@ -30,5 +32,6 @@ typedef struct {
 
 Player player_create(Vec3 pos);
 void player_update(Player *p, const InputState *input, float dt, const BVH *world);
+void player_update_scene(Player *p, const InputState *input, float dt, struct Scene *scene);
 
 #endif

@@ -15,6 +15,9 @@
 #include "texture.h"
 #include "ps1_effects.h"
 
+/* Forward declare — full definition in scene.h */
+struct Scene;
+
 typedef struct {
     uint32_t pixels[SCREEN_W * SCREEN_H];
 } Framebuffer;
@@ -31,5 +34,8 @@ void framebuffer_set(Framebuffer *fb, int x, int y, uint32_t color);
 uint32_t color_rgb(uint8_t r, uint8_t g, uint8_t b);
 Vec3 sky_color(Vec3 dir);
 void render_scene(Framebuffer *fb, const Camera *cam, const BVH *bvh, const SceneMaterials *mats);
+
+/* Full scene render with point lights and shadow rays */
+void render_scene_lit(Framebuffer *fb, const Camera *cam, const struct Scene *scene, float time);
 
 #endif
