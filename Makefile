@@ -38,8 +38,11 @@ tests/test_texture: tests/test_texture.c src/texture.o
 tests/test_ps1_effects: tests/test_ps1_effects.c src/ps1_effects.o src/mesh.o
 	$(CC) $(CFLAGS) -o $@ $< src/ps1_effects.o src/mesh.o -lm
 
-tests/test_player: tests/test_player.c src/player.o src/camera.o src/input.o
-	$(CC) $(CFLAGS) -o $@ $< src/player.o src/camera.o src/input.o $(LDFLAGS)
+tests/test_player: tests/test_player.c src/player.o src/camera.o src/input.o src/bvh.o src/mesh.o
+	$(CC) $(CFLAGS) -o $@ $< src/player.o src/camera.o src/input.o src/bvh.o src/mesh.o $(LDFLAGS)
+
+tests/test_weapon: tests/test_weapon.c src/weapon.o src/camera.o src/bvh.o src/mesh.o
+	$(CC) $(CFLAGS) -o $@ $< src/weapon.o src/camera.o src/bvh.o src/mesh.o -lm
 
 tests/test_render: tests/test_render.c src/render.o src/camera.o src/mesh.o src/bvh.o src/texture.o src/ps1_effects.o
 	$(CC) $(CFLAGS) -o $@ $< src/render.o src/camera.o src/mesh.o src/bvh.o src/texture.o src/ps1_effects.o -lm

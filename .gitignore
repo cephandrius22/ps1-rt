@@ -8,6 +8,7 @@ tests/test_bvh
 tests/test_texture
 tests/test_ps1_effects
 tests/test_player
+tests/test_weapon
 tests/test_render
 
 # macOS

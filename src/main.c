@@ -7,6 +7,7 @@
 #include "bvh.h"
 #include "input.h"
 #include "player.h"
+#include "weapon.h"
 
 #define WINDOW_SCALE 3
 
@@ -106,7 +107,8 @@ int main(int argc, char *argv[]) {
         SCREEN_W, SCREEN_H);
 
     Framebuffer fb;
-    Player player = player_create(vec3(0, PLAYER_HEIGHT, 3));
+    Player player = player_create(vec3(0, PLAYER_HEIGHT + PLAYER_EYE_OFFSET, 3));
+    Weapon weapon = weapon_create();
 
     Mesh scene;
     build_test_scene(&scene);
@@ -134,9 +136,12 @@ int main(int argc, char *argv[]) {
 
         InputState input_state;
         input_update(&input_state, &running);
-        player_update(&player, &input_state, dt);
+        player_update(&player, &input_state, dt, &bvh);
+        weapon_update(&weapon, &input_state, &player.cam, &bvh, dt);
 
         render_scene(&fb, &player.cam, &bvh, NULL);
+        weapon_draw_crosshair(fb.pixels, SCREEN_W, SCREEN_H);
+        weapon_draw_viewmodel(fb.pixels, SCREEN_W, SCREEN_H, &weapon);
 
         SDL_UpdateTexture(texture, NULL, fb.pixels, SCREEN_W * sizeof(uint32_t));
         SDL_RenderClear(sdl_renderer);

@@ -14,6 +14,7 @@
 typedef struct {
     bool forward, back, left, right;
     bool jump;
+    bool shoot;
     int mouse_dx, mouse_dy;
 } InputState;
 
