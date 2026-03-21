@@ -38,4 +38,9 @@ void render_scene(Framebuffer *fb, const Camera *cam, const BVH *bvh, const Scen
 /* Full scene render with point lights and shadow rays */
 void render_scene_lit(Framebuffer *fb, const Camera *cam, const struct Scene *scene, float time);
 
+/* Multithreaded version — splits scanlines across thread pool workers */
+struct ThreadPool;
+void render_scene_lit_mt(Framebuffer *fb, const Camera *cam, const struct Scene *scene,
+                         float time, struct ThreadPool *pool);
+
 #endif

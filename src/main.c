@@ -10,6 +10,7 @@
 #include "player.h"
 #include "weapon.h"
 #include "scene.h"
+#include "threadpool.h"
 
 #define WINDOW_SCALE 3
 
@@ -217,6 +218,12 @@ int main(int argc, char *argv[]) {
 
     input_init();
 
+    /* Create thread pool for parallel rendering */
+    int num_threads = threadpool_cpu_count();
+    ThreadPool pool;
+    threadpool_create(&pool, num_threads);
+    printf("Render threads: %d\n", num_threads);
+
     bool running = true;
     Uint64 freq = SDL_GetPerformanceFrequency();
     Uint64 last_time = SDL_GetPerformanceCounter();
@@ -242,8 +249,8 @@ int main(int argc, char *argv[]) {
         player_update_scene(&player, &input_state, dt, &scene);
         weapon_update_scene(&weapon, &input_state, &player.cam, &scene, dt);
 
-        /* Render with point lights and shadow rays */
-        render_scene_lit(&fb, &player.cam, &scene, game_time);
+        /* Render with point lights and shadow rays (multithreaded) */
+        render_scene_lit_mt(&fb, &player.cam, &scene, game_time, &pool);
         weapon_draw_crosshair(fb.pixels, SCREEN_W, SCREEN_H);
         weapon_draw_viewmodel(fb.pixels, SCREEN_W, SCREEN_H, &weapon);
 
@@ -260,6 +267,7 @@ int main(int argc, char *argv[]) {
     }
 
     printf("\n");
+    threadpool_destroy(&pool);
     scene_free(&scene);
     mesh_free(&world_mesh);
     SDL_DestroyTexture(texture);

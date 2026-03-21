@@ -53,8 +53,11 @@ tests/test_light: tests/test_light.c src/light.o
 tests/test_scene: tests/test_scene.c src/scene.o src/entity.o src/bvh.o src/mesh.o src/light.o
 	$(CC) $(CFLAGS) -o $@ $< src/scene.o src/entity.o src/bvh.o src/mesh.o src/light.o -lm
 
-tests/test_render: tests/test_render.c src/render.o src/camera.o src/mesh.o src/bvh.o src/texture.o src/ps1_effects.o src/scene.o src/entity.o src/light.o
-	$(CC) $(CFLAGS) -o $@ $< src/render.o src/camera.o src/mesh.o src/bvh.o src/texture.o src/ps1_effects.o src/scene.o src/entity.o src/light.o -lm
+tests/test_threadpool: tests/test_threadpool.c src/threadpool.o src/render.o src/scene.o src/entity.o src/bvh.o src/mesh.o src/light.o src/camera.o src/texture.o src/ps1_effects.o
+	$(CC) $(CFLAGS) -o $@ $< src/threadpool.o src/render.o src/scene.o src/entity.o src/bvh.o src/mesh.o src/light.o src/camera.o src/texture.o src/ps1_effects.o -lm
+
+tests/test_render: tests/test_render.c src/render.o src/camera.o src/mesh.o src/bvh.o src/texture.o src/ps1_effects.o src/scene.o src/entity.o src/light.o src/threadpool.o
+	$(CC) $(CFLAGS) -o $@ $< src/render.o src/camera.o src/mesh.o src/bvh.o src/texture.o src/ps1_effects.o src/scene.o src/entity.o src/light.o src/threadpool.o -lm
 
 test: $(TEST_BIN)
 	@echo ""

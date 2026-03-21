@@ -1,5 +1,6 @@
 #include "render.h"
 #include "scene.h"
+#include "threadpool.h"
 #include <stddef.h>
 
 void framebuffer_clear(Framebuffer *fb, uint32_t color) {
@@ -43,7 +44,106 @@ static Vec3 get_surface_color(const HitRecord *rec,
     return checkerboard(rec->uv.u, rec->uv.v);
 }
 
-/* Original render (no point lights, uses single BVH) */
+/* --- Shared shading logic for lit rendering --- */
+
+typedef struct {
+    Vec3 sun_dir;
+    float ambient;
+    float fog_start, fog_end;
+    Vec3 fog_color;
+    const Material *materials;
+    const Texture *textures;
+    int mat_count, tex_count;
+} RenderParams;
+
+static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
+                                const Scene *scene, float time,
+                                const RenderParams *params) {
+    Ray ray = camera_ray(cam, x, y);
+    HitRecord rec = scene_intersect(scene, ray, 0.001f, 1000.0f);
+
+    Vec3 col;
+    if (rec.hit) {
+        Vec3 surface_col = get_surface_color(&rec, params->materials,
+                                             params->mat_count, params->textures,
+                                             params->tex_count);
+        Vec3 hit_pos = rec.point;
+        Vec3 normal = rec.normal;
+
+        Vec3 lighting = vec3(params->ambient, params->ambient, params->ambient);
+
+        /* Directional sun light with shadow */
+        float sun_ndl = vec3_dot(normal, params->sun_dir);
+        if (sun_ndl > 0) {
+            Ray shadow_ray = {vec3_add(hit_pos, vec3_mul(normal, 0.01f)), params->sun_dir};
+            if (!scene_occluded(scene, shadow_ray, 0.001f, 100.0f))
+                lighting = vec3_add(lighting, vec3_mul(vec3(1, 1, 1), sun_ndl * 0.5f));
+        }
+
+        /* Point lights */
+        int shadow_count = 0;
+        for (int i = 0; i < scene->lights.count; i++) {
+            const PointLight *pl = &scene->lights.items[i];
+            Vec3 to_light = vec3_sub(pl->position, hit_pos);
+            float dist = vec3_length(to_light);
+
+            if (dist >= pl->radius) continue;
+
+            Vec3 light_dir = vec3_mul(to_light, 1.0f / dist);
+            float ndl = vec3_dot(normal, light_dir);
+            if (ndl <= 0) continue;
+
+            float atten = light_attenuation(pl, dist);
+            float eff_intensity = light_effective_intensity(pl, time);
+            float contribution = ndl * atten * eff_intensity;
+
+            if (pl->cast_shadows && shadow_count < MAX_SHADOW_LIGHTS) {
+                Ray shadow_ray = {vec3_add(hit_pos, vec3_mul(normal, 0.01f)), light_dir};
+                if (scene_occluded(scene, shadow_ray, 0.001f, dist - 0.01f)) {
+                    shadow_count++;
+                    continue;
+                }
+                shadow_count++;
+            }
+
+            lighting.x += pl->color.x * contribution;
+            lighting.y += pl->color.y * contribution;
+            lighting.z += pl->color.z * contribution;
+        }
+
+        col.x = surface_col.x * lighting.x;
+        col.y = surface_col.y * lighting.y;
+        col.z = surface_col.z * lighting.z;
+
+        float fog_t = clampf((rec.t - params->fog_start) /
+                             (params->fog_end - params->fog_start), 0, 1);
+        col = vec3_lerp(col, params->fog_color, fog_t);
+    } else {
+        col = sky_color(ray.dir);
+    }
+
+    uint8_t cr = (uint8_t)(clampf(col.x, 0, 1) * 255.0f);
+    uint8_t cg = (uint8_t)(clampf(col.y, 0, 1) * 255.0f);
+    uint8_t cb = (uint8_t)(clampf(col.z, 0, 1) * 255.0f);
+    return ps1_dither_color(cr, cg, cb, x, y);
+}
+
+static RenderParams make_render_params(const Scene *scene) {
+    return (RenderParams){
+        .sun_dir   = vec3_normalize(vec3(0.5f, 1.0f, -0.3f)),
+        .ambient   = 0.08f,
+        .fog_start = 10.0f,
+        .fog_end   = 30.0f,
+        .fog_color = vec3(0.25f, 0.12f, 0.35f),
+        .materials = scene->materials,
+        .textures  = scene->textures,
+        .mat_count = scene->material_count,
+        .tex_count = scene->texture_count,
+    };
+}
+
+/* --- Original single-BVH render (kept for tests) --- */
+
 void render_scene(Framebuffer *fb, const Camera *cam, const BVH *bvh, const SceneMaterials *mats) {
     Vec3 light_dir = vec3_normalize(vec3(0.5f, 1.0f, -0.3f));
     float ambient = 0.15f;
@@ -86,88 +186,55 @@ void render_scene(Framebuffer *fb, const Camera *cam, const BVH *bvh, const Scen
     }
 }
 
-/* Full scene render with point lights and shadow rays */
+/* --- Single-threaded lit render --- */
+
 void render_scene_lit(Framebuffer *fb, const Camera *cam, const Scene *scene, float time) {
-    Vec3 sun_dir = vec3_normalize(vec3(0.5f, 1.0f, -0.3f));
-    float ambient = 0.08f;
-    float fog_start = 10.0f;
-    float fog_end = 30.0f;
-    Vec3 fog_color = vec3(0.25f, 0.12f, 0.35f);
+    RenderParams params = make_render_params(scene);
 
-    const Material *materials = scene->materials;
-    const Texture *textures = scene->textures;
-    int mat_count = scene->material_count;
-    int tex_count = scene->texture_count;
+    for (int y = 0; y < SCREEN_H; y++)
+        for (int x = 0; x < SCREEN_W; x++)
+            fb->pixels[y * SCREEN_W + x] = shade_pixel_lit(x, y, cam, scene, time, &params);
+}
 
-    for (int y = 0; y < SCREEN_H; y++) {
-        for (int x = 0; x < SCREEN_W; x++) {
-            Ray ray = camera_ray(cam, x, y);
-            HitRecord rec = scene_intersect(scene, ray, 0.001f, 1000.0f);
+/* --- Multithreaded lit render --- */
 
-            Vec3 col;
-            if (rec.hit) {
-                Vec3 surface_col = get_surface_color(&rec, materials, mat_count, textures, tex_count);
-                Vec3 hit_pos = rec.point;
-                Vec3 normal = rec.normal;
+typedef struct {
+    Framebuffer *fb;
+    const Camera *cam;
+    const Scene *scene;
+    float time;
+    RenderParams params;
+    int y_start;
+    int y_end;
+} RenderChunk;
 
-                /* Start with ambient */
-                Vec3 lighting = vec3(ambient, ambient, ambient);
+static void render_chunk_func(void *arg) {
+    RenderChunk *chunk = arg;
+    for (int y = chunk->y_start; y < chunk->y_end; y++)
+        for (int x = 0; x < SCREEN_W; x++)
+            chunk->fb->pixels[y * SCREEN_W + x] =
+                shade_pixel_lit(x, y, chunk->cam, chunk->scene,
+                                chunk->time, &chunk->params);
+}
 
-                /* Directional sun light */
-                float sun_ndl = vec3_dot(normal, sun_dir);
-                if (sun_ndl > 0) {
-                    Ray shadow_ray = {vec3_add(hit_pos, vec3_mul(normal, 0.01f)), sun_dir};
-                    if (!scene_occluded(scene, shadow_ray, 0.001f, 100.0f)) {
-                        lighting = vec3_add(lighting, vec3_mul(vec3(1, 1, 1), sun_ndl * 0.5f));
-                    }
-                }
+void render_scene_lit_mt(Framebuffer *fb, const Camera *cam, const Scene *scene,
+                         float time, ThreadPool *pool) {
+    int n = pool->worker_count;
+    RenderChunk chunks[THREADPOOL_MAX_WORKERS];
+    void *args[THREADPOOL_MAX_WORKERS];
+    RenderParams params = make_render_params(scene);
 
-                /* Point lights — find nearest shadow-casting lights */
-                int shadow_count = 0;
-                for (int i = 0; i < scene->lights.count; i++) {
-                    const PointLight *pl = &scene->lights.items[i];
-                    Vec3 to_light = vec3_sub(pl->position, hit_pos);
-                    float dist = vec3_length(to_light);
-
-                    if (dist >= pl->radius) continue;
-
-                    Vec3 light_dir = vec3_mul(to_light, 1.0f / dist);
-                    float ndl = vec3_dot(normal, light_dir);
-                    if (ndl <= 0) continue;
-
-                    float atten = light_attenuation(pl, dist);
-                    float eff_intensity = light_effective_intensity(pl, time);
-                    float contribution = ndl * atten * eff_intensity;
-
-                    /* Shadow ray (limited budget) */
-                    if (pl->cast_shadows && shadow_count < MAX_SHADOW_LIGHTS) {
-                        Ray shadow_ray = {vec3_add(hit_pos, vec3_mul(normal, 0.01f)), light_dir};
-                        if (scene_occluded(scene, shadow_ray, 0.001f, dist - 0.01f)) {
-                            shadow_count++;
-                            continue;
-                        }
-                        shadow_count++;
-                    }
-
-                    lighting.x += pl->color.x * contribution;
-                    lighting.y += pl->color.y * contribution;
-                    lighting.z += pl->color.z * contribution;
-                }
-
-                col.x = surface_col.x * lighting.x;
-                col.y = surface_col.y * lighting.y;
-                col.z = surface_col.z * lighting.z;
-
-                float fog_t = clampf((rec.t - fog_start) / (fog_end - fog_start), 0, 1);
-                col = vec3_lerp(col, fog_color, fog_t);
-            } else {
-                col = sky_color(ray.dir);
-            }
-
-            uint8_t cr = (uint8_t)(clampf(col.x, 0, 1) * 255.0f);
-            uint8_t cg = (uint8_t)(clampf(col.y, 0, 1) * 255.0f);
-            uint8_t cb = (uint8_t)(clampf(col.z, 0, 1) * 255.0f);
-            framebuffer_set(fb, x, y, ps1_dither_color(cr, cg, cb, x, y));
-        }
+    int rows_per = SCREEN_H / n;
+    for (int i = 0; i < n; i++) {
+        chunks[i].fb = fb;
+        chunks[i].cam = cam;
+        chunks[i].scene = scene;
+        chunks[i].time = time;
+        chunks[i].params = params;
+        chunks[i].y_start = i * rows_per;
+        chunks[i].y_end = (i == n - 1) ? SCREEN_H : (i + 1) * rows_per;
+        args[i] = &chunks[i];
     }
+
+    threadpool_dispatch(pool, render_chunk_func, args, n);
 }
