@@ -122,6 +122,31 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
         col = sky_color(ray.dir);
     }
 
+    /* Light source billboards — draw visible glowing dots at light positions */
+    float hit_t = rec.hit ? rec.t : 1000.0f;
+    for (int i = 0; i < scene->lights.count; i++) {
+        const PointLight *pl = &scene->lights.items[i];
+        Vec3 to_light = vec3_sub(pl->position, ray.origin);
+        float t_along = vec3_dot(to_light, ray.dir);
+        if (t_along <= 0.1f || t_along >= hit_t) continue;
+
+        /* Distance from ray to light center */
+        Vec3 closest = vec3_add(ray.origin, vec3_mul(ray.dir, t_along));
+        Vec3 diff = vec3_sub(closest, pl->position);
+        float dist_sq = vec3_dot(diff, diff);
+
+        /* Apparent radius shrinks with distance (billboard) */
+        float glow_radius = 0.08f + 0.02f * pl->intensity;
+        if (dist_sq < glow_radius * glow_radius) {
+            float eff = light_effective_intensity(pl, time);
+            float brightness = 2.0f * eff;
+            col.x = pl->color.x * brightness;
+            col.y = pl->color.y * brightness;
+            col.z = pl->color.z * brightness;
+            break;
+        }
+    }
+
     uint8_t cr = (uint8_t)(clampf(col.x, 0, 1) * 255.0f);
     uint8_t cg = (uint8_t)(clampf(col.y, 0, 1) * 255.0f);
     uint8_t cb = (uint8_t)(clampf(col.z, 0, 1) * 255.0f);
