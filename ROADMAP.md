@@ -31,12 +31,13 @@
 - Real-time only (no baked lighting)
 - Distance fog retained from original renderer
 
-## Tier 6: Audio
-- SDL2 audio / SDL_mixer integration
-- Weapon fire sound, impact sounds
-- Footstep sounds
-- Enemy sounds (alert, attack, death)
-- Ambient background audio
+## Tier 6: Audio ✅
+- SDL2 audio callback with 8-voice mixer
+- Procedural sound generation (weapon fire, impact, footstep, pickup, door, ambient)
+- audio_load_wav() for replacing procedural sounds with WAV files
+- Distance-based footstep triggers
+- Ambient drone loop
+- Enemy sounds (alert, attack, death) — pending AI tier
 
 ## Tier 7: Level Design & Content
 - Level file format (custom or extended OBJ with metadata)
@@ -46,7 +47,7 @@
 - HUD: health bar, ammo counter
 
 ## Tier 8: Polish & Performance
-- Multithreaded rendering (split scanlines across pthreads)
+- Multithreaded rendering (split scanlines across pthreads) ✅
 - Tile-based rendering for cache locality
 - Spatial audio
 - Menu / pause screen
