@@ -73,6 +73,10 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
         Vec3 hit_pos = rec.point;
         Vec3 normal = rec.normal;
 
+        /* Flip normal on back-face hits for double-sided lighting */
+        if (vec3_dot(ray.dir, normal) > 0)
+            normal = vec3_mul(normal, -1.0f);
+
         Vec3 lighting = vec3(params->ambient, params->ambient, params->ambient);
 
         /* Directional sun light with shadow */
@@ -118,20 +122,23 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
         if (params->flashlight) {
             Vec3 to_hit = vec3_sub(hit_pos, params->flashlight_pos);
             float dist = vec3_length(to_hit);
-            if (dist > 0.01f && dist < 20.0f) {
+            if (dist > 0.01f && dist < 25.0f) {
                 Vec3 light_dir = vec3_mul(to_hit, 1.0f / dist);
                 float spot = vec3_dot(light_dir, params->flashlight_dir);
-                /* Cone: ~25 degree half-angle (cos 25 ~ 0.9) */
-                if (spot > 0.9f) {
+                /* Dual-cone: bright hotspot + wider spill */
+                if (spot > 0.82f) {
                     float ndl = vec3_dot(normal, vec3_mul(light_dir, -1.0f));
                     if (ndl > 0) {
-                        float falloff = (spot - 0.9f) / 0.1f; /* 0 at edge, 1 at center */
-                        falloff *= falloff;
-                        float atten = 1.0f / (1.0f + dist * 0.15f);
-                        float contrib = ndl * falloff * atten * 2.5f;
-                        lighting.x += contrib;
-                        lighting.y += contrib;
-                        lighting.z += contrib * 0.9f; /* slightly warm */
+                        /* Outer cone: soft linear falloff from edge */
+                        float outer = (spot - 0.82f) / 0.18f;
+                        /* Inner hotspot: brighter center */
+                        float inner = clampf((spot - 0.92f) / 0.08f, 0, 1);
+                        float falloff = outer * 0.4f + inner * 0.6f;
+                        float atten = 1.0f / (1.0f + dist * 0.1f);
+                        float contrib = ndl * falloff * atten * 4.0f;
+                        lighting.x += contrib * 1.0f;
+                        lighting.y += contrib * 0.95f;
+                        lighting.z += contrib * 0.85f; /* warm tint */
                     }
                 }
             }
