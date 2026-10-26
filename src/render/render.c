@@ -199,9 +199,8 @@ static RenderParams make_render_params(const Scene *scene, const Camera *cam,
     };
     if (flashlight) {
         p.flashlight_pos = cam->position;
-        /* Compute camera forward direction */
-        Mat4 rot = mat4_mul(mat4_rotation_y(cam->yaw), mat4_rotation_x(cam->pitch));
-        p.flashlight_dir = vec3_normalize(mat4_mul_vec3(rot, vec3(0, 0, -1), 0.0f));
+        Pose view = {cam->position, cam->yaw, cam->pitch};
+        p.flashlight_dir = pose_to_world_dir(view, vec3(0, 0, -1));
     }
     return p;
 }

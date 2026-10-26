@@ -117,4 +117,19 @@ static inline Mat4 mat4_rotation_x(float angle) {
     return m;
 }
 
+/* Position + view orientation. yaw turns around +Y (0 = facing -Z),
+ * pitch tilts around the local X axis (+ = up). Shared by anything that
+ * looks or aims: player, camera, weapons, later enemies. */
+typedef struct {
+    Vec3 pos;
+    float yaw;
+    float pitch;
+} Pose;
+
+/* View-space direction (-Z forward, +X right, +Y up) → world space */
+static inline Vec3 pose_to_world_dir(Pose p, Vec3 local) {
+    Mat4 rot = mat4_mul(mat4_rotation_y(p.yaw), mat4_rotation_x(p.pitch));
+    return vec3_normalize(mat4_mul_vec3(rot, vec3_normalize(local), 0.0f));
+}
+
 #endif

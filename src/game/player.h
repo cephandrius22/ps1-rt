@@ -8,7 +8,7 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
-#include "camera.h"
+#include "math3d.h"
 #include "cmd.h"
 #include "event.h"
 
@@ -25,7 +25,7 @@ struct Scene;
 #define PLAYER_STEP_DIST  2.5f  /* distance walked per footstep event */
 
 typedef struct {
-    Camera cam;
+    Pose view;            /* eye position + look direction */
     Vec3 velocity;
     float foot_y;
     bool on_ground;

@@ -3,7 +3,6 @@
 #include <math.h>
 
 #define PLAYER_TOUCH_MAX  8        /* entities touched per tick */
-#define PLAYER_FOV        1.2f     /* radians, horizontal-ish */
 #define GROUND_NONE       -1000.0f /* ground_check() result: nothing below */
 #define GROUND_MIN_NORMAL 0.5f     /* steeper surfaces are walls, not floor */
 #define GROUND_SNAP       0.1f     /* airborne once this far above ground */
@@ -14,7 +13,7 @@
 Player player_create(Vec3 pos) {
     Player p;
     p.foot_y = pos.y - PLAYER_HEIGHT - PLAYER_EYE_OFFSET;
-    p.cam = camera_create(pos, 0.0f, 0.0f, PLAYER_FOV);
+    p.view = (Pose){.pos = pos, .yaw = 0.0f, .pitch = 0.0f};
     p.velocity = vec3(0, 0, 0);
     p.on_ground = false;
     p.flashlight_on = false;
@@ -74,21 +73,21 @@ static Vec3 try_move_axis(Vec3 pos, Vec3 move, float foot_y, const Scene *scene)
 
 /* Apply look deltas, clamping pitch so the view can't flip over */
 static void apply_look(Player *p, const PlayerCmd *cmd) {
-    p->cam.yaw += cmd->yaw_delta;
-    p->cam.pitch = fmaxf(-PLAYER_PITCH_MAX,
-                         fminf(PLAYER_PITCH_MAX, p->cam.pitch + cmd->pitch_delta));
+    p->view.yaw += cmd->yaw_delta;
+    p->view.pitch = fmaxf(-PLAYER_PITCH_MAX,
+                         fminf(PLAYER_PITCH_MAX, p->view.pitch + cmd->pitch_delta));
 }
 
 /* Horizontal forward direction for the current yaw (yaw=0 → -Z) */
 static Vec3 yaw_forward(const Player *p) {
-    return vec3(-sinf(p->cam.yaw), 0, -cosf(p->cam.yaw));
+    return vec3(-sinf(p->view.yaw), 0, -cosf(p->view.yaw));
 }
 
 /* Yaw-relative wish direction. Length capped at 1 so diagonals aren't
  * faster, while partial (analog) input still moves slower. */
 static Vec3 wish_dir(const Player *p, const PlayerCmd *cmd) {
     Vec3 forward = yaw_forward(p);
-    Vec3 right = vec3(cosf(p->cam.yaw), 0, -sinf(p->cam.yaw));
+    Vec3 right = vec3(cosf(p->view.yaw), 0, -sinf(p->view.yaw));
     Vec3 dir = vec3_add(vec3_mul(forward, cmd->forward), vec3_mul(right, cmd->strafe));
 
     if (vec3_dot(dir, dir) > 1.0f) {
@@ -123,8 +122,8 @@ static void track_footsteps(Player *p, Vec3 new_pos, EventQueue *ev) {
         return;
     }
 
-    float dx = new_pos.x - p->cam.position.x;
-    float dz = new_pos.z - p->cam.position.z;
+    float dx = new_pos.x - p->view.pos.x;
+    float dz = new_pos.z - p->view.pos.z;
     p->walk_distance += sqrtf(dx * dx + dz * dz);
 
     if (p->walk_distance < PLAYER_STEP_DIST) {
@@ -141,7 +140,7 @@ static void track_footsteps(Player *p, Vec3 new_pos, EventQueue *ev) {
 
 /* Walk-over pickups: anything inside the body cylinder */
 static void touch_entities(const Player *p, Scene *scene, EventQueue *ev) {
-    Vec3 pos = p->cam.position;
+    Vec3 pos = p->view.pos;
     Cylinder body = {.base = vec3(pos.x, p->foot_y, pos.z),
                      .radius = COLLECT_RADIUS, .height = PLAYER_HEIGHT};
 
@@ -156,7 +155,7 @@ static void touch_entities(const Player *p, Scene *scene, EventQueue *ev) {
 
 /* Use key: nearest usable entity in front (doors) */
 static void use_entity(const Player *p, Scene *scene, EventQueue *ev) {
-    Vec3 pos = p->cam.position;
+    Vec3 pos = p->view.pos;
     int used;
     UseResult res = entity_try_use(&scene->entities, pos, yaw_forward(p), USE_RANGE, &used);
     if (res == USE_NOTHING) {
@@ -183,7 +182,7 @@ void player_update(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
 
     /* Slide along walls: resolve X and Z independently */
     Vec3 move = vec3_mul(wish_dir(p, cmd), PLAYER_SPEED * dt);
-    Vec3 pos = p->cam.position;
+    Vec3 pos = p->view.pos;
     pos = try_move_axis(pos, vec3(move.x, 0, 0), p->foot_y, scene);
     pos = try_move_axis(pos, vec3(0, 0, move.z), p->foot_y, scene);
 
@@ -191,7 +190,7 @@ void player_update(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
     pos.y = p->foot_y + PLAYER_HEIGHT + PLAYER_EYE_OFFSET;
 
     track_footsteps(p, pos, ev);
-    p->cam.position = pos;
+    p->view.pos = pos;
 
     if (cmd_has(cmd, BTN_FLASHLIGHT)) {
         p->flashlight_on = !p->flashlight_on;

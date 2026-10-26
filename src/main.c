@@ -16,6 +16,7 @@
 #include "event.h"
 
 #define WINDOW_SCALE 3
+#define VIEW_FOV     1.2f /* radians */
 
 /* Presentation side of the event queue: map game events to sounds */
 static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
@@ -87,7 +88,7 @@ int main(int argc, char *argv[]) {
         level_info.spawn_pos.x,
         level_info.spawn_pos.y + PLAYER_HEIGHT + PLAYER_EYE_OFFSET,
         level_info.spawn_pos.z));
-    player.cam.yaw = level_info.spawn_yaw * ((float)M_PI / 180.0f);
+    player.view.yaw = level_info.spawn_yaw * ((float)M_PI / 180.0f);
 
     input_init();
 
@@ -137,12 +138,13 @@ int main(int argc, char *argv[]) {
 
         /* Update player and weapon using full scene intersection */
         player_update(&player, &cmd, dt, &scene, &events);
-        weapon_update(&weapon, &cmd, &player.cam, &scene, dt, &events);
+        weapon_update(&weapon, &cmd, player.view, &scene, dt, &events);
 
         play_event_sounds(&audio, &events);
 
         /* Render with point lights and shadow rays (multithreaded) */
-        render_scene_lit_mt(&fb, &player.cam, &scene, game_time, &pool, player.flashlight_on);
+        Camera cam = camera_from_pose(player.view, VIEW_FOV);
+        render_scene_lit_mt(&fb, &cam, &scene, game_time, &pool, player.flashlight_on);
         weapon_draw_viewmodel(fb.pixels, SCREEN_W, SCREEN_H, &weapon);
 
         SDL_UpdateTexture(texture, NULL, fb.pixels, SCREEN_W * sizeof(uint32_t));

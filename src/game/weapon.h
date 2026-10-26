@@ -11,7 +11,7 @@
 #ifndef WEAPON_H
 #define WEAPON_H
 
-#include "camera.h"
+#include "math3d.h"
 #include "cmd.h"
 #include "event.h"
 #include <stdint.h>
@@ -47,9 +47,10 @@ const WeaponDef *weapon_def(WeaponType type);
 Weapon weapon_create(WeaponType type);
 
 /* Ray for pellet i of a shot (0 = center). Exposed for tests and fx. */
-Ray weapon_pellet_ray(const Camera *cam, const WeaponDef *def, int i);
+Ray weapon_pellet_ray(Pose aim, const WeaponDef *def, int i);
 
-void weapon_update(Weapon *w, const PlayerCmd *cmd, const Camera *cam,
+/* One tick: cooldown/recoil, and fire along aim if attack is held */
+void weapon_update(Weapon *w, const PlayerCmd *cmd, Pose aim,
                    const struct Scene *scene, float dt, EventQueue *ev);
 
 /* Draw viewmodel onto framebuffer */

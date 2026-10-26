@@ -16,10 +16,10 @@ TEST(test_weapon_create) {
 
 TEST(test_weapon_fire) {
     Weapon w = weapon_create(WEAPON_PISTOL);
-    Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
+    Pose aim = {.pos = vec3(0, 1, 0)};
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
-    weapon_update(&w, &cmd, &cam, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
 
     ASSERT(w.fired_this_frame);
     ASSERT(w.cooldown_timer > 0);
@@ -28,50 +28,50 @@ TEST(test_weapon_fire) {
 
 TEST(test_weapon_cooldown) {
     Weapon w = weapon_create(WEAPON_PISTOL);
-    Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
+    Pose aim = {.pos = vec3(0, 1, 0)};
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
     /* First shot */
-    weapon_update(&w, &cmd, &cam, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
     ASSERT(w.fired_this_frame);
 
     /* Second frame: still holding shoot, but cooldown prevents firing */
-    weapon_update(&w, &cmd, &cam, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
     ASSERT(!w.fired_this_frame);
 }
 
 TEST(test_weapon_cooldown_expires) {
     Weapon w = weapon_create(WEAPON_PISTOL);
-    Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
+    Pose aim = {.pos = vec3(0, 1, 0)};
     PlayerCmd shoot = {.buttons = BTN_ATTACK};
     PlayerCmd no_shoot = {0};
 
     /* Fire */
-    weapon_update(&w, &shoot, &cam, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &shoot, aim, &empty, 1.0f / 60.0f, &ev);
     ASSERT(w.fired_this_frame);
 
     /* Wait for cooldown to expire */
     for (int i = 0; i < 30; i++)
-        weapon_update(&w, &no_shoot, &cam, &empty, 1.0f / 60.0f, &ev);
+        weapon_update(&w, &no_shoot, aim, &empty, 1.0f / 60.0f, &ev);
 
     /* Should be able to fire again */
-    weapon_update(&w, &shoot, &cam, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &shoot, aim, &empty, 1.0f / 60.0f, &ev);
     ASSERT(w.fired_this_frame);
 }
 
 TEST(test_weapon_kick_recovers) {
     Weapon w = weapon_create(WEAPON_PISTOL);
-    Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
+    Pose aim = {.pos = vec3(0, 1, 0)};
     PlayerCmd shoot = {.buttons = BTN_ATTACK};
     PlayerCmd no_input = {0};
 
-    weapon_update(&w, &shoot, &cam, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &shoot, aim, &empty, 1.0f / 60.0f, &ev);
     float kick_after_shot = w.kick;
     ASSERT(kick_after_shot > 0);
 
     /* Let kick recover */
     for (int i = 0; i < 60; i++)
-        weapon_update(&w, &no_input, &cam, &empty, 1.0f / 60.0f, &ev);
+        weapon_update(&w, &no_input, aim, &empty, 1.0f / 60.0f, &ev);
 
     ASSERT(w.kick < kick_after_shot);
     ASSERT_NEAR(w.kick, 0.0f, 1e-6f);
@@ -79,17 +79,17 @@ TEST(test_weapon_kick_recovers) {
 
 TEST(test_weapon_no_fire_without_input) {
     Weapon w = weapon_create(WEAPON_PISTOL);
-    Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
+    Pose aim = {.pos = vec3(0, 1, 0)};
     PlayerCmd cmd = {0};
 
-    weapon_update(&w, &cmd, &cam, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
 
     ASSERT(!w.fired_this_frame);
     ASSERT_NEAR(w.cooldown_timer, 0.0f, 1e-6f);
 }
 
 TEST(test_weapon_hitscan_hits_world) {
-    /* Build a simple scene: one triangle in front of camera */
+    /* Build a simple scene: one triangle straight ahead */
     Mesh m;
     mesh_init(&m);
     Vec3 normal = vec3(0, 0, 1);
@@ -105,10 +105,10 @@ TEST(test_weapon_hitscan_hits_world) {
     scene_build_static(&s, m.tris, m.count);
 
     Weapon w = weapon_create(WEAPON_PISTOL);
-    Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
+    Pose aim = {.pos = vec3(0, 0, 0)};
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
-    weapon_update(&w, &cmd, &cam, &s, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, aim, &s, 1.0f / 60.0f, &ev);
 
     ASSERT(w.fired_this_frame);
     ASSERT(w.last_hit.hit);
@@ -131,11 +131,11 @@ TEST(test_weapon_fire_events) {
     scene_build_static(&s, m.tris, m.count);
 
     Weapon w = weapon_create(WEAPON_PISTOL);
-    Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
+    Pose aim = {.pos = vec3(0, 0, 0)};
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
     EventQueue q = {0};
 
-    weapon_update(&w, &cmd, &cam, &s, 1.0f / 60.0f, &q);
+    weapon_update(&w, &cmd, aim, &s, 1.0f / 60.0f, &q);
 
     /* Fired, then impacted world geometry (no entity) */
     ASSERT(q.count == 2);
@@ -151,11 +151,11 @@ TEST(test_weapon_fire_events) {
 
 TEST(test_weapon_miss_no_impact) {
     Weapon w = weapon_create(WEAPON_PISTOL);
-    Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
+    Pose aim = {.pos = vec3(0, 0, 0)};
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
     EventQueue q = {0};
 
-    weapon_update(&w, &cmd, &cam, &empty, 1.0f / 60.0f, &q);
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &q);
 
     ASSERT(q.count == 1);
     ASSERT(q.items[0].type == EV_WEAPON_FIRED);
@@ -171,10 +171,10 @@ TEST(test_weapon_def_table) {
 
 TEST(test_weapon_uses_def_cooldown) {
     Weapon w = weapon_create(WEAPON_PISTOL);
-    Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
+    Pose aim = {.pos = vec3(0, 0, 0)};
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
-    weapon_update(&w, &cmd, &cam, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
 
     ASSERT_NEAR(w.cooldown_timer, weapon_def(WEAPON_PISTOL)->cooldown, 1e-6f);
     ASSERT_NEAR(w.kick, weapon_def(WEAPON_PISTOL)->kick, 1e-6f);
@@ -183,22 +183,22 @@ TEST(test_weapon_uses_def_cooldown) {
 /* Spread pattern: pellet 0 straight ahead, others `spread` radians off */
 TEST(test_weapon_pellet_spread) {
     WeaponDef shotgun = {.pellets = 5, .spread = 0.1f};
-    Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
+    Pose aim = {.pos = vec3(0, 0, 0)};
     Vec3 ahead = vec3(0, 0, -1);
 
-    Ray center = weapon_pellet_ray(&cam, &shotgun, 0);
+    Ray center = weapon_pellet_ray(aim, &shotgun, 0);
     ASSERT_NEAR(vec3_dot(center.dir, ahead), 1.0f, 1e-5f);
 
     for (int i = 1; i < shotgun.pellets; i++) {
-        Ray r = weapon_pellet_ray(&cam, &shotgun, i);
+        Ray r = weapon_pellet_ray(aim, &shotgun, i);
         float off_angle = acosf(vec3_dot(r.dir, ahead));
         ASSERT(off_angle > 0.05f);
         ASSERT(off_angle < 0.15f);
     }
 
     /* Outer pellets are distinct */
-    Ray a = weapon_pellet_ray(&cam, &shotgun, 1);
-    Ray b = weapon_pellet_ray(&cam, &shotgun, 3);
+    Ray a = weapon_pellet_ray(aim, &shotgun, 1);
+    Ray b = weapon_pellet_ray(aim, &shotgun, 3);
     ASSERT(vec3_dot(a.dir, b.dir) < 0.9999f);
 }
 

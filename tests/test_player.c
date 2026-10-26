@@ -29,25 +29,24 @@ static Player grounded_player(void) {
 
 TEST(test_player_create) {
     Player p = player_create(vec3(1, 2, 3));
-    ASSERT_NEAR(p.cam.position.x, 1.0f, 1e-6f);
-    ASSERT_NEAR(p.cam.position.y, 2.0f, 1e-6f);
-    ASSERT_NEAR(p.cam.position.z, 3.0f, 1e-6f);
-    ASSERT_NEAR(p.cam.yaw, 0.0f, 1e-6f);
-    ASSERT_NEAR(p.cam.pitch, 0.0f, 1e-6f);
-    ASSERT_NEAR(p.cam.fov, 1.2f, 1e-6f);
+    ASSERT_NEAR(p.view.pos.x, 1.0f, 1e-6f);
+    ASSERT_NEAR(p.view.pos.y, 2.0f, 1e-6f);
+    ASSERT_NEAR(p.view.pos.z, 3.0f, 1e-6f);
+    ASSERT_NEAR(p.view.yaw, 0.0f, 1e-6f);
+    ASSERT_NEAR(p.view.pitch, 0.0f, 1e-6f);
 }
 
 TEST(test_player_no_input_stays_still) {
     Player p = grounded_player();
     PlayerCmd cmd = {0};
-    float start_x = p.cam.position.x;
-    float start_z = p.cam.position.z;
+    float start_x = p.view.pos.x;
+    float start_z = p.view.pos.z;
 
     player_update(&p, &cmd, 1.0f / 60.0f, &floor_world, &ev);
 
-    ASSERT_NEAR(p.cam.position.x, start_x, 1e-6f);
-    ASSERT_NEAR(p.cam.position.z, start_z, 1e-6f);
-    ASSERT_NEAR(p.cam.position.y, PLAYER_EYE_Y, 1e-6f);
+    ASSERT_NEAR(p.view.pos.x, start_x, 1e-6f);
+    ASSERT_NEAR(p.view.pos.z, start_z, 1e-6f);
+    ASSERT_NEAR(p.view.pos.y, PLAYER_EYE_Y, 1e-6f);
 }
 
 TEST(test_player_forward) {
@@ -57,8 +56,8 @@ TEST(test_player_forward) {
     player_update(&p, &cmd, 1.0f, &floor_world, &ev);
 
     // Default yaw=0, forward is -Z
-    ASSERT(p.cam.position.z < 0);
-    ASSERT_NEAR(p.cam.position.x, 0.0f, 1e-4f);
+    ASSERT(p.view.pos.z < 0);
+    ASSERT_NEAR(p.view.pos.x, 0.0f, 1e-4f);
 }
 
 TEST(test_player_backward) {
@@ -67,7 +66,7 @@ TEST(test_player_backward) {
 
     player_update(&p, &cmd, 1.0f, &floor_world, &ev);
 
-    ASSERT(p.cam.position.z > 0);
+    ASSERT(p.view.pos.z > 0);
 }
 
 TEST(test_player_strafe_right) {
@@ -76,7 +75,7 @@ TEST(test_player_strafe_right) {
 
     player_update(&p, &cmd, 1.0f, &floor_world, &ev);
 
-    ASSERT(p.cam.position.x > 0);
+    ASSERT(p.view.pos.x > 0);
 }
 
 TEST(test_player_strafe_left) {
@@ -85,7 +84,7 @@ TEST(test_player_strafe_left) {
 
     player_update(&p, &cmd, 1.0f, &floor_world, &ev);
 
-    ASSERT(p.cam.position.x < 0);
+    ASSERT(p.view.pos.x < 0);
 }
 
 TEST(test_player_diagonal_normalized) {
@@ -99,8 +98,8 @@ TEST(test_player_diagonal_normalized) {
     player_update(&p2, &fwd_right, 1.0f, &floor_world, &ev);
 
     // Diagonal movement should be same speed as forward-only
-    Vec3 d1 = vec3_sub(p1.cam.position, vec3(0, PLAYER_EYE_Y, 0));
-    Vec3 d2 = vec3_sub(p2.cam.position, vec3(0, PLAYER_EYE_Y, 0));
+    Vec3 d1 = vec3_sub(p1.view.pos, vec3(0, PLAYER_EYE_Y, 0));
+    Vec3 d2 = vec3_sub(p2.view.pos, vec3(0, PLAYER_EYE_Y, 0));
     d1.y = 0; d2.y = 0;  // Ignore Y
     float speed1 = vec3_length(d1);
     float speed2 = vec3_length(d2);
@@ -117,7 +116,7 @@ TEST(test_player_analog_partial_speed) {
     player_update(&half, &half_cmd, 1.0f, &floor_world, &ev);
 
     /* Partial input moves proportionally slower (not normalized up) */
-    ASSERT_NEAR(half.cam.position.z, full.cam.position.z * 0.5f, 1e-4f);
+    ASSERT_NEAR(half.view.pos.z, full.view.pos.z * 0.5f, 1e-4f);
 }
 
 TEST(test_player_mouse_look_yaw) {
@@ -126,8 +125,8 @@ TEST(test_player_mouse_look_yaw) {
 
     player_update(&p, &cmd, 1.0f / 60.0f, &floor_world, &ev);
 
-    ASSERT(p.cam.yaw != 0.0f);
-    ASSERT_NEAR(p.cam.pitch, 0.0f, 1e-6f);
+    ASSERT(p.view.yaw != 0.0f);
+    ASSERT_NEAR(p.view.pitch, 0.0f, 1e-6f);
 }
 
 TEST(test_player_mouse_look_pitch) {
@@ -136,8 +135,8 @@ TEST(test_player_mouse_look_pitch) {
 
     player_update(&p, &cmd, 1.0f / 60.0f, &floor_world, &ev);
 
-    ASSERT_NEAR(p.cam.yaw, 0.0f, 1e-6f);
-    ASSERT(p.cam.pitch != 0.0f);
+    ASSERT_NEAR(p.view.yaw, 0.0f, 1e-6f);
+    ASSERT(p.view.pitch != 0.0f);
 }
 
 TEST(test_player_pitch_clamped) {
@@ -147,8 +146,8 @@ TEST(test_player_pitch_clamped) {
     player_update(&p, &cmd, 1.0f / 60.0f, &floor_world, &ev);
 
     // Pitch should be clamped to +/-1.4
-    ASSERT(p.cam.pitch <= 1.4f);
-    ASSERT(p.cam.pitch >= -1.4f);
+    ASSERT(p.view.pitch <= 1.4f);
+    ASSERT(p.view.pitch >= -1.4f);
 }
 
 TEST(test_player_gravity_fall) {
@@ -162,7 +161,7 @@ TEST(test_player_gravity_fall) {
     // Should have settled on the y=0 floor
     ASSERT(p.on_ground);
     ASSERT_NEAR(p.foot_y, 0.0f, 1e-6f);
-    ASSERT_NEAR(p.cam.position.y, PLAYER_EYE_Y, 1e-6f);
+    ASSERT_NEAR(p.view.pos.y, PLAYER_EYE_Y, 1e-6f);
 }
 
 TEST(test_player_jump) {
@@ -188,7 +187,7 @@ TEST(test_player_delta_time_scaling) {
     player_update(&p2, &cmd, 0.5f, &floor_world, &ev);
     player_update(&p2, &cmd, 0.5f, &floor_world, &ev);
 
-    ASSERT_NEAR(p1.cam.position.z, p2.cam.position.z, 0.01f);
+    ASSERT_NEAR(p1.view.pos.z, p2.view.pos.z, 0.01f);
 }
 
 TEST(test_player_footstep_events) {
