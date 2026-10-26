@@ -1,8 +1,10 @@
 #include "test_framework.h"
 #include "weapon.h"
+#include "scene.h"
 #include <math.h>
 
 static EventQueue ev; /* sink for events tests don't inspect */
+static Scene empty;   /* nothing to hit */
 
 TEST(test_weapon_create) {
     Weapon w = weapon_create(WEAPON_PISTOL);
@@ -17,7 +19,7 @@ TEST(test_weapon_fire) {
     Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
-    weapon_update(&w, &cmd, &cam, NULL, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, &cam, &empty, 1.0f / 60.0f, &ev);
 
     ASSERT(w.fired_this_frame);
     ASSERT(w.cooldown_timer > 0);
@@ -30,11 +32,11 @@ TEST(test_weapon_cooldown) {
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
     /* First shot */
-    weapon_update(&w, &cmd, &cam, NULL, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, &cam, &empty, 1.0f / 60.0f, &ev);
     ASSERT(w.fired_this_frame);
 
     /* Second frame: still holding shoot, but cooldown prevents firing */
-    weapon_update(&w, &cmd, &cam, NULL, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, &cam, &empty, 1.0f / 60.0f, &ev);
     ASSERT(!w.fired_this_frame);
 }
 
@@ -45,15 +47,15 @@ TEST(test_weapon_cooldown_expires) {
     PlayerCmd no_shoot = {0};
 
     /* Fire */
-    weapon_update(&w, &shoot, &cam, NULL, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &shoot, &cam, &empty, 1.0f / 60.0f, &ev);
     ASSERT(w.fired_this_frame);
 
     /* Wait for cooldown to expire */
     for (int i = 0; i < 30; i++)
-        weapon_update(&w, &no_shoot, &cam, NULL, 1.0f / 60.0f, &ev);
+        weapon_update(&w, &no_shoot, &cam, &empty, 1.0f / 60.0f, &ev);
 
     /* Should be able to fire again */
-    weapon_update(&w, &shoot, &cam, NULL, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &shoot, &cam, &empty, 1.0f / 60.0f, &ev);
     ASSERT(w.fired_this_frame);
 }
 
@@ -63,13 +65,13 @@ TEST(test_weapon_kick_recovers) {
     PlayerCmd shoot = {.buttons = BTN_ATTACK};
     PlayerCmd no_input = {0};
 
-    weapon_update(&w, &shoot, &cam, NULL, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &shoot, &cam, &empty, 1.0f / 60.0f, &ev);
     float kick_after_shot = w.kick;
     ASSERT(kick_after_shot > 0);
 
     /* Let kick recover */
     for (int i = 0; i < 60; i++)
-        weapon_update(&w, &no_input, &cam, NULL, 1.0f / 60.0f, &ev);
+        weapon_update(&w, &no_input, &cam, &empty, 1.0f / 60.0f, &ev);
 
     ASSERT(w.kick < kick_after_shot);
     ASSERT_NEAR(w.kick, 0.0f, 1e-6f);
@@ -80,13 +82,13 @@ TEST(test_weapon_no_fire_without_input) {
     Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
     PlayerCmd cmd = {0};
 
-    weapon_update(&w, &cmd, &cam, NULL, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, &cam, &empty, 1.0f / 60.0f, &ev);
 
     ASSERT(!w.fired_this_frame);
     ASSERT_NEAR(w.cooldown_timer, 0.0f, 1e-6f);
 }
 
-TEST(test_weapon_hitscan_with_bvh) {
+TEST(test_weapon_hitscan_hits_world) {
     /* Build a simple scene: one triangle in front of camera */
     Mesh m;
     mesh_init(&m);
@@ -98,20 +100,21 @@ TEST(test_weapon_hitscan_with_bvh) {
     };
     mesh_add_tri(&m, tri);
 
-    BVH bvh;
-    bvh_build(&bvh, m.tris, m.count);
+    Scene s;
+    scene_init(&s);
+    scene_build_static(&s, m.tris, m.count);
 
     Weapon w = weapon_create(WEAPON_PISTOL);
     Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
-    weapon_update(&w, &cmd, &cam, &bvh, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, &cam, &s, 1.0f / 60.0f, &ev);
 
     ASSERT(w.fired_this_frame);
     ASSERT(w.last_hit.hit);
     ASSERT_NEAR(w.last_hit.point.z, -5.0f, 0.1f);
 
-    bvh_free(&bvh);
+    scene_free(&s);
     mesh_free(&m);
 }
 
@@ -123,15 +126,16 @@ TEST(test_weapon_fire_events) {
         .normal = vec3(0, 0, 1)
     };
     mesh_add_tri(&m, tri);
-    BVH bvh;
-    bvh_build(&bvh, m.tris, m.count);
+    Scene s;
+    scene_init(&s);
+    scene_build_static(&s, m.tris, m.count);
 
     Weapon w = weapon_create(WEAPON_PISTOL);
     Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
     EventQueue q = {0};
 
-    weapon_update(&w, &cmd, &cam, &bvh, 1.0f / 60.0f, &q);
+    weapon_update(&w, &cmd, &cam, &s, 1.0f / 60.0f, &q);
 
     /* Fired, then impacted world geometry (no entity) */
     ASSERT(q.count == 2);
@@ -141,7 +145,7 @@ TEST(test_weapon_fire_events) {
     ASSERT(q.items[1].entity == ENTITY_INDEX_NONE);
     ASSERT_NEAR(q.items[1].amount, weapon_def(WEAPON_PISTOL)->damage, 1e-6f);
 
-    bvh_free(&bvh);
+    scene_free(&s);
     mesh_free(&m);
 }
 
@@ -151,7 +155,7 @@ TEST(test_weapon_miss_no_impact) {
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
     EventQueue q = {0};
 
-    weapon_update(&w, &cmd, &cam, NULL, 1.0f / 60.0f, &q);
+    weapon_update(&w, &cmd, &cam, &empty, 1.0f / 60.0f, &q);
 
     ASSERT(q.count == 1);
     ASSERT(q.items[0].type == EV_WEAPON_FIRED);
@@ -170,7 +174,7 @@ TEST(test_weapon_uses_def_cooldown) {
     Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
-    weapon_update(&w, &cmd, &cam, NULL, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, &cam, &empty, 1.0f / 60.0f, &ev);
 
     ASSERT_NEAR(w.cooldown_timer, weapon_def(WEAPON_PISTOL)->cooldown, 1e-6f);
     ASSERT_NEAR(w.kick, weapon_def(WEAPON_PISTOL)->kick, 1e-6f);
@@ -199,6 +203,8 @@ TEST(test_weapon_pellet_spread) {
 }
 
 int main(void) {
+    scene_init(&empty);
+
     TEST_SUITE("weapon");
     RUN_TEST(test_weapon_create);
     RUN_TEST(test_weapon_fire);
@@ -206,11 +212,12 @@ int main(void) {
     RUN_TEST(test_weapon_cooldown_expires);
     RUN_TEST(test_weapon_kick_recovers);
     RUN_TEST(test_weapon_no_fire_without_input);
-    RUN_TEST(test_weapon_hitscan_with_bvh);
+    RUN_TEST(test_weapon_hitscan_hits_world);
     RUN_TEST(test_weapon_fire_events);
     RUN_TEST(test_weapon_miss_no_impact);
     RUN_TEST(test_weapon_def_table);
     RUN_TEST(test_weapon_uses_def_cooldown);
     RUN_TEST(test_weapon_pellet_spread);
+    scene_free(&empty);
     TEST_REPORT();
 }

@@ -136,8 +136,8 @@ int main(int argc, char *argv[]) {
         scene_rebuild_dynamic(&scene);
 
         /* Update player and weapon using full scene intersection */
-        player_update_scene(&player, &cmd, dt, &scene, &events);
-        weapon_update_scene(&weapon, &cmd, &player.cam, &scene, dt, &events);
+        player_update(&player, &cmd, dt, &scene, &events);
+        weapon_update(&weapon, &cmd, &player.cam, &scene, dt, &events);
 
         play_event_sounds(&audio, &events);
 

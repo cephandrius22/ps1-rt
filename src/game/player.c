@@ -2,12 +2,19 @@
 #include "scene.h"
 #include <math.h>
 
-#define PLAYER_TOUCH_MAX 8 /* entities touched per tick */
+#define PLAYER_TOUCH_MAX  8        /* entities touched per tick */
+#define PLAYER_FOV        1.2f     /* radians, horizontal-ish */
+#define GROUND_NONE       -1000.0f /* ground_check() result: nothing below */
+#define GROUND_MIN_NORMAL 0.5f     /* steeper surfaces are walls, not floor */
+#define GROUND_SNAP       0.1f     /* airborne once this far above ground */
+#define GROUND_PROBE_PAD  0.1f     /* extra lift on the ground probe origin */
+#define WALL_PROBE_KNEE   0.2f     /* knee probe height above feet */
+#define WALL_PROBE_HEAD   0.1f     /* head probe depth below top of body */
 
 Player player_create(Vec3 pos) {
     Player p;
     p.foot_y = pos.y - PLAYER_HEIGHT - PLAYER_EYE_OFFSET;
-    p.cam = camera_create(pos, 0.0f, 0.0f, 1.2f);
+    p.cam = camera_create(pos, 0.0f, 0.0f, PLAYER_FOV);
     p.velocity = vec3(0, 0, 0);
     p.on_ground = false;
     p.flashlight_on = false;
@@ -15,55 +22,61 @@ Player player_create(Vec3 pos) {
     return p;
 }
 
-static float ground_check(Vec3 head_pos, const BVH *world) {
-    Ray down = {vec3(head_pos.x, head_pos.y + STEP_HEIGHT + 0.1f, head_pos.z),
+/* --- Collision --- */
+
+/* Height of walkable ground under head_pos, or GROUND_NONE. The ray
+ * starts a step above the head so ledges up to STEP_HEIGHT are found. */
+static float ground_check(Vec3 head_pos, const Scene *scene) {
+    Ray down = {vec3(head_pos.x, head_pos.y + STEP_HEIGHT + GROUND_PROBE_PAD, head_pos.z),
                 vec3(0, -1, 0)};
-    HitRecord rec = bvh_intersect(world, down, 0.0f, PLAYER_HEIGHT + STEP_HEIGHT + 1.0f);
-    if (rec.hit && rec.normal.y > 0.5f)
-        return rec.point.y;
-    return -1000.0f;
+    HitRecord rec = scene_intersect(scene, down, 0.0f, PLAYER_HEIGHT + STEP_HEIGHT + 1.0f);
+    if (!rec.hit || rec.normal.y <= GROUND_MIN_NORMAL) {
+        return GROUND_NONE;
+    }
+    return rec.point.y;
 }
 
-static bool wall_check(Vec3 from, Vec3 dir, float dist, const BVH *world, HitRecord *out) {
-    Ray ray = {from, dir};
-    *out = bvh_intersect(world, ray, 0.0f, dist);
-    return out->hit;
-}
-
-static Vec3 try_move_axis(Vec3 pos, Vec3 move, float foot_y, const BVH *world) {
+/* Move along one axis, stopping PLAYER_RADIUS short of walls. Probes at
+ * knee, waist and head so low and overhanging obstacles both block.
+ *
+ *   head  ──>|
+ *   waist ──>|  wall
+ *   knee  ──>|
+ */
+static Vec3 try_move_axis(Vec3 pos, Vec3 move, float foot_y, const Scene *scene) {
     float move_len = vec3_length(move);
-    if (move_len < 1e-6f) return pos;
+    if (move_len < 1e-6f) {
+        return pos;
+    }
 
     Vec3 move_dir = vec3_mul(move, 1.0f / move_len);
     float check_dist = move_len + PLAYER_RADIUS;
-
-    // Cast rays at knee and chest height
-    float check_heights[] = {foot_y + 0.2f, foot_y + PLAYER_HEIGHT * 0.5f, foot_y + PLAYER_HEIGHT - 0.1f};
+    float probe_heights[] = {
+        foot_y + WALL_PROBE_KNEE,
+        foot_y + PLAYER_HEIGHT * 0.5f,
+        foot_y + PLAYER_HEIGHT - WALL_PROBE_HEAD,
+    };
 
     for (int i = 0; i < 3; i++) {
-        Vec3 ray_origin = vec3(pos.x, check_heights[i], pos.z);
-        HitRecord rec;
-        if (wall_check(ray_origin, move_dir, check_dist, world, &rec)) {
-            float allowed = rec.t - PLAYER_RADIUS;
-            if (allowed < 0) allowed = 0;
-            if (allowed < move_len)
-                move_len = allowed;
+        Ray ray = {vec3(pos.x, probe_heights[i], pos.z), move_dir};
+        HitRecord rec = scene_intersect(scene, ray, 0.0f, check_dist);
+        if (!rec.hit) {
+            continue;
         }
+        float allowed = fmaxf(rec.t - PLAYER_RADIUS, 0.0f);
+        move_len = fminf(move_len, allowed);
     }
 
     return vec3_add(pos, vec3_mul(move_dir, move_len));
 }
 
+/* --- Movement --- */
+
 /* Apply look deltas, clamping pitch so the view can't flip over */
 static void apply_look(Player *p, const PlayerCmd *cmd) {
     p->cam.yaw += cmd->yaw_delta;
-    p->cam.pitch += cmd->pitch_delta;
-    if (p->cam.pitch > PLAYER_PITCH_MAX) {
-        p->cam.pitch = PLAYER_PITCH_MAX;
-    }
-    if (p->cam.pitch < -PLAYER_PITCH_MAX) {
-        p->cam.pitch = -PLAYER_PITCH_MAX;
-    }
+    p->cam.pitch = fmaxf(-PLAYER_PITCH_MAX,
+                         fminf(PLAYER_PITCH_MAX, p->cam.pitch + cmd->pitch_delta));
 }
 
 /* Horizontal forward direction for the current yaw (yaw=0 → -Z) */
@@ -82,6 +95,26 @@ static Vec3 wish_dir(const Player *p, const PlayerCmd *cmd) {
         dir = vec3_normalize(dir);
     }
     return dir;
+}
+
+/* Integrate gravity and snap to ground; updates foot_y and on_ground */
+static void apply_vertical(Player *p, Vec3 pos, float dt, const Scene *scene) {
+    p->foot_y += p->velocity.y * dt;
+
+    float ground_y = ground_check(vec3(pos.x, p->foot_y + PLAYER_HEIGHT, pos.z), scene);
+    if (p->foot_y > ground_y + GROUND_SNAP) {
+        p->on_ground = false;
+        return;
+    }
+    if (p->foot_y > ground_y) {
+        return;
+    }
+
+    p->foot_y = ground_y;
+    if (p->velocity.y <= 0) {
+        p->velocity.y = 0;
+        p->on_ground = true;
+    }
 }
 
 /* Accumulate ground distance; emit one footstep per PLAYER_STEP_DIST */
@@ -104,154 +137,14 @@ static void track_footsteps(Player *p, Vec3 new_pos, EventQueue *ev) {
                                 .entity = ENTITY_INDEX_NONE});
 }
 
-void player_update(Player *p, const PlayerCmd *cmd, float dt, const BVH *world,
-                   EventQueue *ev) {
-    apply_look(p, cmd);
-    Vec3 horizontal_move = vec3_mul(wish_dir(p, cmd), PLAYER_SPEED * dt);
+/* --- Interaction --- */
 
-    // Jump
-    if (cmd_has(cmd, BTN_JUMP) && p->on_ground) {
-        p->velocity.y = PLAYER_JUMP_VEL;
-        p->on_ground = false;
-    }
-
-    // Gravity
-    if (!p->on_ground)
-        p->velocity.y -= PLAYER_GRAVITY * dt;
-
-    // Apply horizontal movement with wall collision (slide along each axis)
+/* Walk-over pickups: anything inside the body cylinder */
+static void touch_entities(const Player *p, Scene *scene, EventQueue *ev) {
     Vec3 pos = p->cam.position;
-
-    if (world) {
-        // Move X axis
-        Vec3 move_x = vec3(horizontal_move.x, 0, 0);
-        pos = try_move_axis(pos, move_x, p->foot_y, world);
-
-        // Move Z axis
-        Vec3 move_z = vec3(0, 0, horizontal_move.z);
-        pos = try_move_axis(pos, move_z, p->foot_y, world);
-    } else {
-        pos = vec3_add(pos, horizontal_move);
-    }
-
-    // Apply vertical velocity
-    p->foot_y += p->velocity.y * dt;
-
-    // Ground check
-    if (world) {
-        float ground_y = ground_check(vec3(pos.x, p->foot_y + PLAYER_HEIGHT, pos.z), world);
-
-        if (p->foot_y <= ground_y) {
-            p->foot_y = ground_y;
-            if (p->velocity.y <= 0) {
-                p->velocity.y = 0;
-                p->on_ground = true;
-            }
-        } else if (p->foot_y > ground_y + 0.1f) {
-            p->on_ground = false;
-        }
-    } else {
-        // No world: clamp to y=0 floor
-        if (p->foot_y < 0) {
-            p->foot_y = 0;
-            p->velocity.y = 0;
-            p->on_ground = true;
-        }
-    }
-
-    pos.y = p->foot_y + PLAYER_HEIGHT + PLAYER_EYE_OFFSET;
-
-    track_footsteps(p, pos, ev);
-
-    p->cam.position = pos;
-}
-
-/* --- Scene-aware versions of collision helpers --- */
-
-static float ground_check_scene(Vec3 head_pos, const Scene *scene) {
-    Ray down = {vec3(head_pos.x, head_pos.y + STEP_HEIGHT + 0.1f, head_pos.z),
-                vec3(0, -1, 0)};
-    HitRecord rec = scene_intersect(scene, down, 0.0f, PLAYER_HEIGHT + STEP_HEIGHT + 1.0f);
-    if (rec.hit && rec.normal.y > 0.5f)
-        return rec.point.y;
-    return -1000.0f;
-}
-
-static Vec3 try_move_axis_scene(Vec3 pos, Vec3 move, float foot_y, const Scene *scene) {
-    float move_len = vec3_length(move);
-    if (move_len < 1e-6f) return pos;
-
-    Vec3 move_dir = vec3_mul(move, 1.0f / move_len);
-    float check_dist = move_len + PLAYER_RADIUS;
-
-    float check_heights[] = {foot_y + 0.2f, foot_y + PLAYER_HEIGHT * 0.5f, foot_y + PLAYER_HEIGHT - 0.1f};
-
-    for (int i = 0; i < 3; i++) {
-        Vec3 ray_origin = vec3(pos.x, check_heights[i], pos.z);
-        Ray ray = {ray_origin, move_dir};
-        HitRecord rec = scene_intersect(scene, ray, 0.0f, check_dist);
-        if (rec.hit) {
-            float allowed = rec.t - PLAYER_RADIUS;
-            if (allowed < 0) allowed = 0;
-            if (allowed < move_len)
-                move_len = allowed;
-        }
-    }
-
-    return vec3_add(pos, vec3_mul(move_dir, move_len));
-}
-
-void player_update_scene(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
-                         EventQueue *ev) {
-    apply_look(p, cmd);
-    Vec3 horizontal_move = vec3_mul(wish_dir(p, cmd), PLAYER_SPEED * dt);
-
-    /* Jump */
-    if (cmd_has(cmd, BTN_JUMP) && p->on_ground) {
-        p->velocity.y = PLAYER_JUMP_VEL;
-        p->on_ground = false;
-    }
-
-    /* Gravity */
-    if (!p->on_ground)
-        p->velocity.y -= PLAYER_GRAVITY * dt;
-
-    /* Horizontal movement with wall collision */
-    Vec3 pos = p->cam.position;
-    Vec3 move_x = vec3(horizontal_move.x, 0, 0);
-    pos = try_move_axis_scene(pos, move_x, p->foot_y, scene);
-    Vec3 move_z = vec3(0, 0, horizontal_move.z);
-    pos = try_move_axis_scene(pos, move_z, p->foot_y, scene);
-
-    /* Vertical velocity */
-    p->foot_y += p->velocity.y * dt;
-
-    /* Ground check */
-    float ground_y = ground_check_scene(vec3(pos.x, p->foot_y + PLAYER_HEIGHT, pos.z), scene);
-    if (p->foot_y <= ground_y) {
-        p->foot_y = ground_y;
-        if (p->velocity.y <= 0) {
-            p->velocity.y = 0;
-            p->on_ground = true;
-        }
-    } else if (p->foot_y > ground_y + 0.1f) {
-        p->on_ground = false;
-    }
-
-    pos.y = p->foot_y + PLAYER_HEIGHT + PLAYER_EYE_OFFSET;
-
-    track_footsteps(p, pos, ev);
-
-    p->cam.position = pos;
-
-    /* Flashlight toggle */
-    if (cmd_has(cmd, BTN_FLASHLIGHT)) {
-        p->flashlight_on = !p->flashlight_on;
-    }
-
-    /* Entity interaction: walk-over pickups */
     Cylinder body = {.base = vec3(pos.x, p->foot_y, pos.z),
                      .radius = COLLECT_RADIUS, .height = PLAYER_HEIGHT};
+
     int touched[PLAYER_TOUCH_MAX];
     int n = entity_touch(&scene->entities, body, touched, PLAYER_TOUCH_MAX);
     for (int i = 0; i < n; i++) {
@@ -259,16 +152,53 @@ void player_update_scene(Player *p, const PlayerCmd *cmd, float dt, Scene *scene
         events_push(ev, (GameEvent){.type = EV_PICKUP, .pos = pos,
                                     .entity = touched[i], .amount = e->pickup.amount});
     }
+}
 
-    /* Entity interaction: use (doors) */
-    if (!cmd_has(cmd, BTN_USE)) {
-        return;
-    }
+/* Use key: nearest usable entity in front (doors) */
+static void use_entity(const Player *p, Scene *scene, EventQueue *ev) {
+    Vec3 pos = p->cam.position;
     int used;
     UseResult res = entity_try_use(&scene->entities, pos, yaw_forward(p), USE_RANGE, &used);
     if (res == USE_NOTHING) {
         return;
     }
+
     GameEventType type = (res == USE_OPENED) ? EV_DOOR_OPENED : EV_DOOR_CLOSED;
     events_push(ev, (GameEvent){.type = type, .pos = pos, .entity = used});
+}
+
+/* --- Tick --- */
+
+void player_update(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
+                   EventQueue *ev) {
+    apply_look(p, cmd);
+
+    if (cmd_has(cmd, BTN_JUMP) && p->on_ground) {
+        p->velocity.y = PLAYER_JUMP_VEL;
+        p->on_ground = false;
+    }
+    if (!p->on_ground) {
+        p->velocity.y -= PLAYER_GRAVITY * dt;
+    }
+
+    /* Slide along walls: resolve X and Z independently */
+    Vec3 move = vec3_mul(wish_dir(p, cmd), PLAYER_SPEED * dt);
+    Vec3 pos = p->cam.position;
+    pos = try_move_axis(pos, vec3(move.x, 0, 0), p->foot_y, scene);
+    pos = try_move_axis(pos, vec3(0, 0, move.z), p->foot_y, scene);
+
+    apply_vertical(p, pos, dt, scene);
+    pos.y = p->foot_y + PLAYER_HEIGHT + PLAYER_EYE_OFFSET;
+
+    track_footsteps(p, pos, ev);
+    p->cam.position = pos;
+
+    if (cmd_has(cmd, BTN_FLASHLIGHT)) {
+        p->flashlight_on = !p->flashlight_on;
+    }
+
+    touch_entities(p, scene, ev);
+    if (cmd_has(cmd, BTN_USE)) {
+        use_entity(p, scene, ev);
+    }
 }

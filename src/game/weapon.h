@@ -12,7 +12,6 @@
 #define WEAPON_H
 
 #include "camera.h"
-#include "bvh.h"
 #include "cmd.h"
 #include "event.h"
 #include <stdint.h>
@@ -51,12 +50,9 @@ Weapon weapon_create(WeaponType type);
 Ray weapon_pellet_ray(const Camera *cam, const WeaponDef *def, int i);
 
 void weapon_update(Weapon *w, const PlayerCmd *cmd, const Camera *cam,
-                   const BVH *world, float dt, EventQueue *ev);
-void weapon_update_scene(Weapon *w, const PlayerCmd *cmd, const Camera *cam,
-                         const struct Scene *scene, float dt, EventQueue *ev);
+                   const struct Scene *scene, float dt, EventQueue *ev);
 
-/* Draw crosshair and viewmodel onto framebuffer */
-void weapon_draw_crosshair(uint32_t *pixels, int w, int h);
+/* Draw viewmodel onto framebuffer */
 void weapon_draw_viewmodel(uint32_t *pixels, int w, int h, const Weapon *w_);
 
 #endif

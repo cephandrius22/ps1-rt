@@ -206,50 +206,6 @@ static RenderParams make_render_params(const Scene *scene, const Camera *cam,
     return p;
 }
 
-/* --- Original single-BVH render (kept for tests) --- */
-
-void render_scene(Framebuffer *fb, const Camera *cam, const BVH *bvh, const SceneMaterials *mats) {
-    Vec3 light_dir = vec3_normalize(vec3(0.5f, 1.0f, -0.3f));
-    float ambient = 0.15f;
-    float fog_start = 10.0f;
-    float fog_end = 30.0f;
-    Vec3 fog_color = vec3(0.25f, 0.12f, 0.35f);
-
-    const Material *materials = mats ? mats->materials : NULL;
-    const Texture *textures = mats ? mats->textures : NULL;
-    int mat_count = mats ? mats->material_count : 0;
-    int tex_count = mats ? mats->texture_count : 0;
-
-    for (int y = 0; y < SCREEN_H; y++) {
-        for (int x = 0; x < SCREEN_W; x++) {
-            Ray ray = camera_ray(cam, x, y);
-            HitRecord rec = bvh_intersect(bvh, ray, 0.001f, 1000.0f);
-
-            Vec3 col;
-            if (rec.hit) {
-                Vec3 surface_col = get_surface_color(&rec, materials, mat_count, textures, tex_count);
-
-                float ndl = vec3_dot(rec.normal, light_dir);
-                if (ndl < 0) ndl = 0;
-                float intensity = ambient + (1.0f - ambient) * ndl;
-                col.x = surface_col.x * intensity;
-                col.y = surface_col.y * intensity;
-                col.z = surface_col.z * intensity;
-
-                float fog_t = clampf((rec.t - fog_start) / (fog_end - fog_start), 0, 1);
-                col = vec3_lerp(col, fog_color, fog_t);
-            } else {
-                col = sky_color(ray.dir);
-            }
-
-            uint8_t cr = (uint8_t)(clampf(col.x, 0, 1) * 255.0f);
-            uint8_t cg = (uint8_t)(clampf(col.y, 0, 1) * 255.0f);
-            uint8_t cb = (uint8_t)(clampf(col.z, 0, 1) * 255.0f);
-            framebuffer_set(fb, x, y, ps1_dither_color(cr, cg, cb, x, y));
-        }
-    }
-}
-
 /* --- Single-threaded lit render --- */
 
 void render_scene_lit(Framebuffer *fb, const Camera *cam, const Scene *scene,

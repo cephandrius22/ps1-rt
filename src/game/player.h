@@ -11,7 +11,6 @@
 #include "camera.h"
 #include "cmd.h"
 #include "event.h"
-#include "bvh.h"
 
 struct Scene;
 
@@ -35,9 +34,8 @@ typedef struct {
 } Player;
 
 Player player_create(Vec3 pos);
-void player_update(Player *p, const PlayerCmd *cmd, float dt, const BVH *world,
+/* One tick: look, move with collision, footsteps, touch and use entities */
+void player_update(Player *p, const PlayerCmd *cmd, float dt, struct Scene *scene,
                    EventQueue *ev);
-void player_update_scene(Player *p, const PlayerCmd *cmd, float dt, struct Scene *scene,
-                         EventQueue *ev);
 
 #endif
