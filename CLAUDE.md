@@ -67,7 +67,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH) → `shad
 | `level` | Text-based `.level` file loader — parses materials, geometry, entities, lights |
 | `ps1_effects` | Vertex jitter (1/128 grid), affine UV, 4x4 Bayer dither, 15-bit color quantize |
 | `player` | First-person movement with gravity, wall sliding, ground snap via BVH raycasts |
-| `weapon` | Hitscan weapon with cooldown and pitch recoil |
+| `weapon` | Hitscan firing driven by `WeaponDef` (`weapon_types.c`): damage, cooldown, range, pellets, spread, kick |
 | `event` | `GameEvent` queue: gameplay pushes, presentation drains each tick |
 | `cmd` | `PlayerCmd`: move axes, look deltas, button bitmask (held + impulse) |
 | `input` | SDL2 keyboard/mouse → `PlayerCmd`, relative mouse mode |
@@ -107,6 +107,8 @@ light <x> <y> <z> <r> <g> <b> <intensity> <radius> [key=value ...]
 **New procedural texture:** Add to `ProceduralTextureID` enum in `proctex.h`, write generator function in `proctex.c`, add to `proctex_names[]` and `proctex_generators[]` arrays.
 
 **New entity type:** Add to `EntityType` enum in `entity.h`, then one `EntityDef` row in `entity_types.c` with its level name, `RenderKind`, and only the hooks it needs (NULL = no behavior). Level parsing, update, touch, use and mesh build pick it up automatically — never add `switch (e->type)` to generic code. Entity indices are stable (inactive entities stay in the list).
+
+**New weapon:** Add to `WeaponType` in `weapon.h` and one row in `weapon_types.c`. Shotgun-style = `pellets > 1` + `spread`. Each pellet hit emits `EV_WEAPON_IMPACT` with `amount = damage`.
 
 **New light:** Use the `light` directive in a level file. Keys: `shadows`, `flicker_speed`, `flicker_amount`, `anchor_x/y/z`, `cord`, `swing_speed`, `swing_angle`.
 

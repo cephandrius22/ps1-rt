@@ -52,8 +52,9 @@ Target layering (each layer calls only layers below it):
   build_mesh) and `RenderKind` (mesh | sprite | none), so the
   sprite-vs-model choice stays open per type. Deferred to Phase 1,
   when damage exists: `damage` hook and generic health/velocity/radius.
-- **Data-driven weapons.** `WeaponDef` table (damage, cooldown, spread,
-  pellets, ammo type) instead of `#define`s.
+- ✅ **Data-driven weapons.** `WeaponDef` table (damage, cooldown,
+  range, pellets, spread, kick). Ammo type deferred to Phase 1 with ammo.
+  Note: `kick` is tracked but never applied to the view.
 - **Environment in the level.** Move sun, ambient, fog out of
   `make_render_params()` into a `Environment` struct on `Scene`, set by
   new level directives (`fog`, `ambient`, `sun`).

@@ -23,4 +23,8 @@ typedef struct {
 Camera camera_create(Vec3 pos, float yaw, float pitch, float fov);
 Ray camera_ray(const Camera *cam, int px, int py);
 
+/* Ray from the eye, offset from straight ahead by view-space angles
+ * (radians, + = right / up). (0, 0) is the exact view center. */
+Ray camera_ray_offset(const Camera *cam, float right, float up);
+
 #endif

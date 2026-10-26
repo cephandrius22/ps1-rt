@@ -1,10 +1,11 @@
 #include "test_framework.h"
 #include "weapon.h"
+#include <math.h>
 
 static EventQueue ev; /* sink for events tests don't inspect */
 
 TEST(test_weapon_create) {
-    Weapon w = weapon_create();
+    Weapon w = weapon_create(WEAPON_PISTOL);
     ASSERT_NEAR(w.cooldown_timer, 0.0f, 1e-6f);
     ASSERT_NEAR(w.kick, 0.0f, 1e-6f);
     ASSERT(!w.fired_this_frame);
@@ -12,7 +13,7 @@ TEST(test_weapon_create) {
 }
 
 TEST(test_weapon_fire) {
-    Weapon w = weapon_create();
+    Weapon w = weapon_create(WEAPON_PISTOL);
     Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
@@ -24,7 +25,7 @@ TEST(test_weapon_fire) {
 }
 
 TEST(test_weapon_cooldown) {
-    Weapon w = weapon_create();
+    Weapon w = weapon_create(WEAPON_PISTOL);
     Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
@@ -38,7 +39,7 @@ TEST(test_weapon_cooldown) {
 }
 
 TEST(test_weapon_cooldown_expires) {
-    Weapon w = weapon_create();
+    Weapon w = weapon_create(WEAPON_PISTOL);
     Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
     PlayerCmd shoot = {.buttons = BTN_ATTACK};
     PlayerCmd no_shoot = {0};
@@ -57,7 +58,7 @@ TEST(test_weapon_cooldown_expires) {
 }
 
 TEST(test_weapon_kick_recovers) {
-    Weapon w = weapon_create();
+    Weapon w = weapon_create(WEAPON_PISTOL);
     Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
     PlayerCmd shoot = {.buttons = BTN_ATTACK};
     PlayerCmd no_input = {0};
@@ -75,7 +76,7 @@ TEST(test_weapon_kick_recovers) {
 }
 
 TEST(test_weapon_no_fire_without_input) {
-    Weapon w = weapon_create();
+    Weapon w = weapon_create(WEAPON_PISTOL);
     Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
     PlayerCmd cmd = {0};
 
@@ -100,7 +101,7 @@ TEST(test_weapon_hitscan_with_bvh) {
     BVH bvh;
     bvh_build(&bvh, m.tris, m.count);
 
-    Weapon w = weapon_create();
+    Weapon w = weapon_create(WEAPON_PISTOL);
     Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
@@ -125,7 +126,7 @@ TEST(test_weapon_fire_events) {
     BVH bvh;
     bvh_build(&bvh, m.tris, m.count);
 
-    Weapon w = weapon_create();
+    Weapon w = weapon_create(WEAPON_PISTOL);
     Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
     EventQueue q = {0};
@@ -138,13 +139,14 @@ TEST(test_weapon_fire_events) {
     ASSERT(q.items[1].type == EV_WEAPON_IMPACT);
     ASSERT_NEAR(q.items[1].pos.z, -5.0f, 0.1f);
     ASSERT(q.items[1].entity == ENTITY_INDEX_NONE);
+    ASSERT_NEAR(q.items[1].amount, weapon_def(WEAPON_PISTOL)->damage, 1e-6f);
 
     bvh_free(&bvh);
     mesh_free(&m);
 }
 
 TEST(test_weapon_miss_no_impact) {
-    Weapon w = weapon_create();
+    Weapon w = weapon_create(WEAPON_PISTOL);
     Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
     EventQueue q = {0};
@@ -153,6 +155,47 @@ TEST(test_weapon_miss_no_impact) {
 
     ASSERT(q.count == 1);
     ASSERT(q.items[0].type == EV_WEAPON_FIRED);
+}
+
+TEST(test_weapon_def_table) {
+    const WeaponDef *pistol = weapon_def(WEAPON_PISTOL);
+    ASSERT(pistol->pellets >= 1);
+    ASSERT(pistol->cooldown > 0);
+    ASSERT(pistol->damage > 0);
+    ASSERT(pistol->range > 0);
+}
+
+TEST(test_weapon_uses_def_cooldown) {
+    Weapon w = weapon_create(WEAPON_PISTOL);
+    Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
+    PlayerCmd cmd = {.buttons = BTN_ATTACK};
+
+    weapon_update(&w, &cmd, &cam, NULL, 1.0f / 60.0f, &ev);
+
+    ASSERT_NEAR(w.cooldown_timer, weapon_def(WEAPON_PISTOL)->cooldown, 1e-6f);
+    ASSERT_NEAR(w.kick, weapon_def(WEAPON_PISTOL)->kick, 1e-6f);
+}
+
+/* Spread pattern: pellet 0 straight ahead, others `spread` radians off */
+TEST(test_weapon_pellet_spread) {
+    WeaponDef shotgun = {.pellets = 5, .spread = 0.1f};
+    Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
+    Vec3 ahead = vec3(0, 0, -1);
+
+    Ray center = weapon_pellet_ray(&cam, &shotgun, 0);
+    ASSERT_NEAR(vec3_dot(center.dir, ahead), 1.0f, 1e-5f);
+
+    for (int i = 1; i < shotgun.pellets; i++) {
+        Ray r = weapon_pellet_ray(&cam, &shotgun, i);
+        float off_angle = acosf(vec3_dot(r.dir, ahead));
+        ASSERT(off_angle > 0.05f);
+        ASSERT(off_angle < 0.15f);
+    }
+
+    /* Outer pellets are distinct */
+    Ray a = weapon_pellet_ray(&cam, &shotgun, 1);
+    Ray b = weapon_pellet_ray(&cam, &shotgun, 3);
+    ASSERT(vec3_dot(a.dir, b.dir) < 0.9999f);
 }
 
 int main(void) {
@@ -166,5 +209,8 @@ int main(void) {
     RUN_TEST(test_weapon_hitscan_with_bvh);
     RUN_TEST(test_weapon_fire_events);
     RUN_TEST(test_weapon_miss_no_impact);
+    RUN_TEST(test_weapon_def_table);
+    RUN_TEST(test_weapon_uses_def_cooldown);
+    RUN_TEST(test_weapon_pellet_spread);
     TEST_REPORT();
 }

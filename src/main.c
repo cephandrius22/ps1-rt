@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
         SCREEN_W, SCREEN_H);
 
     Framebuffer fb;
-    Weapon weapon = weapon_create();
+    Weapon weapon = weapon_create(WEAPON_PISTOL);
 
     /* Load level */
     Scene scene;
