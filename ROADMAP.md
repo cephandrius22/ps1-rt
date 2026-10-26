@@ -45,8 +45,8 @@ Target layering (each layer calls only layers below it):
   `door_action`, `walk_distance`) with a `GameEvent` queue
   (type, position, entity). Audio, HUD and particles consume it.
   Positions in events enable spatial audio later.
-- **Hits know what they hit.** Add `entity_id` to `HitRecord` (via
-  triangles or a separate entity intersection). Required for damage.
+- ✅ **Hits know what they hit.** `HitRecord.owner` tag +
+  `entity_hit()` give the entity index. Required for damage.
 - **Data-driven entity types.** Replace switch statements with a
   per-type table: `{ update, on_touch, on_use, on_damage, render_kind }`.
   `render_kind` = mesh | sprite | none, so the sprite-vs-model choice

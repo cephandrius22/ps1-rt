@@ -47,8 +47,8 @@ static void make_box_mesh(Mesh *m, Vec3 lo, Vec3 hi) {
         Vec3 a = v[faces[f][0]], b = v[faces[f][1]];
         Vec3 c = v[faces[f][2]], d = v[faces[f][3]];
         Vec3 n = vec3_normalize(vec3_cross(vec3_sub(b, a), vec3_sub(c, a)));
-        Triangle t1 = {a,b,c, {0,0},{1,0},{1,1}, n, 0};
-        Triangle t2 = {a,c,d, {0,0},{1,1},{0,1}, n, 0};
+        Triangle t1 = {a,b,c, {0,0},{1,0},{1,1}, n, 0, 0};
+        Triangle t2 = {a,c,d, {0,0},{1,1},{0,1}, n, 0, 0};
         mesh_add_tri(m, t1);
         mesh_add_tri(m, t2);
     }
@@ -69,11 +69,11 @@ static void make_diamond_mesh(Mesh *m, float size) {
         Vec3 n;
         /* Top half */
         n = vec3_normalize(vec3_cross(vec3_sub(pts[j], pts[i]), vec3_sub(top, pts[i])));
-        Triangle t1 = {pts[i], pts[j], top, {0,0},{1,0},{0.5f,1}, n, 0};
+        Triangle t1 = {pts[i], pts[j], top, {0,0},{1,0},{0.5f,1}, n, 0, 0};
         mesh_add_tri(m, t1);
         /* Bottom half */
         n = vec3_normalize(vec3_cross(vec3_sub(bottom, pts[i]), vec3_sub(pts[j], pts[i])));
-        Triangle t2 = {pts[i], bottom, pts[j], {0,0},{0.5f,1},{1,0}, n, 0};
+        Triangle t2 = {pts[i], bottom, pts[j], {0,0},{0.5f,1},{1,0}, n, 0, 0};
         mesh_add_tri(m, t2);
     }
 }
@@ -275,8 +275,16 @@ int entity_build_triangles(const EntityList *list, const EntityMeshes *em,
         for (int t = 0; t < tmpl->count && written < max_tris; t++) {
             Triangle tri = tmpl->tris[t];
             tri.material_id = e->material_id;
+            tri.owner = i + 1;
             out[written++] = transform_triangle(tri, pos, rot);
         }
     }
     return written;
+}
+
+int entity_hit(const HitRecord *rec) {
+    if (!rec->hit || rec->owner <= 0) {
+        return ENTITY_INDEX_NONE;
+    }
+    return rec->owner - 1;
 }

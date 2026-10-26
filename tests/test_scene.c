@@ -32,6 +32,7 @@ TEST(test_scene_static_intersect) {
     HitRecord rec = scene_intersect(&s, down, 0.001f, 100.0f);
     ASSERT(rec.hit);
     ASSERT_NEAR(rec.point.y, 0, 0.01f);
+    ASSERT(entity_hit(&rec) == ENTITY_INDEX_NONE);
 
     /* Ray pointing up should miss */
     Ray up = {vec3(0, 5, 0), vec3(0, 1, 0)};
@@ -66,6 +67,43 @@ TEST(test_scene_two_level_bvh) {
     HitRecord rec = scene_intersect(&s, down, 0.001f, 100.0f);
     ASSERT(rec.hit);
     ASSERT(rec.point.y > -0.01f); /* Should hit entity top, not floor */
+    ASSERT(entity_hit(&rec) == 0);
+
+    mesh_free(&m);
+    scene_free(&s);
+}
+
+TEST(test_scene_hit_identifies_entity) {
+    Scene s;
+    scene_init(&s);
+
+    Mesh m;
+    add_floor_tri(&m);
+    scene_build_static(&s, m.tris, m.count);
+
+    /* Two props side by side; inactive one first so indices != order */
+    Entity prop = {
+        .type = ENTITY_PROP, .active = false, .mesh_id = ENTITY_PROP
+    };
+    prop.position = vec3(-3, 0, 0);
+    entity_add(&s.entities, prop);
+    prop.active = true;
+    prop.position = vec3(-2, 0, 0);
+    entity_add(&s.entities, prop);
+    prop.position = vec3(2, 0, 0);
+    entity_add(&s.entities, prop);
+    scene_rebuild_dynamic(&s);
+
+    Ray at_left = {vec3(-2, 5, 0), vec3(0, -1, 0)};
+    Ray at_right = {vec3(2, 5, 0), vec3(0, -1, 0)};
+    Ray at_floor = {vec3(0, 5, 0), vec3(0, -1, 0)};
+
+    HitRecord rec = scene_intersect(&s, at_left, 0.001f, 100.0f);
+    ASSERT(entity_hit(&rec) == 1);
+    rec = scene_intersect(&s, at_right, 0.001f, 100.0f);
+    ASSERT(entity_hit(&rec) == 2);
+    rec = scene_intersect(&s, at_floor, 0.001f, 100.0f);
+    ASSERT(entity_hit(&rec) == ENTITY_INDEX_NONE);
 
     mesh_free(&m);
     scene_free(&s);
@@ -127,6 +165,7 @@ int main(void) {
     RUN_TEST(test_scene_init_free);
     RUN_TEST(test_scene_static_intersect);
     RUN_TEST(test_scene_two_level_bvh);
+    RUN_TEST(test_scene_hit_identifies_entity);
     RUN_TEST(test_scene_occluded);
     RUN_TEST(test_scene_dynamic_rebuild);
     TEST_REPORT();

@@ -85,4 +85,10 @@ int entity_build_triangles(const EntityList *list, const EntityMeshes *em,
 /* Count total triangles needed for all active entities */
 int entity_count_triangles(const EntityList *list, const EntityMeshes *em);
 
+/* Which entity a ray hit, or ENTITY_INDEX_NONE for world geometry/miss.
+ * Entity triangles carry owner = index + 1, so zero-initialized
+ * triangles (world, tests) read as "no entity". */
+#define ENTITY_INDEX_NONE (-1)
+int entity_hit(const HitRecord *rec);
+
 #endif

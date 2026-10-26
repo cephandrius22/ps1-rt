@@ -15,6 +15,7 @@ typedef struct {
     Vec2 uv0, uv1, uv2;
     Vec3 normal;
     int material_id;
+    int owner;  /* opaque tag set by whoever built the triangle; 0 = none */
 } Triangle;
 
 typedef struct {
@@ -24,6 +25,7 @@ typedef struct {
     Vec3 normal;
     Vec2 uv;
     int material_id;
+    int owner;  /* copied from the hit triangle */
     bool hit;
 } HitRecord;
 
