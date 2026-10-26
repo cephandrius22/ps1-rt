@@ -97,7 +97,16 @@ void entity_update(EntityList *list, float dt, float time) {
     }
 }
 
-int entity_touch(EntityList *list, Vec3 pos, float radius, int *out, int max) {
+static bool cylinder_contains(Cylinder c, Vec3 p) {
+    if (p.y < c.base.y || p.y > c.base.y + c.height) {
+        return false;
+    }
+    float dx = p.x - c.base.x;
+    float dz = p.z - c.base.z;
+    return dx * dx + dz * dz < c.radius * c.radius;
+}
+
+int entity_touch(EntityList *list, Cylinder body, int *out, int max) {
     int touched = 0;
     for (int i = 0; i < list->count && touched < max; i++) {
         Entity *e = &list->items[i];
@@ -105,7 +114,7 @@ int entity_touch(EntityList *list, Vec3 pos, float radius, int *out, int max) {
         if (!e->active || !def->touch) {
             continue;
         }
-        if (vec3_length(vec3_sub(pos, e->position)) >= radius) {
+        if (!cylinder_contains(body, e->position)) {
             continue;
         }
         if (def->touch(e) == TOUCH_CONSUMED) {

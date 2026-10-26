@@ -1,5 +1,6 @@
 #include "test_framework.h"
 #include "player.h"
+#include "scene.h"
 
 #define PLAYER_EYE_Y (PLAYER_HEIGHT + PLAYER_EYE_OFFSET)
 
@@ -205,6 +206,59 @@ TEST(test_player_airborne_no_footsteps) {
     ASSERT(q.count == 0);
 }
 
+/* Scene with a floor quad at y=0 spanning [-10, 10] on X/Z */
+static void floor_scene(Scene *s, Mesh *m) {
+    scene_init(s);
+    mesh_init(m);
+    Vec3 a = vec3(-10, 0, -10), b = vec3(10, 0, -10);
+    Vec3 c = vec3(10, 0, 10),   d = vec3(-10, 0, 10);
+    mesh_add_tri(m, (Triangle){.v0 = a, .v1 = d, .v2 = c, .normal = vec3(0, 1, 0)});
+    mesh_add_tri(m, (Triangle){.v0 = a, .v1 = c, .v2 = b, .normal = vec3(0, 1, 0)});
+    scene_build_static(s, m->tris, m->count);
+}
+
+/* Pickups sit near the floor (e1m1: y=0.5) while the player's eye is
+ * at ~1.7; standing next to one must still collect it. */
+TEST(test_player_collects_floor_pickup) {
+    Scene s;
+    Mesh m;
+    floor_scene(&s, &m);
+    entity_add(&s.entities, entity_spawn(ENTITY_PICKUP_HEALTH, vec3(0, 0.5f, -0.5f), "amount=25"));
+
+    Player p = grounded_player();
+    PlayerCmd cmd = {0};
+    EventQueue q = {0};
+    player_update_scene(&p, &cmd, 1.0f / 60.0f, &s, &q);
+
+    ASSERT(q.count == 1);
+    ASSERT(q.items[0].type == EV_PICKUP);
+    ASSERT(q.items[0].entity == 0);
+    ASSERT_NEAR(q.items[0].amount, 25.0f, 1e-6f);
+    ASSERT(!s.entities.items[0].active);
+
+    mesh_free(&m);
+    scene_free(&s);
+}
+
+/* A pickup well above the player's head is out of reach */
+TEST(test_player_ignores_pickup_overhead) {
+    Scene s;
+    Mesh m;
+    floor_scene(&s, &m);
+    entity_add(&s.entities, entity_spawn(ENTITY_PICKUP_HEALTH, vec3(0, 3.0f, 0), ""));
+
+    Player p = grounded_player();
+    PlayerCmd cmd = {0};
+    EventQueue q = {0};
+    player_update_scene(&p, &cmd, 1.0f / 60.0f, &s, &q);
+
+    ASSERT(q.count == 0);
+    ASSERT(s.entities.items[0].active);
+
+    mesh_free(&m);
+    scene_free(&s);
+}
+
 int main(void) {
     TEST_SUITE("player");
     RUN_TEST(test_player_create);
@@ -223,5 +277,7 @@ int main(void) {
     RUN_TEST(test_player_delta_time_scaling);
     RUN_TEST(test_player_footstep_events);
     RUN_TEST(test_player_airborne_no_footsteps);
+    RUN_TEST(test_player_collects_floor_pickup);
+    RUN_TEST(test_player_ignores_pickup_overhead);
     TEST_REPORT();
 }

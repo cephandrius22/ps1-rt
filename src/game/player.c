@@ -250,8 +250,10 @@ void player_update_scene(Player *p, const PlayerCmd *cmd, float dt, Scene *scene
     }
 
     /* Entity interaction: walk-over pickups */
+    Cylinder body = {.base = vec3(pos.x, p->foot_y, pos.z),
+                     .radius = COLLECT_RADIUS, .height = PLAYER_HEIGHT};
     int touched[PLAYER_TOUCH_MAX];
-    int n = entity_touch(&scene->entities, pos, COLLECT_RADIUS, touched, PLAYER_TOUCH_MAX);
+    int n = entity_touch(&scene->entities, body, touched, PLAYER_TOUCH_MAX);
     for (int i = 0; i < n; i++) {
         const Entity *e = &scene->entities.items[touched[i]];
         events_push(ev, (GameEvent){.type = EV_PICKUP, .pos = pos,

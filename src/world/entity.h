@@ -71,6 +71,15 @@ typedef struct {
     int material_id;  /* material for this entity's triangles */
 } Entity;
 
+/* Upright cylinder, e.g. a player's body: base at the feet, extending
+ * up by height. Touch tests against this instead of a single point so
+ * floor-level pickups are reachable from eye-level cameras. */
+typedef struct {
+    Vec3 base;
+    float radius;
+    float height;
+} Cylinder;
+
 /* Per-type behavior. Any hook may be NULL (= type doesn't do that). */
 typedef struct {
     const char *name;       /* level-file keyword, e.g. "health" */
@@ -123,9 +132,9 @@ void entity_meshes_free(EntityMeshes *em);
 /* Advance all active entities one tick */
 void entity_update(EntityList *list, float dt, float time);
 
-/* Touch every active entity within radius of pos. Writes indices of
- * entities that reacted into out (up to max). Returns how many. */
-int entity_touch(EntityList *list, Vec3 pos, float radius, int *out, int max);
+/* Touch every active entity whose position lies inside body. Writes
+ * indices of entities that reacted into out (up to max). Returns how many. */
+int entity_touch(EntityList *list, Cylinder body, int *out, int max);
 
 /* Use the nearest usable entity in range and roughly in front.
  * Writes its index to used (if non-NULL). */

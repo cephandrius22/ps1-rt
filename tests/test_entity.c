@@ -64,12 +64,14 @@ TEST(test_entity_collect_pickup) {
     int touched[4];
 
     /* Player too far — no collection */
-    int n = entity_touch(&list, vec3(5, 0, 0), COLLECT_RADIUS, touched, 4);
+    Cylinder far = {.base = vec3(5, 0, 0), .radius = COLLECT_RADIUS, .height = 1.6f};
+    int n = entity_touch(&list, far, touched, 4);
     ASSERT(n == 0);
     ASSERT(list.items[0].active);
 
     /* Player close enough */
-    n = entity_touch(&list, vec3(0, 0.5f, 0), COLLECT_RADIUS, touched, 4);
+    Cylinder near = {.base = vec3(0, 0, 0), .radius = COLLECT_RADIUS, .height = 1.6f};
+    n = entity_touch(&list, near, touched, 4);
     ASSERT(n == 1);
     ASSERT(touched[0] == 0);
     ASSERT(!list.items[0].active);
@@ -229,7 +231,8 @@ TEST(test_entity_hookless_type_is_inert) {
 
     /* Props have no touch/use hooks: nothing reacts */
     int touched[4];
-    ASSERT(entity_touch(&list, vec3(0, 0, -1), COLLECT_RADIUS, touched, 4) == 0);
+    Cylinder body = {.base = vec3(0, 0, -1), .radius = COLLECT_RADIUS, .height = 1.6f};
+    ASSERT(entity_touch(&list, body, touched, 4) == 0);
     ASSERT(entity_try_use(&list, vec3(0, 0, 0), vec3(0, 0, -1), USE_RANGE, NULL) == USE_NOTHING);
     ASSERT(list.items[0].active);
 
