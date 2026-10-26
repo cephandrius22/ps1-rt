@@ -6,7 +6,7 @@
 
 #include "camera.h"
 #include "bvh.h"
-#include "input.h"
+#include "cmd.h"
 #include <stdint.h>
 
 struct Scene;
@@ -25,9 +25,9 @@ typedef struct {
 } Weapon;
 
 Weapon weapon_create(void);
-void weapon_update(Weapon *w, const InputState *input, const Camera *cam,
+void weapon_update(Weapon *w, const PlayerCmd *cmd, const Camera *cam,
                    const BVH *world, float dt);
-void weapon_update_scene(Weapon *w, const InputState *input, const Camera *cam,
+void weapon_update_scene(Weapon *w, const PlayerCmd *cmd, const Camera *cam,
                          const struct Scene *scene, float dt);
 
 /* Draw crosshair and viewmodel onto framebuffer */

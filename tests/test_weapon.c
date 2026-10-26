@@ -12,9 +12,9 @@ TEST(test_weapon_create) {
 TEST(test_weapon_fire) {
     Weapon w = weapon_create();
     Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
-    InputState input = {.shoot = true};
+    PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
-    weapon_update(&w, &input, &cam, NULL, 1.0f / 60.0f);
+    weapon_update(&w, &cmd, &cam, NULL, 1.0f / 60.0f);
 
     ASSERT(w.fired_this_frame);
     ASSERT(w.cooldown_timer > 0);
@@ -24,22 +24,22 @@ TEST(test_weapon_fire) {
 TEST(test_weapon_cooldown) {
     Weapon w = weapon_create();
     Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
-    InputState input = {.shoot = true};
+    PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
     /* First shot */
-    weapon_update(&w, &input, &cam, NULL, 1.0f / 60.0f);
+    weapon_update(&w, &cmd, &cam, NULL, 1.0f / 60.0f);
     ASSERT(w.fired_this_frame);
 
     /* Second frame: still holding shoot, but cooldown prevents firing */
-    weapon_update(&w, &input, &cam, NULL, 1.0f / 60.0f);
+    weapon_update(&w, &cmd, &cam, NULL, 1.0f / 60.0f);
     ASSERT(!w.fired_this_frame);
 }
 
 TEST(test_weapon_cooldown_expires) {
     Weapon w = weapon_create();
     Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
-    InputState shoot = {.shoot = true};
-    InputState no_shoot = {0};
+    PlayerCmd shoot = {.buttons = BTN_ATTACK};
+    PlayerCmd no_shoot = {0};
 
     /* Fire */
     weapon_update(&w, &shoot, &cam, NULL, 1.0f / 60.0f);
@@ -57,8 +57,8 @@ TEST(test_weapon_cooldown_expires) {
 TEST(test_weapon_kick_recovers) {
     Weapon w = weapon_create();
     Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
-    InputState shoot = {.shoot = true};
-    InputState no_input = {0};
+    PlayerCmd shoot = {.buttons = BTN_ATTACK};
+    PlayerCmd no_input = {0};
 
     weapon_update(&w, &shoot, &cam, NULL, 1.0f / 60.0f);
     float kick_after_shot = w.kick;
@@ -75,9 +75,9 @@ TEST(test_weapon_kick_recovers) {
 TEST(test_weapon_no_fire_without_input) {
     Weapon w = weapon_create();
     Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
-    InputState input = {0};
+    PlayerCmd cmd = {0};
 
-    weapon_update(&w, &input, &cam, NULL, 1.0f / 60.0f);
+    weapon_update(&w, &cmd, &cam, NULL, 1.0f / 60.0f);
 
     ASSERT(!w.fired_this_frame);
     ASSERT_NEAR(w.cooldown_timer, 0.0f, 1e-6f);
@@ -100,9 +100,9 @@ TEST(test_weapon_hitscan_with_bvh) {
 
     Weapon w = weapon_create();
     Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
-    InputState input = {.shoot = true};
+    PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
-    weapon_update(&w, &input, &cam, &bvh, 1.0f / 60.0f);
+    weapon_update(&w, &cmd, &cam, &bvh, 1.0f / 60.0f);
 
     ASSERT(w.fired_this_frame);
     ASSERT(w.last_hit.hit);

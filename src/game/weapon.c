@@ -7,7 +7,7 @@ Weapon weapon_create(void) {
     return w;
 }
 
-void weapon_update(Weapon *w, const InputState *input, const Camera *cam,
+void weapon_update(Weapon *w, const PlayerCmd *cmd, const Camera *cam,
                    const BVH *world, float dt) {
     w->fired_this_frame = false;
 
@@ -24,7 +24,7 @@ void weapon_update(Weapon *w, const InputState *input, const Camera *cam,
     }
 
     /* Fire */
-    if (input->shoot && w->cooldown_timer <= 0) {
+    if (cmd_has(cmd, BTN_ATTACK) && w->cooldown_timer <= 0) {
         w->cooldown_timer = WEAPON_COOLDOWN;
         w->kick = WEAPON_KICK;
         w->fired_this_frame = true;
@@ -39,7 +39,7 @@ void weapon_update(Weapon *w, const InputState *input, const Camera *cam,
     }
 }
 
-void weapon_update_scene(Weapon *w, const InputState *input, const Camera *cam,
+void weapon_update_scene(Weapon *w, const PlayerCmd *cmd, const Camera *cam,
                          const struct Scene *scene, float dt) {
     w->fired_this_frame = false;
 
@@ -53,7 +53,7 @@ void weapon_update_scene(Weapon *w, const InputState *input, const Camera *cam,
         if (w->cooldown_timer < 0) w->cooldown_timer = 0;
     }
 
-    if (input->shoot && w->cooldown_timer <= 0) {
+    if (cmd_has(cmd, BTN_ATTACK) && w->cooldown_timer <= 0) {
         w->cooldown_timer = WEAPON_COOLDOWN;
         w->kick = WEAPON_KICK;
         w->fired_this_frame = true;

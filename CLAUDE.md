@@ -11,8 +11,9 @@ Real-time software raytracer in C + SDL2. Renders at 320x240, upscaled 3x. PS1 a
 ```bash
 make rt          # build the binary
 make test        # build and run all test suites
-make tests/test_bvh && ./tests/test_bvh   # build and run one suite
-make clean       # remove all build artifacts
+make build/tests/test_bvh && ./build/tests/test_bvh   # one suite
+make clean       # remove build/ and rt
+make compile_flags.txt  # include paths for clangd
 ./rt             # run with default level (levels/e1m1.level)
 ./rt levels/foo.level  # run with a specific level file
 ```
@@ -21,9 +22,29 @@ Requires: SDL2 (`sdl2-config`), C compiler, pthreads, `-lm`.
 
 ## Architecture
 
+### Layers
+
+`src/` is split by layer. A module may call down, never up or sideways
+across `game`/`render`. Every layer dir is on the include path, so
+headers are included by bare name (`"scene.h"`).
+
+```
+  main.c        wires everything, owns the loop
+  game/  render/   gameplay (player, weapon, cmd) | shading
+  world/        scene, entity, light, level loader
+  gfx/          camera, mesh, bvh, texture, proctex, ps1_effects
+  core/         math3d, threadpool
+  platform/     SDL input + audio; talks to game via PlayerCmd only
+```
+
+- **PlayerCmd (`game/cmd.h`) is the only input contract.** `input_poll()`
+  maps keys/mouse to it (bindings + sensitivity live in `platform/input.c`).
+  Game code must never include `input.h` or SDL, so AI or demo playback
+  can drive any actor with the same struct.
+
 ### Core Pipeline
 
-`main.c` — Game loop: level load → input → physics → light update → render → audio triggers → SDL blit
+`main.c` — Game loop: level load → `input_poll()` → physics → light update → render → audio triggers → SDL blit
 
 Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH) → `shade_pixel_lit()` → PS1 dither → framebuffer
 
@@ -45,7 +66,8 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH) → `shad
 | `ps1_effects` | Vertex jitter (1/128 grid), affine UV, 4x4 Bayer dither, 15-bit color quantize |
 | `player` | First-person movement with gravity, wall sliding, ground snap via BVH raycasts |
 | `weapon` | Hitscan weapon with cooldown and pitch recoil |
-| `input` | SDL2 keyboard/mouse state polling, relative mouse mode |
+| `cmd` | `PlayerCmd`: move axes, look deltas, button bitmask (held + impulse) |
+| `input` | SDL2 keyboard/mouse → `PlayerCmd`, relative mouse mode |
 | `audio` | 8-voice mixer via SDL2 audio callback, procedural sound gen, WAV loader ready |
 | `threadpool` | pthread fork-join pool, generation-based sync, splits scanlines across workers |
 
@@ -92,7 +114,8 @@ light <x> <y> <z> <r> <g> <b> <intensity> <radius> [key=value ...]
 
 Each `tests/test_*.c` is a standalone binary using `tests/test_framework.h` (`TEST`, `RUN_TEST`, `TEST_SUITE`, `TEST_REPORT`).
 
-- **New suite needs a Makefile rule.** `make test` picks up `tests/test_*.c` via wildcard, but there is no generic link rule — add an explicit target listing every `.o` the test depends on (transitive deps included, e.g. `scene.o` pulls `entity.o bvh.o mesh.o light.o texture.o`).
+- **New suite:** just add `tests/test_<name>.c`. Tests link against `build/librt.a` (all objects except `main.o`), so no Makefile edit is needed.
+- **New source dir under `src/`:** picked up automatically (sources and include path).
 - **Run from repo root.** `test_level` loads `tests/test.level` by relative path.
 
 Controls: WASD move, mouse look, Space jump, LMB shoot, E use, F flashlight, Esc quit.

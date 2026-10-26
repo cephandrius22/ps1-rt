@@ -28,7 +28,7 @@ Run `./rt` to see it in action — WASD to move, mouse to look around, Escape to
 ### Build & Run
 
 ```sh
-make        # Build the raytracer
+make        # Build the raytracer (objects go to build/)
 ./rt        # Run it
 
 make test   # Run all unit tests
@@ -39,27 +39,17 @@ make clean  # Remove build artifacts
 
 ```
 src/
-  main.c           Entry point, game loop, test scene construction
-  math3d.h         Vec3, Vec2, Mat4, Ray — inline math library
-  camera.c/h       Camera state and per-pixel ray generation
-  mesh.c/h         Triangle type, Moller-Trumbore intersection, OBJ loader
-  bvh.c/h          Bounding Volume Hierarchy — build (SAH) and traversal
-  render.c/h       Scene rendering: lighting, fog, material/texture lookup
-  texture.c/h      TGA file loading and UV sampling
-  ps1_effects.c/h  Vertex jitter, affine UV mapping, Bayer dithering
-  input.c/h        SDL2 keyboard and mouse input
-  player.c/h       First-person player movement and mouse look
+  main.c      Entry point, game loop
+  core/       math3d (inline math), threadpool
+  gfx/        camera, mesh + OBJ loader, BVH, TGA textures, procedural
+              textures, PS1 effects
+  world/      scene (two-level BVH), entities, lights, .level loader
+  game/       PlayerCmd, player controller, weapon
+  render/     per-pixel shading, multithreaded frame render
+  platform/   SDL input → PlayerCmd, audio mixer
 
-tests/
-  test_framework.h   Minimal C test framework (assert macros)
-  test_math3d.c      15 tests — vector/matrix operations
-  test_camera.c       5 tests — ray generation, rotation
-  test_mesh.c        10 tests — ray-triangle intersection, mesh operations
-  test_bvh.c         11 tests — AABB intersection, BVH build/query
-  test_texture.c      6 tests — UV sampling, wrapping, edge cases
-  test_ps1_effects.c  9 tests — vertex snap, affine UV, dithering
-  test_player.c      12 tests — movement, mouse look, normalization
-  test_render.c       9 tests — framebuffer, color packing, sky gradient
+tests/        one standalone binary per module (test_framework.h)
+levels/       .level scene files
 ```
 
 ### Rendering Pipeline

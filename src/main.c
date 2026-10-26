@@ -104,8 +104,10 @@ int main(int argc, char *argv[]) {
         if (dt > 0.05f) dt = 0.05f;
         game_time += dt;
 
-        InputState input_state;
-        input_update(&input_state, &running);
+        PlayerCmd cmd;
+        if (input_poll(&cmd) == INPUT_QUIT) {
+            running = false;
+        }
 
         /* Update entities (bobbing, door animation) */
         entity_update(&scene.entities, dt, game_time);
@@ -117,8 +119,8 @@ int main(int argc, char *argv[]) {
         scene_rebuild_dynamic(&scene);
 
         /* Update player and weapon using full scene intersection */
-        player_update_scene(&player, &input_state, dt, &scene);
-        weapon_update_scene(&weapon, &input_state, &player.cam, &scene, dt);
+        player_update_scene(&player, &cmd, dt, &scene);
+        weapon_update_scene(&weapon, &cmd, &player.cam, &scene, dt);
 
         /* Audio triggers */
         if (weapon.fired_this_frame) {

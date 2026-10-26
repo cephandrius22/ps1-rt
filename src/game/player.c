@@ -54,30 +54,42 @@ static Vec3 try_move_axis(Vec3 pos, Vec3 move, float foot_y, const BVH *world) {
     return vec3_add(pos, vec3_mul(move_dir, move_len));
 }
 
-void player_update(Player *p, const InputState *input, float dt, const BVH *world) {
-    // Mouse look
-    p->cam.yaw -= input->mouse_dx * MOUSE_SENSITIVITY;
-    p->cam.pitch -= input->mouse_dy * MOUSE_SENSITIVITY;
-    if (p->cam.pitch > 1.4f) p->cam.pitch = 1.4f;
-    if (p->cam.pitch < -1.4f) p->cam.pitch = -1.4f;
+/* Apply look deltas, clamping pitch so the view can't flip over */
+static void apply_look(Player *p, const PlayerCmd *cmd) {
+    p->cam.yaw += cmd->yaw_delta;
+    p->cam.pitch += cmd->pitch_delta;
+    if (p->cam.pitch > PLAYER_PITCH_MAX) {
+        p->cam.pitch = PLAYER_PITCH_MAX;
+    }
+    if (p->cam.pitch < -PLAYER_PITCH_MAX) {
+        p->cam.pitch = -PLAYER_PITCH_MAX;
+    }
+}
 
-    // Movement direction relative to yaw
-    Vec3 forward = vec3(-sinf(p->cam.yaw), 0, -cosf(p->cam.yaw));
+/* Horizontal forward direction for the current yaw (yaw=0 → -Z) */
+static Vec3 yaw_forward(const Player *p) {
+    return vec3(-sinf(p->cam.yaw), 0, -cosf(p->cam.yaw));
+}
+
+/* Yaw-relative wish direction. Length capped at 1 so diagonals aren't
+ * faster, while partial (analog) input still moves slower. */
+static Vec3 wish_dir(const Player *p, const PlayerCmd *cmd) {
+    Vec3 forward = yaw_forward(p);
     Vec3 right = vec3(cosf(p->cam.yaw), 0, -sinf(p->cam.yaw));
+    Vec3 dir = vec3_add(vec3_mul(forward, cmd->forward), vec3_mul(right, cmd->strafe));
 
-    Vec3 wish_dir = vec3(0, 0, 0);
-    if (input->forward) wish_dir = vec3_add(wish_dir, forward);
-    if (input->back)    wish_dir = vec3_sub(wish_dir, forward);
-    if (input->right)   wish_dir = vec3_add(wish_dir, right);
-    if (input->left)    wish_dir = vec3_sub(wish_dir, right);
+    if (vec3_dot(dir, dir) > 1.0f) {
+        dir = vec3_normalize(dir);
+    }
+    return dir;
+}
 
-    if (vec3_dot(wish_dir, wish_dir) > 0.001f)
-        wish_dir = vec3_normalize(wish_dir);
-
-    Vec3 horizontal_move = vec3_mul(wish_dir, PLAYER_SPEED * dt);
+void player_update(Player *p, const PlayerCmd *cmd, float dt, const BVH *world) {
+    apply_look(p, cmd);
+    Vec3 horizontal_move = vec3_mul(wish_dir(p, cmd), PLAYER_SPEED * dt);
 
     // Jump
-    if (input->jump && p->on_ground) {
+    if (cmd_has(cmd, BTN_JUMP) && p->on_ground) {
         p->velocity.y = PLAYER_JUMP_VEL;
         p->on_ground = false;
     }
@@ -172,30 +184,12 @@ static Vec3 try_move_axis_scene(Vec3 pos, Vec3 move, float foot_y, const Scene *
     return vec3_add(pos, vec3_mul(move_dir, move_len));
 }
 
-void player_update_scene(Player *p, const InputState *input, float dt, Scene *scene) {
-    /* Mouse look */
-    p->cam.yaw -= input->mouse_dx * MOUSE_SENSITIVITY;
-    p->cam.pitch -= input->mouse_dy * MOUSE_SENSITIVITY;
-    if (p->cam.pitch > 1.4f) p->cam.pitch = 1.4f;
-    if (p->cam.pitch < -1.4f) p->cam.pitch = -1.4f;
-
-    /* Movement direction relative to yaw */
-    Vec3 forward = vec3(-sinf(p->cam.yaw), 0, -cosf(p->cam.yaw));
-    Vec3 right = vec3(cosf(p->cam.yaw), 0, -sinf(p->cam.yaw));
-
-    Vec3 wish_dir = vec3(0, 0, 0);
-    if (input->forward) wish_dir = vec3_add(wish_dir, forward);
-    if (input->back)    wish_dir = vec3_sub(wish_dir, forward);
-    if (input->right)   wish_dir = vec3_add(wish_dir, right);
-    if (input->left)    wish_dir = vec3_sub(wish_dir, right);
-
-    if (vec3_dot(wish_dir, wish_dir) > 0.001f)
-        wish_dir = vec3_normalize(wish_dir);
-
-    Vec3 horizontal_move = vec3_mul(wish_dir, PLAYER_SPEED * dt);
+void player_update_scene(Player *p, const PlayerCmd *cmd, float dt, Scene *scene) {
+    apply_look(p, cmd);
+    Vec3 horizontal_move = vec3_mul(wish_dir(p, cmd), PLAYER_SPEED * dt);
 
     /* Jump */
-    if (input->jump && p->on_ground) {
+    if (cmd_has(cmd, BTN_JUMP) && p->on_ground) {
         p->velocity.y = PLAYER_JUMP_VEL;
         p->on_ground = false;
     }
@@ -238,14 +232,16 @@ void player_update_scene(Player *p, const InputState *input, float dt, Scene *sc
     p->cam.position = pos;
 
     /* Flashlight toggle */
-    if (input->flashlight_toggle)
+    if (cmd_has(cmd, BTN_FLASHLIGHT)) {
         p->flashlight_on = !p->flashlight_on;
+    }
 
     /* Entity interaction: collect pickups */
     p->collected = entity_try_collect(&scene->entities, pos, COLLECT_RADIUS);
 
     /* Entity interaction: use doors */
     p->door_action = 0;
-    if (input->use)
-        p->door_action = entity_try_use_door(&scene->entities, pos, forward, USE_RANGE);
+    if (cmd_has(cmd, BTN_USE)) {
+        p->door_action = entity_try_use_door(&scene->entities, pos, yaw_forward(p), USE_RANGE);
+    }
 }
