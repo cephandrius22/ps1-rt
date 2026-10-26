@@ -4,19 +4,14 @@
 #include <stdbool.h>
 #include "render.h"
 #include "camera.h"
-#include "mesh.h"
-#include "bvh.h"
 #include "input.h"
-#include "player.h"
-#include "weapon.h"
-#include "scene.h"
-#include "level.h"
+#include "game.h"
 #include "threadpool.h"
 #include "audio.h"
-#include "event.h"
 
 #define WINDOW_SCALE 3
 #define VIEW_FOV     1.2f /* radians */
+#define DEFAULT_LEVEL "levels/e1m1.level"
 
 /* Presentation side of the event queue: map game events to sounds */
 static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
@@ -34,8 +29,6 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
 }
 
 int main(int argc, char *argv[]) {
-    (void)argc; (void)argv;
-
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
@@ -67,28 +60,18 @@ int main(int argc, char *argv[]) {
         SCREEN_W, SCREEN_H);
 
     Framebuffer fb;
-    Weapon weapon = weapon_create(WEAPON_PISTOL);
 
-    /* Load level */
-    Scene scene;
-    scene_init(&scene);
-    LevelInfo level_info;
-    const char *level_file = (argc > 1) ? argv[1] : "levels/e1m1.level";
-    if (level_load(&scene, level_file, &level_info) != 0) {
+    /* Game owns the level, player and weapon (static: Scene is large) */
+    static Game game;
+    const char *level_file = (argc > 1) ? argv[1] : DEFAULT_LEVEL;
+    if (game_init(&game, level_file) != GAME_LOAD_OK) {
         fprintf(stderr, "Failed to load level: %s\n", level_file);
-        scene_free(&scene);
         SDL_DestroyTexture(texture);
         SDL_DestroyRenderer(sdl_renderer);
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 1;
     }
-
-    Player player = player_create(vec3(
-        level_info.spawn_pos.x,
-        level_info.spawn_pos.y + PLAYER_HEIGHT + PLAYER_EYE_OFFSET,
-        level_info.spawn_pos.z));
-    player.view.yaw = level_info.spawn_yaw * ((float)M_PI / 180.0f);
 
     input_init();
 
@@ -110,42 +93,26 @@ int main(int argc, char *argv[]) {
     bool running = true;
     Uint64 freq = SDL_GetPerformanceFrequency();
     Uint64 last_time = SDL_GetPerformanceCounter();
-    float game_time = 0;
-    EventQueue events;
 
     while (running) {
         Uint64 frame_start = SDL_GetPerformanceCounter();
         float dt = (float)(frame_start - last_time) / (float)freq;
         last_time = frame_start;
         if (dt > 0.05f) dt = 0.05f;
-        game_time += dt;
-
-        events_clear(&events);
 
         PlayerCmd cmd;
         if (input_poll(&cmd) == INPUT_QUIT) {
             running = false;
         }
 
-        /* Update entities (bobbing, door animation) */
-        entity_update(&scene.entities, dt, game_time);
-
-        /* Update animated lights (swinging bulbs, etc.) */
-        light_update(&scene.lights, game_time);
-
-        /* Rebuild dynamic BVH from entity geometry */
-        scene_rebuild_dynamic(&scene);
-
-        /* Update player and weapon using full scene intersection */
-        player_update(&player, &cmd, dt, &scene, &events);
-        weapon_update(&weapon, &cmd, player.view, &scene, dt, &events);
-
-        play_event_sounds(&audio, &events);
+        game_tick(&game, &cmd, dt);
+        play_event_sounds(&audio, &game.events);
 
         /* Render with point lights and shadow rays (multithreaded) */
-        Camera cam = camera_from_pose(player.view, VIEW_FOV);
-        render_scene_lit_mt(&fb, &cam, &scene, game_time, &pool, player.flashlight_on);
-        weapon_draw_viewmodel(fb.pixels, SCREEN_W, SCREEN_H, &weapon);
+        Camera cam = camera_from_pose(game.player.view, VIEW_FOV);
+        render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool,
+                            game.player.flashlight_on);
+        weapon_draw_viewmodel(fb.pixels, SCREEN_W, SCREEN_H, &game.weapon);
 
         SDL_UpdateTexture(texture, NULL, fb.pixels, SCREEN_W * sizeof(uint32_t));
         SDL_RenderClear(sdl_renderer);
@@ -155,14 +122,14 @@ int main(int argc, char *argv[]) {
         Uint64 frame_end = SDL_GetPerformanceCounter();
         float frame_ms = (float)(frame_end - frame_start) / (float)freq * 1000.0f;
         printf("\rFrame: %.1f ms (%.0f fps)  Entities: %d  Lights: %d",
-               frame_ms, 1000.0f / frame_ms, scene.entities.count, scene.lights.count);
+               frame_ms, 1000.0f / frame_ms, game.scene.entities.count, game.scene.lights.count);
         fflush(stdout);
     }
 
     printf("\n");
     audio_shutdown(&audio);
     threadpool_destroy(&pool);
-    scene_free(&scene);
+    game_free(&game);
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(sdl_renderer);
     SDL_DestroyWindow(window);
