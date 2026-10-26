@@ -48,7 +48,9 @@ static int tests_failed = 0;
 
 #define TEST_REPORT() do { \
     printf("\n--- Results: %d/%d passed", tests_passed, tests_run); \
-    if (tests_failed > 0) printf(", %d FAILED", tests_failed); \
+    if (tests_failed > 0) { \
+        printf(", %d FAILED", tests_failed); \
+    } \
     printf(" ---\n"); \
     return tests_failed > 0 ? 1 : 0; \
 } while(0)

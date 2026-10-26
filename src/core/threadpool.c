@@ -11,8 +11,9 @@ static void *worker_thread(void *arg) {
     pthread_mutex_lock(&pool->mutex);
     for (;;) {
         /* Wait until a new generation is posted or shutdown */
-        while (pool->generation == my_gen && !pool->shutdown)
+        while (pool->generation == my_gen && !pool->shutdown) {
             pthread_cond_wait(&pool->wake_cond, &pool->mutex);
+        }
 
         if (pool->shutdown) {
             pthread_mutex_unlock(&pool->mutex);
@@ -33,14 +34,16 @@ static void *worker_thread(void *arg) {
         /* Signal completion */
         pthread_mutex_lock(&pool->mutex);
         pool->jobs_finished++;
-        if (pool->jobs_finished == pool->worker_count)
+        if (pool->jobs_finished == pool->worker_count) {
             pthread_cond_signal(&pool->done_cond);
+        }
     }
 }
 
 int threadpool_create(ThreadPool *pool, int count) {
-    if (count <= 0 || count > THREADPOOL_MAX_WORKERS)
+    if (count <= 0 || count > THREADPOOL_MAX_WORKERS) {
         return -1;
+    }
 
     pool->worker_count = count;
     pool->func = NULL;
@@ -48,8 +51,9 @@ int threadpool_create(ThreadPool *pool, int count) {
     pool->jobs_finished = 0;
     pool->shutdown = false;
 
-    for (int i = 0; i < THREADPOOL_MAX_WORKERS; i++)
+    for (int i = 0; i < THREADPOOL_MAX_WORKERS; i++) {
         pool->args[i] = NULL;
+    }
 
     pthread_mutex_init(&pool->mutex, NULL);
     pthread_cond_init(&pool->wake_cond, NULL);
@@ -62,8 +66,9 @@ int threadpool_create(ThreadPool *pool, int count) {
             /* Clean up threads already created */
             pool->shutdown = true;
             pthread_cond_broadcast(&pool->wake_cond);
-            for (int j = 0; j < i; j++)
+            for (int j = 0; j < i; j++) {
                 pthread_join(pool->threads[j], NULL);
+            }
             pthread_mutex_destroy(&pool->mutex);
             pthread_cond_destroy(&pool->wake_cond);
             pthread_cond_destroy(&pool->done_cond);
@@ -75,19 +80,23 @@ int threadpool_create(ThreadPool *pool, int count) {
 }
 
 void threadpool_dispatch(ThreadPool *pool, threadpool_func func, void *args[], int count) {
-    if (count <= 0) return;
+    if (count <= 0) {
+        return;
+    }
 
     pthread_mutex_lock(&pool->mutex);
     pool->func = func;
     pool->jobs_finished = 0;
-    for (int i = 0; i < count; i++)
+    for (int i = 0; i < count; i++) {
         pool->args[i] = args[i];
+    }
     pool->generation++;
     pthread_cond_broadcast(&pool->wake_cond);
 
     /* Wait for all workers to finish */
-    while (pool->jobs_finished < count)
+    while (pool->jobs_finished < count) {
         pthread_cond_wait(&pool->done_cond, &pool->mutex);
+    }
 
     pthread_mutex_unlock(&pool->mutex);
 }
@@ -98,8 +107,9 @@ void threadpool_destroy(ThreadPool *pool) {
     pthread_cond_broadcast(&pool->wake_cond);
     pthread_mutex_unlock(&pool->mutex);
 
-    for (int i = 0; i < pool->worker_count; i++)
+    for (int i = 0; i < pool->worker_count; i++) {
         pthread_join(pool->threads[i], NULL);
+    }
 
     pthread_mutex_destroy(&pool->mutex);
     pthread_cond_destroy(&pool->wake_cond);
@@ -108,7 +118,11 @@ void threadpool_destroy(ThreadPool *pool) {
 
 int threadpool_cpu_count(void) {
     int count = (int)sysconf(_SC_NPROCESSORS_ONLN);
-    if (count < 1) count = 1;
-    if (count > THREADPOOL_MAX_WORKERS) count = THREADPOOL_MAX_WORKERS;
+    if (count < 1) {
+        count = 1;
+    }
+    if (count > THREADPOOL_MAX_WORKERS) {
+        count = THREADPOOL_MAX_WORKERS;
+    }
     return count;
 }

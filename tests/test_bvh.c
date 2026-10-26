@@ -59,8 +59,9 @@ TEST(test_bvh_build_single) {
 
 TEST(test_bvh_build_many) {
     Triangle tris[20];
-    for (int i = 0; i < 20; i++)
+    for (int i = 0; i < 20; i++) {
         tris[i] = make_tri_at((float)(i % 5) * 3.0f, 0, (float)(i / 5) * 3.0f);
+    }
 
     BVH bvh;
     bvh_build(&bvh, tris, 20);
@@ -118,8 +119,9 @@ TEST(test_bvh_matches_brute_force) {
 
     Mesh m;
     mesh_init(&m);
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 8; i++) {
         mesh_add_tri(&m, tris[i]);
+    }
 
     // Test multiple rays
     float test_x[] = {-3, -1, 1, 3, 0, -2, 2};

@@ -16,8 +16,9 @@ TEST(test_generate_sounds_all_valid) {
         ASSERT(sounds[i].sample_rate == AUDIO_SAMPLE_RATE);
     }
 
-    for (int i = 0; i < SND_COUNT; i++)
+    for (int i = 0; i < SND_COUNT; i++) {
         sound_free(&sounds[i]);
+    }
 }
 
 TEST(test_sound_free) {
@@ -33,8 +34,9 @@ TEST(test_sound_free) {
     sound_free(&sounds[0]);
     ASSERT(sounds[0].samples == NULL);
 
-    for (int i = 1; i < SND_COUNT; i++)
+    for (int i = 1; i < SND_COUNT; i++) {
         sound_free(&sounds[i]);
+    }
 }
 
 TEST(test_weapon_fire_is_short) {
@@ -47,8 +49,9 @@ TEST(test_weapon_fire_is_short) {
     ASSERT(duration > 0.1f);
     ASSERT(duration < 0.3f);
 
-    for (int i = 0; i < SND_COUNT; i++)
+    for (int i = 0; i < SND_COUNT; i++) {
         sound_free(&sounds[i]);
+    }
 }
 
 TEST(test_ambient_is_long) {
@@ -61,8 +64,9 @@ TEST(test_ambient_is_long) {
     ASSERT(duration > 2.0f);
     ASSERT(duration < 5.0f);
 
-    for (int i = 0; i < SND_COUNT; i++)
+    for (int i = 0; i < SND_COUNT; i++) {
         sound_free(&sounds[i]);
+    }
 }
 
 TEST(test_sounds_have_nonzero_samples) {
@@ -74,14 +78,16 @@ TEST(test_sounds_have_nonzero_samples) {
     for (int s = 0; s < SND_COUNT; s++) {
         int nonzero = 0;
         for (int i = 0; i < sounds[s].length; i++) {
-            if (sounds[s].samples[i] != 0)
+            if (sounds[s].samples[i] != 0) {
                 nonzero++;
+            }
         }
         ASSERT(nonzero > sounds[s].length / 10);
     }
 
-    for (int i = 0; i < SND_COUNT; i++)
+    for (int i = 0; i < SND_COUNT; i++) {
         sound_free(&sounds[i]);
+    }
 }
 
 TEST(test_sound_id_count) {

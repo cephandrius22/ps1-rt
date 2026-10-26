@@ -64,7 +64,9 @@ static inline float vec3_length(Vec3 a) {
 
 static inline Vec3 vec3_normalize(Vec3 a) {
     float len = vec3_length(a);
-    if (len < 1e-8f) return (Vec3){0, 0, 0};
+    if (len < 1e-8f) {
+        return (Vec3){0, 0, 0};
+    }
     return vec3_mul(a, 1.0f / len);
 }
 
@@ -73,8 +75,12 @@ static inline Vec3 vec3_lerp(Vec3 a, Vec3 b, float t) {
 }
 
 static inline float clampf(float v, float lo, float hi) {
-    if (v < lo) return lo;
-    if (v > hi) return hi;
+    if (v < lo) {
+        return lo;
+    }
+    if (v > hi) {
+        return hi;
+    }
     return v;
 }
 
@@ -94,10 +100,13 @@ static inline Vec3 mat4_mul_vec3(Mat4 m, Vec3 v, float w) {
 
 static inline Mat4 mat4_mul(Mat4 a, Mat4 b) {
     Mat4 r = {{{0}}};
-    for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 4; j++)
-            for (int k = 0; k < 4; k++)
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            for (int k = 0; k < 4; k++) {
                 r.m[i][j] += a.m[i][k] * b.m[k][j];
+            }
+        }
+    }
     return r;
 }
 

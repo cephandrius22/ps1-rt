@@ -53,8 +53,9 @@ TEST(test_proctex_generate_all) {
         ASSERT(textures[i].width > 0);
         ASSERT(textures[i].height > 0);
     }
-    for (int i = 0; i < PTEX_COUNT; i++)
+    for (int i = 0; i < PTEX_COUNT; i++) {
         texture_free(&textures[i]);
+    }
 }
 
 TEST(test_proctex_sample) {
@@ -72,7 +73,10 @@ TEST(test_proctex_nonzero_content) {
     proctex_generate(&tex, PTEX_METAL_PANEL);
     int nonzero = 0;
     for (int i = 0; i < tex.width * tex.height * 3; i++) {
-        if (tex.pixels[i] != 0) { nonzero = 1; break; }
+        if (tex.pixels[i] != 0) {
+            nonzero = 1;
+            break;
+        }
     }
     ASSERT(nonzero);
     texture_free(&tex);

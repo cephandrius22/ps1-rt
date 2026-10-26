@@ -100,8 +100,9 @@ TEST(test_mesh_grow) {
     mesh_init(&m);
     Triangle tri = make_floor_tri();
 
-    for (int i = 0; i < 200; i++)
+    for (int i = 0; i < 200; i++) {
         mesh_add_tri(&m, tri);
+    }
 
     ASSERT_EQ_INT(m.count, 200);
     ASSERT(m.capacity >= 200);

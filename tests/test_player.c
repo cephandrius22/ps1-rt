@@ -155,8 +155,9 @@ TEST(test_player_gravity_fall) {
     Player p = player_create(vec3(0, 5.0f, 0));
     PlayerCmd cmd = {0};
 
-    for (int i = 0; i < 200; i++)
+    for (int i = 0; i < 200; i++) {
         player_update(&p, &cmd, 1.0f / 60.0f, &floor_world, &ev);
+    }
 
     // Should have settled on the y=0 floor
     ASSERT(p.on_ground);

@@ -33,8 +33,9 @@ typedef struct {
 
 static int find_mat(LevelParser *p, const char *name) {
     for (int i = 0; i < p->mat_count; i++) {
-        if (strcmp(p->mats[i].name, name) == 0)
+        if (strcmp(p->mats[i].name, name) == 0) {
             return p->mats[i].scene_index;
+        }
     }
     fprintf(stderr, "level: unknown material '%s', using 0\n", name);
     return 0;
@@ -180,8 +181,9 @@ static void parse_room(const char *line, LevelParser *p) {
 
     if (sscanf(line, "room %f %f %f %f %f %f %31s %31s %31s",
                &x1, &y1, &z1, &x2, &y2, &z2,
-               wall_name, floor_name, ceil_name) < 9)
+               wall_name, floor_name, ceil_name) < 9) {
         return;
+    }
 
     int wall_mat = find_mat(p, wall_name);
     int floor_mat = strcmp(floor_name, "none") == 0 ? -1 : find_mat(p, floor_name);
@@ -196,8 +198,9 @@ static void parse_box(const char *line, LevelParser *p) {
     char mat_name[32];
 
     if (sscanf(line, "box %f %f %f %f %f %f %31s",
-               &x1, &y1, &z1, &x2, &y2, &z2, mat_name) < 7)
+               &x1, &y1, &z1, &x2, &y2, &z2, mat_name) < 7) {
         return;
+    }
 
     int mat_id = find_mat(p, mat_name);
     add_box_outer(&p->world_mesh, vec3(x1, y1, z1), vec3(x2, y2, z2), mat_id);
@@ -208,8 +211,9 @@ static void parse_quad(const char *line, LevelParser *p) {
     char mat_name[32];
 
     if (sscanf(line, "quad %f %f %f %f %f %f %f %f %f %f %f %f %31s",
-               &x1,&y1,&z1, &x2,&y2,&z2, &x3,&y3,&z3, &x4,&y4,&z4, mat_name) < 13)
+               &x1,&y1,&z1, &x2,&y2,&z2, &x3,&y3,&z3, &x4,&y4,&z4, mat_name) < 13) {
         return;
+    }
 
     int mat_id = find_mat(p, mat_name);
     add_quad_uv(&p->world_mesh,
@@ -222,8 +226,9 @@ static void parse_obj(const char *line, LevelParser *p) {
     float x, y, z, rot_y, scale;
 
     if (sscanf(line, "obj %255s %f %f %f %f %f %31s",
-               filename, &x, &y, &z, &rot_y, &scale, mat_name) < 7)
+               filename, &x, &y, &z, &rot_y, &scale, mat_name) < 7) {
         return;
+    }
 
     int mat_id = find_mat(p, mat_name);
 
@@ -283,8 +288,9 @@ static void parse_light(const char *line, Scene *scene) {
     float x, y, z, r, g, b, intensity, radius;
 
     if (sscanf(line, "light %f %f %f %f %f %f %f %f",
-               &x, &y, &z, &r, &g, &b, &intensity, &radius) < 8)
+               &x, &y, &z, &r, &g, &b, &intensity, &radius) < 8) {
         return;
+    }
 
     PointLight pl = {
         .position = vec3(x, y, z),
@@ -332,33 +338,42 @@ int level_load(Scene *scene, const char *filename, LevelInfo *info) {
     while (fgets(line, sizeof(line), f)) {
         /* Strip newline */
         char *nl = strchr(line, '\n');
-        if (nl) *nl = '\0';
+        if (nl) {
+            *nl = '\0';
+        }
         char *cr = strchr(line, '\r');
-        if (cr) *cr = '\0';
+        if (cr) {
+            *cr = '\0';
+        }
 
         /* Skip empty lines and comments */
         const char *p = line;
-        while (*p == ' ' || *p == '\t') p++;
-        if (*p == '\0' || *p == '#') continue;
+        while (*p == ' ' || *p == '\t') {
+            p++;
+        }
+        if (*p == '\0' || *p == '#') {
+            continue;
+        }
 
-        if (strncmp(p, "spawn ", 6) == 0)
+        if (strncmp(p, "spawn ", 6) == 0) {
             parse_spawn(p, info);
-        else if (strncmp(p, "material ", 9) == 0)
+        } else if (strncmp(p, "material ", 9) == 0) {
             parse_material(p, &parser);
-        else if (strncmp(p, "room ", 5) == 0)
+        } else if (strncmp(p, "room ", 5) == 0) {
             parse_room(p, &parser);
-        else if (strncmp(p, "box ", 4) == 0)
+        } else if (strncmp(p, "box ", 4) == 0) {
             parse_box(p, &parser);
-        else if (strncmp(p, "quad ", 5) == 0)
+        } else if (strncmp(p, "quad ", 5) == 0) {
             parse_quad(p, &parser);
-        else if (strncmp(p, "obj ", 4) == 0)
+        } else if (strncmp(p, "obj ", 4) == 0) {
             parse_obj(p, &parser);
-        else if (strncmp(p, "entity ", 7) == 0)
+        } else if (strncmp(p, "entity ", 7) == 0) {
             parse_entity(p, scene);
-        else if (strncmp(p, "light ", 6) == 0)
+        } else if (strncmp(p, "light ", 6) == 0) {
             parse_light(p, scene);
-        else
+        } else {
             fprintf(stderr, "level: unknown directive: %.40s\n", p);
+        }
     }
 
     fclose(f);
@@ -375,8 +390,9 @@ int level_load(Scene *scene, const char *filename, LevelInfo *info) {
     }
 
     /* Apply PS1 vertex jitter to world geometry */
-    for (int i = 0; i < parser.world_mesh.count; i++)
+    for (int i = 0; i < parser.world_mesh.count; i++) {
         parser.world_mesh.tris[i] = ps1_jitter_triangle(&parser.world_mesh.tris[i]);
+    }
 
     /* Build static BVH */
     printf("Level '%s': %d triangles, %d materials, %d textures, %d entities, %d lights\n",

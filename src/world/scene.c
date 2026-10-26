@@ -42,8 +42,9 @@ void scene_free(Scene *s) {
     s->materials = NULL;
     s->material_count = 0;
 
-    for (int i = 0; i < s->texture_count; i++)
+    for (int i = 0; i < s->texture_count; i++) {
         texture_free(&s->textures[i]);
+    }
     free(s->textures);
     s->textures = NULL;
     s->texture_count = 0;
@@ -71,7 +72,9 @@ void scene_rebuild_dynamic(Scene *s) {
     if (needed > s->dynamic_tri_cap) {
         int new_cap = needed + needed / 2 + 16;
         Triangle *new_buf = realloc(s->dynamic_tris, (size_t)new_cap * sizeof(Triangle));
-        if (!new_buf) return;
+        if (!new_buf) {
+            return;
+        }
         s->dynamic_tris = new_buf;
         s->dynamic_tri_cap = new_cap;
     }
@@ -93,8 +96,9 @@ HitRecord scene_intersect(const Scene *s, Ray ray, float t_min, float t_max) {
     if (s->has_dynamic) {
         float dyn_max = best.hit ? best.t : t_max;
         HitRecord dyn = bvh_intersect(&s->dynamic_bvh, ray, t_min, dyn_max);
-        if (dyn.hit)
+        if (dyn.hit) {
             best = dyn;
+        }
     }
 
     return best;
@@ -102,11 +106,15 @@ HitRecord scene_intersect(const Scene *s, Ray ray, float t_min, float t_max) {
 
 bool scene_occluded(const Scene *s, Ray ray, float t_min, float t_max) {
     HitRecord rec = bvh_intersect(&s->static_bvh, ray, t_min, t_max);
-    if (rec.hit) return true;
+    if (rec.hit) {
+        return true;
+    }
 
     if (s->has_dynamic) {
         rec = bvh_intersect(&s->dynamic_bvh, ray, t_min, t_max);
-        if (rec.hit) return true;
+        if (rec.hit) {
+            return true;
+        }
     }
 
     return false;

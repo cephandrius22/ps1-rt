@@ -16,9 +16,18 @@ static AABB tri_bounds(const Triangle *t) {
     Vec3 mx = vec3_max(vec3_max(t->v0, t->v1), t->v2);
     // Pad thin AABBs
     float eps = 0.0001f;
-    if (mx.x - mn.x < eps) { mn.x -= eps; mx.x += eps; }
-    if (mx.y - mn.y < eps) { mn.y -= eps; mx.y += eps; }
-    if (mx.z - mn.z < eps) { mn.z -= eps; mx.z += eps; }
+    if (mx.x - mn.x < eps) {
+        mn.x -= eps;
+        mx.x += eps;
+    }
+    if (mx.y - mn.y < eps) {
+        mn.y -= eps;
+        mx.y += eps;
+    }
+    if (mx.z - mn.z < eps) {
+        mn.z -= eps;
+        mx.z += eps;
+    }
     return (AABB){mn, mx};
 }
 
@@ -38,17 +47,40 @@ static Vec3 tri_centroid(const Triangle *t) {
 bool aabb_hit(AABB box, Ray ray, float t_min, float t_max) {
     for (int a = 0; a < 3; a++) {
         float origin, dir, bmin, bmax;
-        if (a == 0) { origin = ray.origin.x; dir = ray.dir.x; bmin = box.min.x; bmax = box.max.x; }
-        else if (a == 1) { origin = ray.origin.y; dir = ray.dir.y; bmin = box.min.y; bmax = box.max.y; }
-        else { origin = ray.origin.z; dir = ray.dir.z; bmin = box.min.z; bmax = box.max.z; }
+        if (a == 0) {
+            origin = ray.origin.x;
+            dir = ray.dir.x;
+            bmin = box.min.x;
+            bmax = box.max.x;
+        } else if (a == 1) {
+            origin = ray.origin.y;
+            dir = ray.dir.y;
+            bmin = box.min.y;
+            bmax = box.max.y;
+        } else {
+            origin = ray.origin.z;
+            dir = ray.dir.z;
+            bmin = box.min.z;
+            bmax = box.max.z;
+        }
 
         float inv_d = 1.0f / dir;
         float t0 = (bmin - origin) * inv_d;
         float t1 = (bmax - origin) * inv_d;
-        if (inv_d < 0.0f) { float tmp = t0; t0 = t1; t1 = tmp; }
-        if (t0 > t_min) t_min = t0;
-        if (t1 < t_max) t_max = t1;
-        if (t_max <= t_min) return false;
+        if (inv_d < 0.0f) {
+            float tmp = t0;
+            t0 = t1;
+            t1 = tmp;
+        }
+        if (t0 > t_min) {
+            t_min = t0;
+        }
+        if (t1 < t_max) {
+            t_max = t1;
+        }
+        if (t_max <= t_min) {
+            return false;
+        }
     }
     return true;
 }
@@ -71,8 +103,9 @@ static int build_recursive(BVH *bvh, int start, int count) {
 
     // Compute bounds
     AABB bounds = tri_bounds(&bvh->tris[start]);
-    for (int i = 1; i < count; i++)
+    for (int i = 1; i < count; i++) {
         bounds = aabb_union(bounds, tri_bounds(&bvh->tris[start + i]));
+    }
     bvh->nodes[node_idx].bbox = bounds;
 
     if (count <= 4) {
@@ -94,9 +127,16 @@ static int build_recursive(BVH *bvh, int start, int count) {
                 float ci, cj;
                 Vec3 centi = tri_centroid(&bvh->tris[i]);
                 Vec3 centj = tri_centroid(&bvh->tris[j]);
-                if (axis == 0) { ci = centi.x; cj = centj.x; }
-                else if (axis == 1) { ci = centi.y; cj = centj.y; }
-                else { ci = centi.z; cj = centj.z; }
+                if (axis == 0) {
+                    ci = centi.x;
+                    cj = centj.x;
+                } else if (axis == 1) {
+                    ci = centi.y;
+                    cj = centj.y;
+                } else {
+                    ci = centi.z;
+                    cj = centj.z;
+                }
                 if (cj < ci) {
                     Triangle tmp = bvh->tris[i];
                     bvh->tris[i] = bvh->tris[j];
@@ -108,12 +148,14 @@ static int build_recursive(BVH *bvh, int start, int count) {
         // Evaluate splits
         for (int i = 1; i < count; i++) {
             AABB left_box = tri_bounds(&bvh->tris[start]);
-            for (int j = 1; j < i; j++)
+            for (int j = 1; j < i; j++) {
                 left_box = aabb_union(left_box, tri_bounds(&bvh->tris[start + j]));
+            }
 
             AABB right_box = tri_bounds(&bvh->tris[start + i]);
-            for (int j = i + 1; j < count; j++)
+            for (int j = i + 1; j < count; j++) {
                 right_box = aabb_union(right_box, tri_bounds(&bvh->tris[start + j]));
+            }
 
             float cost = 1.0f + (i * aabb_surface_area(left_box) +
                          (count - i) * aabb_surface_area(right_box)) / parent_area;
@@ -132,9 +174,16 @@ static int build_recursive(BVH *bvh, int start, int count) {
             float ci, cj;
             Vec3 centi = tri_centroid(&bvh->tris[i]);
             Vec3 centj = tri_centroid(&bvh->tris[j]);
-            if (best_axis == 0) { ci = centi.x; cj = centj.x; }
-            else if (best_axis == 1) { ci = centi.y; cj = centj.y; }
-            else { ci = centi.z; cj = centj.z; }
+            if (best_axis == 0) {
+                ci = centi.x;
+                cj = centj.x;
+            } else if (best_axis == 1) {
+                ci = centi.y;
+                cj = centj.y;
+            } else {
+                ci = centi.z;
+                cj = centj.z;
+            }
             if (cj < ci) {
                 Triangle tmp = bvh->tris[i];
                 bvh->tris[i] = bvh->tris[j];
@@ -158,8 +207,9 @@ void bvh_build(BVH *bvh, const Triangle *tris, int count) {
     bvh->nodes = malloc(sizeof(BVHNode) * bvh->capacity);
     bvh->node_count = 0;
 
-    if (count > 0)
+    if (count > 0) {
         build_recursive(bvh, 0, count);
+    }
 }
 
 void bvh_free(BVH *bvh) {
@@ -172,7 +222,9 @@ void bvh_free(BVH *bvh) {
 HitRecord bvh_intersect(const BVH *bvh, Ray ray, float t_min, float t_max) {
     HitRecord closest = {.hit = false, .t = t_max};
 
-    if (bvh->node_count == 0) return closest;
+    if (bvh->node_count == 0) {
+        return closest;
+    }
 
     // Stack-based traversal
     int stack[64];
@@ -183,8 +235,9 @@ HitRecord bvh_intersect(const BVH *bvh, Ray ray, float t_min, float t_max) {
         int idx = stack[--sp];
         const BVHNode *node = &bvh->nodes[idx];
 
-        if (!aabb_hit(node->bbox, ray, t_min, closest.t))
+        if (!aabb_hit(node->bbox, ray, t_min, closest.t)) {
             continue;
+        }
 
         if (node->tri_count > 0) {
             // Leaf
@@ -196,8 +249,12 @@ HitRecord bvh_intersect(const BVH *bvh, Ray ray, float t_min, float t_max) {
                 }
             }
         } else {
-            if (node->left >= 0) stack[sp++] = node->left;
-            if (node->right >= 0) stack[sp++] = node->right;
+            if (node->left >= 0) {
+                stack[sp++] = node->left;
+            }
+            if (node->right >= 0) {
+                stack[sp++] = node->right;
+            }
         }
     }
 

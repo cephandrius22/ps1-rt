@@ -51,8 +51,9 @@ TEST(test_weapon_cooldown_expires) {
     ASSERT(w.fired_this_tick);
 
     /* Wait for cooldown to expire */
-    for (int i = 0; i < 30; i++)
+    for (int i = 0; i < 30; i++) {
         weapon_update(&w, &no_shoot, aim, &empty, 1.0f / 60.0f, &ev);
+    }
 
     /* Should be able to fire again */
     weapon_update(&w, &shoot, aim, &empty, 1.0f / 60.0f, &ev);
@@ -70,8 +71,9 @@ TEST(test_weapon_kick_recovers) {
     ASSERT(kick_after_shot > 0);
 
     /* Let kick recover */
-    for (int i = 0; i < 60; i++)
+    for (int i = 0; i < 60; i++) {
         weapon_update(&w, &no_input, aim, &empty, 1.0f / 60.0f, &ev);
+    }
 
     ASSERT(w.kick < kick_after_shot);
     ASSERT_NEAR(w.kick, 0.0f, 1e-6f);

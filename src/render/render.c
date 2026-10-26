@@ -5,13 +5,15 @@
 #include <stddef.h>
 
 void framebuffer_clear(Framebuffer *fb, uint32_t color) {
-    for (int i = 0; i < SCREEN_W * SCREEN_H; i++)
+    for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
         fb->pixels[i] = color;
+    }
 }
 
 void framebuffer_set(Framebuffer *fb, int x, int y, uint32_t color) {
-    if (x >= 0 && x < SCREEN_W && y >= 0 && y < SCREEN_H)
+    if (x >= 0 && x < SCREEN_W && y >= 0 && y < SCREEN_H) {
         fb->pixels[y * SCREEN_W + x] = color;
+    }
 }
 
 uint32_t color_rgb(uint8_t r, uint8_t g, uint8_t b) {
@@ -28,8 +30,12 @@ Vec3 sky_color(Vec3 dir) {
 static Vec3 checkerboard(float u, float v) {
     int cu = (int)(u * 4.0f) % 2;
     int cv = (int)(v * 4.0f) % 2;
-    if (u * 4.0f < 0) cu = 1 - cu;
-    if (v * 4.0f < 0) cv = 1 - cv;
+    if (u * 4.0f < 0) {
+        cu = 1 - cu;
+    }
+    if (v * 4.0f < 0) {
+        cv = 1 - cv;
+    }
     return (cu ^ cv) ? vec3(0.9f, 0.9f, 0.9f) : vec3(0.2f, 0.2f, 0.2f);
 }
 
@@ -38,8 +44,9 @@ static Vec3 get_surface_color(const HitRecord *rec,
                               const Texture *textures, int tex_count) {
     if (materials && rec->material_id >= 0 && rec->material_id < mat_count) {
         const Material *mat = &materials[rec->material_id];
-        if (mat->texture_id >= 0 && mat->texture_id < tex_count)
+        if (mat->texture_id >= 0 && mat->texture_id < tex_count) {
             return texture_sample(&textures[mat->texture_id], rec->uv.u, rec->uv.v);
+        }
         return mat->color;
     }
     return checkerboard(rec->uv.u, rec->uv.v);
@@ -75,8 +82,9 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
         Vec3 normal = rec.normal;
 
         /* Flip normal on back-face hits for double-sided lighting */
-        if (vec3_dot(ray.dir, normal) > 0)
+        if (vec3_dot(ray.dir, normal) > 0) {
             normal = vec3_mul(normal, -1.0f);
+        }
 
         Vec3 lighting = vec3(params->ambient, params->ambient, params->ambient);
 
@@ -84,8 +92,9 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
         float sun_ndl = vec3_dot(normal, params->sun_dir);
         if (sun_ndl > 0) {
             Ray shadow_ray = {vec3_add(hit_pos, vec3_mul(normal, 0.01f)), params->sun_dir};
-            if (!scene_occluded(scene, shadow_ray, 0.001f, 100.0f))
+            if (!scene_occluded(scene, shadow_ray, 0.001f, 100.0f)) {
                 lighting = vec3_add(lighting, vec3_mul(vec3(1, 0.95f, 0.7f), sun_ndl * 0.15f));
+            }
         }
 
         /* Point lights */
@@ -95,11 +104,15 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
             Vec3 to_light = vec3_sub(pl->position, hit_pos);
             float dist = vec3_length(to_light);
 
-            if (dist >= pl->radius) continue;
+            if (dist >= pl->radius) {
+                continue;
+            }
 
             Vec3 light_dir = vec3_mul(to_light, 1.0f / dist);
             float ndl = vec3_dot(normal, light_dir);
-            if (ndl <= 0) continue;
+            if (ndl <= 0) {
+                continue;
+            }
 
             float atten = light_attenuation(pl, dist);
             float eff_intensity = light_effective_intensity(pl, time);
@@ -159,7 +172,9 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
         const PointLight *pl = &scene->lights.items[i];
         Vec3 to_light = vec3_sub(pl->position, ray.origin);
         float t_along = vec3_dot(to_light, ray.dir);
-        if (t_along <= 0.1f || t_along >= hit_t) continue;
+        if (t_along <= 0.1f || t_along >= hit_t) {
+            continue;
+        }
 
         /* Distance from ray to light center */
         Vec3 closest = vec3_add(ray.origin, vec3_mul(ray.dir, t_along));
@@ -212,9 +227,11 @@ void render_scene_lit(Framebuffer *fb, const Camera *cam, const Scene *scene,
                       float time, bool flashlight) {
     RenderParams params = make_render_params(scene, cam, flashlight);
 
-    for (int y = 0; y < SCREEN_H; y++)
-        for (int x = 0; x < SCREEN_W; x++)
+    for (int y = 0; y < SCREEN_H; y++) {
+        for (int x = 0; x < SCREEN_W; x++) {
             fb->pixels[y * SCREEN_W + x] = shade_pixel_lit(x, y, cam, scene, time, &params);
+        }
+    }
 }
 
 /* --- Multithreaded lit render --- */
@@ -231,11 +248,13 @@ typedef struct {
 
 static void render_chunk_func(void *arg) {
     RenderChunk *chunk = arg;
-    for (int y = chunk->y_start; y < chunk->y_end; y++)
-        for (int x = 0; x < SCREEN_W; x++)
+    for (int y = chunk->y_start; y < chunk->y_end; y++) {
+        for (int x = 0; x < SCREEN_W; x++) {
             chunk->fb->pixels[y * SCREEN_W + x] =
                 shade_pixel_lit(x, y, chunk->cam, chunk->scene,
                                 chunk->time, &chunk->params);
+        }
+    }
 }
 
 void render_scene_lit_mt(Framebuffer *fb, const Camera *cam, const Scene *scene,

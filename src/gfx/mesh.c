@@ -9,23 +9,27 @@ bool ray_triangle_intersect(Ray ray, const Triangle *tri, float t_min, float t_m
     Vec3 h = vec3_cross(ray.dir, e2);
     float a = vec3_dot(e1, h);
 
-    if (a > -1e-7f && a < 1e-7f)
+    if (a > -1e-7f && a < 1e-7f) {
         return false;
+    }
 
     float f = 1.0f / a;
     Vec3 s = vec3_sub(ray.origin, tri->v0);
     float u = f * vec3_dot(s, h);
-    if (u < 0.0f || u > 1.0f)
+    if (u < 0.0f || u > 1.0f) {
         return false;
+    }
 
     Vec3 q = vec3_cross(s, e1);
     float v = f * vec3_dot(ray.dir, q);
-    if (v < 0.0f || u + v > 1.0f)
+    if (v < 0.0f || u + v > 1.0f) {
         return false;
+    }
 
     float t = f * vec3_dot(e2, q);
-    if (t < t_min || t > t_max)
+    if (t < t_min || t > t_max) {
         return false;
+    }
 
     rec->t = t;
     rec->u = u;
@@ -99,17 +103,26 @@ int mesh_load_obj(Mesh *m, const char *filename) {
         if (line[0] == 'v' && line[1] == ' ') {
             Vec3 v;
             sscanf(line + 2, "%f %f %f", &v.x, &v.y, &v.z);
-            if (v_count >= v_cap) { v_cap *= 2; verts = realloc(verts, sizeof(Vec3) * v_cap); }
+            if (v_count >= v_cap) {
+                v_cap *= 2;
+                verts = realloc(verts, sizeof(Vec3) * v_cap);
+            }
             verts[v_count++] = v;
         } else if (line[0] == 'v' && line[1] == 't') {
             Vec2 vt;
             sscanf(line + 3, "%f %f", &vt.u, &vt.v);
-            if (vt_count >= vt_cap) { vt_cap *= 2; uvs = realloc(uvs, sizeof(Vec2) * vt_cap); }
+            if (vt_count >= vt_cap) {
+                vt_cap *= 2;
+                uvs = realloc(uvs, sizeof(Vec2) * vt_cap);
+            }
             uvs[vt_count++] = vt;
         } else if (line[0] == 'v' && line[1] == 'n') {
             Vec3 vn;
             sscanf(line + 3, "%f %f %f", &vn.x, &vn.y, &vn.z);
-            if (vn_count >= vn_cap) { vn_cap *= 2; normals = realloc(normals, sizeof(Vec3) * vn_cap); }
+            if (vn_count >= vn_cap) {
+                vn_cap *= 2;
+                normals = realloc(normals, sizeof(Vec3) * vn_cap);
+            }
             normals[vn_count++] = vn;
         } else if (line[0] == 'f' && line[1] == ' ') {
             // Parse face - supports v, v/vt, v/vt/vn, v//vn
@@ -129,7 +142,10 @@ int mesh_load_obj(Mesh *m, const char *filename) {
                     char *slash2 = strchr(after1, '/');
                     if (slash2) {
                         *slash2 = '\0';
-                        if (after1[0] != '\0') { ti[face_verts] = atoi(after1); has_vt = 1; }
+                        if (after1[0] != '\0') {
+                            ti[face_verts] = atoi(after1);
+                            has_vt = 1;
+                        }
                         ni[face_verts] = atoi(slash2 + 1); has_vn = 1;
                     } else {
                         ti[face_verts] = atoi(after1); has_vt = 1;

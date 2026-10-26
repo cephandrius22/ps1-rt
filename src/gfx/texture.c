@@ -42,7 +42,9 @@ int texture_load_tga(Texture *tex, const char *filename) {
     }
 
     // Skip ID field
-    if (hdr.id_length > 0) fseek(f, hdr.id_length, SEEK_CUR);
+    if (hdr.id_length > 0) {
+        fseek(f, hdr.id_length, SEEK_CUR);
+    }
 
     tex->width = hdr.width;
     tex->height = hdr.height;
@@ -76,19 +78,29 @@ void texture_free(Texture *tex) {
 }
 
 Vec3 texture_sample(const Texture *tex, float u, float v) {
-    if (!tex->pixels) return vec3(1, 0, 1); // magenta = missing
+    if (!tex->pixels) {
+        return vec3(1, 0, 1); // magenta = missing
+    }
 
     // Wrap UVs
     u = u - (float)(int)u;
     v = v - (float)(int)v;
-    if (u < 0) u += 1.0f;
-    if (v < 0) v += 1.0f;
+    if (u < 0) {
+        u += 1.0f;
+    }
+    if (v < 0) {
+        v += 1.0f;
+    }
 
     // Nearest-neighbor (PS1 style)
     int px = (int)(u * tex->width) % tex->width;
     int py = (int)(v * tex->height) % tex->height;
-    if (px < 0) px += tex->width;
-    if (py < 0) py += tex->height;
+    if (px < 0) {
+        px += tex->width;
+    }
+    if (py < 0) {
+        py += tex->height;
+    }
 
     const uint8_t *p = tex->pixels + (py * tex->width + px) * 3;
     return vec3(p[0] / 255.0f, p[1] / 255.0f, p[2] / 255.0f);

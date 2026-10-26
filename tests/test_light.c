@@ -56,7 +56,9 @@ TEST(test_light_flicker_varies) {
     bool varies = false;
     for (int i = 0; i < 10; i++) {
         vals[i] = light_effective_intensity(&pl, (float)i * 0.1f);
-        if (i > 0 && vals[i] != vals[i-1]) varies = true;
+        if (i > 0 && vals[i] != vals[i-1]) {
+            varies = true;
+        }
         ASSERT(vals[i] > 0);
         ASSERT(vals[i] <= 2.0f + 0.01f);
     }

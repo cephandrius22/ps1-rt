@@ -149,8 +149,9 @@ TEST(test_entity_build_triangles) {
     /* Triangles should be translated to entity position */
     bool has_offset = false;
     for (int i = 0; i < written; i++) {
-        if (tris[i].v0.x > 0.5f || tris[i].v0.z > 1.5f)
+        if (tris[i].v0.x > 0.5f || tris[i].v0.z > 1.5f) {
             has_offset = true;
+        }
     }
     ASSERT(has_offset);
 
@@ -193,8 +194,9 @@ TEST(test_entity_update_door_animates) {
     entity_add(&list, door);
 
     /* Simulate several frames */
-    for (int i = 0; i < 60; i++)
+    for (int i = 0; i < 60; i++) {
         entity_update(&list, 1.0f / 60.0f, (float)i / 60.0f);
+    }
 
     ASSERT(list.items[0].door.angle > 0);
     ASSERT(list.items[0].door.angle <= 1.5f);

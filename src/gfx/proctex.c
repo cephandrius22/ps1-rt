@@ -31,8 +31,12 @@ static void tex_set(Texture *tex, int x, int y, uint8_t r, uint8_t g, uint8_t b)
 }
 
 static uint8_t clamp8(float v) {
-    if (v < 0) return 0;
-    if (v > 255) return 255;
+    if (v < 0) {
+        return 0;
+    }
+    if (v > 255) {
+        return 255;
+    }
     return (uint8_t)v;
 }
 
@@ -113,8 +117,9 @@ static void gen_metal_panel(Texture *tex) {
             for (int c = 0; c < 4; c++) {
                 int rx = x - corners[c][0];
                 int ry = y - corners[c][1];
-                if (rx * rx + ry * ry <= 2)
+                if (rx * rx + ry * ry <= 2) {
                     base += 0.07f;
+                }
             }
 
             /* Rust bleed from rivets */
@@ -151,10 +156,11 @@ static void gen_metal_grate(Texture *tex) {
             if (on_h_bar || on_v_bar) {
                 float v = 0.30f + noise01(x, y) * 0.06f;
                 /* Rust spots on bars */
-                if (noise01(x * 3 + 70, y * 3 + 70) > 0.7f)
+                if (noise01(x * 3 + 70, y * 3 + 70) > 0.7f) {
                     tex_set(tex, x, y, clamp8(v * 300), clamp8(v * 230), clamp8(v * 180));
-                else
+                } else {
                     tex_set(tex, x, y, clamp8(v * 250), clamp8(v * 250), clamp8(v * 255));
+                }
             } else {
                 float v = 0.04f + noise01(x + 50, y + 50) * 0.03f;
                 tex_set(tex, x, y, clamp8(v * 255), clamp8(v * 255), clamp8(v * 255));
@@ -234,15 +240,17 @@ static void gen_pipe(Texture *tex) {
             base += noise01(x, y) * 0.04f;
 
             /* Band/rivet lines every 8 pixels */
-            if (y % 8 == 0)
+            if (y % 8 == 0) {
                 base += 0.06f;
+            }
 
             /* Corroded, brownish */
             float rust_spot = noise01(x * 3 + 90, y * 3 + 90);
-            if (rust_spot > 0.8f)
+            if (rust_spot > 0.8f) {
                 tex_set(tex, x, y, clamp8(base * 300), clamp8(base * 220), clamp8(base * 160));
-            else
+            } else {
                 tex_set(tex, x, y, clamp8(base * 250), clamp8(base * 245), clamp8(base * 240));
+            }
         }
     }
 }
@@ -260,21 +268,25 @@ static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
 };
 
 int proctex_find(const char *name) {
-    if (!name || strcmp(name, "none") == 0)
+    if (!name || strcmp(name, "none") == 0) {
         return -1;
+    }
     for (int i = 0; i < PTEX_COUNT; i++) {
-        if (strcmp(name, proctex_names[i]) == 0)
+        if (strcmp(name, proctex_names[i]) == 0) {
             return i;
+        }
     }
     return -1;
 }
 
 void proctex_generate(Texture *tex, ProceduralTextureID id) {
-    if (id >= 0 && id < PTEX_COUNT)
+    if (id >= 0 && id < PTEX_COUNT) {
         proctex_generators[id](tex);
+    }
 }
 
 void proctex_generate_all(Texture *textures) {
-    for (int i = 0; i < PTEX_COUNT; i++)
+    for (int i = 0; i < PTEX_COUNT; i++) {
         proctex_generators[i](&textures[i]);
+    }
 }

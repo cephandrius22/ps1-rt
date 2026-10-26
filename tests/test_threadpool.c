@@ -128,8 +128,9 @@ TEST(test_mt_render_matches_st) {
     /* Compare pixel-by-pixel */
     int mismatches = 0;
     for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
-        if (fb_st.pixels[i] != fb_mt.pixels[i])
+        if (fb_st.pixels[i] != fb_mt.pixels[i]) {
             mismatches++;
+        }
     }
     ASSERT(mismatches == 0);
 
@@ -159,8 +160,9 @@ TEST(test_mt_render_various_thread_counts) {
         render_scene_lit_mt(&fb, &cam, &scene, 0, &pool, false);
         threadpool_destroy(&pool);
 
-        for (int i = 0; i < SCREEN_W * SCREEN_H; i++)
+        for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
             ASSERT(fb.pixels[i] == fb_ref.pixels[i]);
+        }
     }
 
     mesh_free(&m);
