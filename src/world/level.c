@@ -1,6 +1,7 @@
 #include "level.h"
 #include "proctex.h"
 #include "ps1_effects.h"
+#include "kv.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -127,24 +128,6 @@ static void add_room_inner(Mesh *m, Vec3 lo, Vec3 hi,
                        vec3(hi.x, hi.y, hi.z), vec3(lo.x, hi.y, hi.z),
                        uv(0,0), uv(tw,0), uv(tw,td), uv(0,td), ceil_mat);
     }
-}
-
-/* --- Key=value parser for optional parameters --- */
-
-static float kv_float(const char *line, const char *key, float def) {
-    char pattern[64];
-    snprintf(pattern, sizeof(pattern), "%s=", key);
-    const char *found = strstr(line, pattern);
-    if (!found) return def;
-    return (float)atof(found + strlen(pattern));
-}
-
-static int kv_int(const char *line, const char *key, int def) {
-    char pattern[64];
-    snprintf(pattern, sizeof(pattern), "%s=", key);
-    const char *found = strstr(line, pattern);
-    if (!found) return def;
-    return atoi(found + strlen(pattern));
 }
 
 /* --- Line parsers --- */
@@ -283,43 +266,17 @@ static void parse_entity(const char *line, Scene *scene) {
     char type_str[32];
     float x, y, z;
 
-    if (sscanf(line, "entity %31s %f %f %f", type_str, &x, &y, &z) < 4)
+    if (sscanf(line, "entity %31s %f %f %f", type_str, &x, &y, &z) < 4) {
         return;
+    }
 
-    Entity e = {.position = vec3(x, y, z), .active = true};
-
-    if (strcmp(type_str, "health") == 0) {
-        e.type = ENTITY_PICKUP_HEALTH;
-        e.mesh_id = ENTITY_PICKUP_HEALTH;
-        e.pickup.amount = kv_float(line, "amount", 25);
-    } else if (strcmp(type_str, "ammo") == 0) {
-        e.type = ENTITY_PICKUP_AMMO;
-        e.mesh_id = ENTITY_PICKUP_AMMO;
-        e.pickup.amount = kv_float(line, "amount", 10);
-    } else if (strcmp(type_str, "door") == 0) {
-        e.type = ENTITY_DOOR;
-        e.mesh_id = ENTITY_DOOR;
-        e.rotation_y = kv_float(line, "rot", 0);
-        e.door.angle = 0;
-        e.door.target_angle = 0;
-        e.door.swing_speed = DOOR_SWING_SPEED;
-        e.door.hinge = vec3(
-            kv_float(line, "hinge_x", x),
-            0,
-            kv_float(line, "hinge_z", z));
-    } else if (strcmp(type_str, "prop") == 0) {
-        e.type = ENTITY_PROP;
-        e.mesh_id = ENTITY_PROP;
-        e.rotation_y = kv_float(line, "rot", 0);
-    } else {
+    EntityType type = entity_type_by_name(type_str);
+    if (type == ENTITY_NONE) {
         fprintf(stderr, "level: unknown entity type '%s'\n", type_str);
         return;
     }
 
-    /* Material ID from key=value, default based on type */
-    e.material_id = kv_int(line, "mat", 0);
-
-    entity_add(&scene->entities, e);
+    entity_add(&scene->entities, entity_spawn(type, vec3(x, y, z), line));
 }
 
 static void parse_light(const char *line, Scene *scene) {

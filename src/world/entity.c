@@ -1,6 +1,18 @@
+/*
+ * entity.c — Entity storage and type-agnostic dispatch.
+ *
+ * Nothing here knows about specific types; behavior comes from the
+ * EntityDef table in entity_types.c.
+ */
 #include "entity.h"
+#include "kv.h"
 #include <stdlib.h>
 #include <math.h>
+
+#define ENTITY_LIST_INITIAL_CAP 16
+#define USE_FACING_MIN 0.3f /* cos of max angle between view and target */
+
+/* --- Storage --- */
 
 void entity_list_init(EntityList *list) {
     list->items = NULL;
@@ -17,9 +29,11 @@ void entity_list_free(EntityList *list) {
 
 int entity_add(EntityList *list, Entity e) {
     if (list->count >= list->capacity) {
-        int new_cap = list->capacity == 0 ? 16 : list->capacity * 2;
+        int new_cap = list->capacity == 0 ? ENTITY_LIST_INITIAL_CAP : list->capacity * 2;
         Entity *new_items = realloc(list->items, (size_t)new_cap * sizeof(Entity));
-        if (!new_items) return -1;
+        if (!new_items) {
+            return -1;
+        }
         list->items = new_items;
         list->capacity = new_cap;
     }
@@ -28,222 +42,171 @@ int entity_add(EntityList *list, Entity e) {
     return idx;
 }
 
-/* --- Template mesh generation --- */
+/* Generic fields come from shared keys (rot, mat); the type reads the rest */
+Entity entity_spawn(EntityType type, Vec3 pos, const char *args) {
+    Entity e = {
+        .type = type,
+        .position = pos,
+        .active = true,
+        .rotation_y = kv_float(args, "rot", 0),
+        .material_id = kv_int(args, "mat", 0),
+    };
 
-static void make_box_mesh(Mesh *m, Vec3 lo, Vec3 hi) {
-    mesh_init(m);
-    Vec3 v[8] = {
-        vec3(lo.x, lo.y, lo.z), vec3(hi.x, lo.y, lo.z),
-        vec3(hi.x, hi.y, lo.z), vec3(lo.x, hi.y, lo.z),
-        vec3(lo.x, lo.y, hi.z), vec3(hi.x, lo.y, hi.z),
-        vec3(hi.x, hi.y, hi.z), vec3(lo.x, hi.y, hi.z),
-    };
-    /* 6 faces, 2 tris each */
-    int faces[6][4] = {
-        {4,5,6,7}, {1,0,3,2}, {0,4,7,3},
-        {5,1,2,6}, {7,6,2,3}, {0,1,5,4},
-    };
-    for (int f = 0; f < 6; f++) {
-        Vec3 a = v[faces[f][0]], b = v[faces[f][1]];
-        Vec3 c = v[faces[f][2]], d = v[faces[f][3]];
-        Vec3 n = vec3_normalize(vec3_cross(vec3_sub(b, a), vec3_sub(c, a)));
-        Triangle t1 = {a,b,c, {0,0},{1,0},{1,1}, n, 0, 0};
-        Triangle t2 = {a,c,d, {0,0},{1,1},{0,1}, n, 0, 0};
-        mesh_add_tri(m, t1);
-        mesh_add_tri(m, t2);
+    const EntityDef *def = entity_def(type);
+    if (def->spawn) {
+        def->spawn(&e, args);
     }
+    return e;
 }
 
-static void make_diamond_mesh(Mesh *m, float size) {
-    mesh_init(m);
-    float s = size;
-    float h = size * 1.5f;
-    Vec3 top    = vec3(0,  h, 0);
-    Vec3 bottom = vec3(0, -h, 0);
-    Vec3 pts[4] = {
-        vec3( s, 0,  0), vec3(0, 0,  s),
-        vec3(-s, 0,  0), vec3(0, 0, -s),
-    };
-    for (int i = 0; i < 4; i++) {
-        int j = (i + 1) % 4;
-        Vec3 n;
-        /* Top half */
-        n = vec3_normalize(vec3_cross(vec3_sub(pts[j], pts[i]), vec3_sub(top, pts[i])));
-        Triangle t1 = {pts[i], pts[j], top, {0,0},{1,0},{0.5f,1}, n, 0, 0};
-        mesh_add_tri(m, t1);
-        /* Bottom half */
-        n = vec3_normalize(vec3_cross(vec3_sub(bottom, pts[i]), vec3_sub(pts[j], pts[i])));
-        Triangle t2 = {pts[i], bottom, pts[j], {0,0},{0.5f,1},{1,0}, n, 0, 0};
-        mesh_add_tri(m, t2);
-    }
-}
+/* --- Template meshes --- */
 
 void entity_meshes_init(EntityMeshes *em) {
-    for (int i = 0; i < ENTITY_TYPE_COUNT; i++) {
-        em->initialized[i] = false;
-        em->meshes[i].tris = NULL;
-        em->meshes[i].count = 0;
-        em->meshes[i].capacity = 0;
+    for (int t = 0; t < ENTITY_TYPE_COUNT; t++) {
+        em->initialized[t] = false;
+        mesh_init(&em->meshes[t]);
+
+        const EntityDef *def = entity_def((EntityType)t);
+        if (def->render != RENDER_MESH || !def->build_mesh) {
+            continue;
+        }
+        def->build_mesh(&em->meshes[t]);
+        em->initialized[t] = true;
     }
-
-    /* Pickups: small diamond shape */
-    make_diamond_mesh(&em->meshes[ENTITY_PICKUP_HEALTH], 0.2f);
-    em->initialized[ENTITY_PICKUP_HEALTH] = true;
-
-    make_diamond_mesh(&em->meshes[ENTITY_PICKUP_AMMO], 0.2f);
-    em->initialized[ENTITY_PICKUP_AMMO] = true;
-
-    /* Door: tall flat box (1.2 wide, 2.4 tall, 0.15 thick) centered at origin */
-    make_box_mesh(&em->meshes[ENTITY_DOOR], vec3(0, 0, -0.075f), vec3(1.2f, 2.4f, 0.075f));
-    em->initialized[ENTITY_DOOR] = true;
-
-    /* Prop: generic cube */
-    make_box_mesh(&em->meshes[ENTITY_PROP], vec3(-0.3f, 0, -0.3f), vec3(0.3f, 0.6f, 0.3f));
-    em->initialized[ENTITY_PROP] = true;
 }
 
 void entity_meshes_free(EntityMeshes *em) {
-    for (int i = 0; i < ENTITY_TYPE_COUNT; i++) {
-        if (em->initialized[i])
-            mesh_free(&em->meshes[i]);
-        em->initialized[i] = false;
+    for (int t = 0; t < ENTITY_TYPE_COUNT; t++) {
+        if (em->initialized[t]) {
+            mesh_free(&em->meshes[t]);
+        }
+        em->initialized[t] = false;
     }
 }
 
-/* --- Update --- */
-
-#define PICKUP_BOB_SPEED  2.0f
-#define PICKUP_BOB_HEIGHT 0.15f
-#define PICKUP_SPIN_SPEED 2.0f
+/* --- Dispatch --- */
 
 void entity_update(EntityList *list, float dt, float time) {
     for (int i = 0; i < list->count; i++) {
         Entity *e = &list->items[i];
-        if (!e->active) continue;
-
-        switch (e->type) {
-        case ENTITY_PICKUP_HEALTH:
-        case ENTITY_PICKUP_AMMO:
-            e->rotation_y = time * PICKUP_SPIN_SPEED;
-            break;
-        case ENTITY_DOOR: {
-            float diff = e->door.target_angle - e->door.angle;
-            if (fabsf(diff) > 0.01f) {
-                float step = e->door.swing_speed * dt;
-                if (diff > 0)
-                    e->door.angle += step < diff ? step : diff;
-                else
-                    e->door.angle += -step > diff ? -step : diff;
-            } else {
-                e->door.angle = e->door.target_angle;
-            }
-            break;
-        }
-        default:
-            break;
-        }
-    }
-}
-
-/* --- Interaction --- */
-
-float entity_try_collect(EntityList *list, Vec3 player_pos, float collect_radius) {
-    float total = 0;
-    for (int i = 0; i < list->count; i++) {
-        Entity *e = &list->items[i];
-        if (!e->active) continue;
-        if (e->type != ENTITY_PICKUP_HEALTH && e->type != ENTITY_PICKUP_AMMO)
+        const EntityDef *def = entity_def(e->type);
+        if (!e->active || !def->update) {
             continue;
-
-        Vec3 diff = vec3_sub(player_pos, e->position);
-        float dist = vec3_length(diff);
-        if (dist < collect_radius) {
-            total += e->pickup.amount;
-            e->active = false;
         }
+        def->update(e, dt, time);
     }
-    return total;
 }
 
-#define DOOR_OPEN_ANGLE 1.5f  /* ~86 degrees */
-
-int entity_try_use_door(EntityList *list, Vec3 player_pos, Vec3 player_forward, float use_range) {
-    float best_dist = use_range;
-    Entity *best_door = NULL;
-
-    for (int i = 0; i < list->count; i++) {
+int entity_touch(EntityList *list, Vec3 pos, float radius, int *out, int max) {
+    int touched = 0;
+    for (int i = 0; i < list->count && touched < max; i++) {
         Entity *e = &list->items[i];
-        if (!e->active || e->type != ENTITY_DOOR) continue;
-
-        /* Check distance to door hinge */
-        Vec3 to_door = vec3_sub(e->door.hinge, player_pos);
-        to_door.y = 0;
-        float dist = vec3_length(to_door);
-        if (dist >= best_dist) continue;
-
-        /* Check if roughly facing the door */
-        Vec3 dir = vec3_normalize(to_door);
-        Vec3 fwd = player_forward;
-        fwd.y = 0;
-        if (vec3_length(fwd) > 0.01f) fwd = vec3_normalize(fwd);
-        if (vec3_dot(dir, fwd) < 0.3f) continue;
-
-        best_dist = dist;
-        best_door = e;
-    }
-
-    if (best_door) {
-        /* Toggle door open/closed */
-        if (best_door->door.target_angle > 0.1f) {
-            best_door->door.target_angle = 0;
-            return -1; /* closing */
-        } else {
-            best_door->door.target_angle = DOOR_OPEN_ANGLE;
-            return 1; /* opening */
+        const EntityDef *def = entity_def(e->type);
+        if (!e->active || !def->touch) {
+            continue;
+        }
+        if (vec3_length(vec3_sub(pos, e->position)) >= radius) {
+            continue;
+        }
+        if (def->touch(e) == TOUCH_CONSUMED) {
+            out[touched++] = i;
         }
     }
-    return 0;
+    return touched;
+}
+
+/* Where the entity is this frame; types without pose() sit at position */
+static void entity_pose(const Entity *e, Vec3 *pos, float *rot_y) {
+    const EntityDef *def = entity_def(e->type);
+    if (def->pose) {
+        def->pose(e, pos, rot_y);
+        return;
+    }
+    *pos = e->position;
+    *rot_y = e->rotation_y;
+}
+
+UseResult entity_try_use(EntityList *list, Vec3 pos, Vec3 forward, float range,
+                         int *used) {
+    Vec3 fwd = vec3(forward.x, 0, forward.z);
+    if (vec3_length(fwd) > 0.01f) {
+        fwd = vec3_normalize(fwd);
+    }
+
+    /* Pick the nearest usable entity roughly in front (horizontal plane) */
+    float best_dist = range;
+    int best = ENTITY_INDEX_NONE;
+    for (int i = 0; i < list->count; i++) {
+        const Entity *e = &list->items[i];
+        if (!e->active || !entity_def(e->type)->use) {
+            continue;
+        }
+
+        Vec3 target;
+        float rot;
+        entity_pose(e, &target, &rot);
+        Vec3 to_target = vec3_sub(target, pos);
+        to_target.y = 0;
+
+        float dist = vec3_length(to_target);
+        if (dist >= best_dist) {
+            continue;
+        }
+        bool on_top = dist < 0.01f; /* direction undefined; accept */
+        if (!on_top && vec3_dot(vec3_normalize(to_target), fwd) < USE_FACING_MIN) {
+            continue;
+        }
+        best_dist = dist;
+        best = i;
+    }
+
+    if (used) {
+        *used = best;
+    }
+    if (best == ENTITY_INDEX_NONE) {
+        return USE_NOTHING;
+    }
+    Entity *e = &list->items[best];
+    return entity_def(e->type)->use(e);
 }
 
 /* --- Triangle generation --- */
 
+/* Rotate around Y, then translate */
+static Vec3 xform_point(Vec3 v, Vec3 pos, float c, float s) {
+    return vec3(v.x * c + v.z * s + pos.x, v.y + pos.y, -v.x * s + v.z * c + pos.z);
+}
+
 static Triangle transform_triangle(Triangle t, Vec3 pos, float rot_y) {
-    float c = cosf(rot_y), s = sinf(rot_y);
+    float c = cosf(rot_y);
+    float s = sinf(rot_y);
+
     Triangle out = t;
-
-    /* Rotate around Y then translate */
-    #define XFORM(v) do { \
-        float nx = (v).x * c + (v).z * s; \
-        float nz = -(v).x * s + (v).z * c; \
-        (v).x = nx + pos.x; \
-        (v).y = (v).y + pos.y; \
-        (v).z = nz + pos.z; \
-    } while(0)
-
-    XFORM(out.v0);
-    XFORM(out.v1);
-    XFORM(out.v2);
-
-    /* Rotate normal */
-    float nnx = out.normal.x * c + out.normal.z * s;
-    float nnz = -out.normal.x * s + out.normal.z * c;
-    out.normal.x = nnx;
-    out.normal.z = nnz;
-
-    #undef XFORM
-
-    out.material_id = t.material_id;
+    out.v0 = xform_point(t.v0, pos, c, s);
+    out.v1 = xform_point(t.v1, pos, c, s);
+    out.v2 = xform_point(t.v2, pos, c, s);
+    out.normal = xform_point(t.normal, vec3(0, 0, 0), c, s);
     return out;
+}
+
+/* Template mesh for an entity, or NULL if it isn't drawn as a mesh */
+static const Mesh *entity_mesh(const Entity *e, const EntityMeshes *em) {
+    if (!e->active || entity_def(e->type)->render != RENDER_MESH) {
+        return NULL;
+    }
+    if (!em->initialized[e->type]) {
+        return NULL;
+    }
+    return &em->meshes[e->type];
 }
 
 int entity_count_triangles(const EntityList *list, const EntityMeshes *em) {
     int total = 0;
     for (int i = 0; i < list->count; i++) {
-        const Entity *e = &list->items[i];
-        if (!e->active) continue;
-        if (e->type <= ENTITY_NONE || e->type >= ENTITY_TYPE_COUNT) continue;
-        if (!em->initialized[e->type]) continue;
-        total += em->meshes[e->type].count;
+        const Mesh *tmpl = entity_mesh(&list->items[i], em);
+        if (tmpl) {
+            total += tmpl->count;
+        }
     }
     return total;
 }
@@ -253,24 +216,14 @@ int entity_build_triangles(const EntityList *list, const EntityMeshes *em,
     int written = 0;
     for (int i = 0; i < list->count; i++) {
         const Entity *e = &list->items[i];
-        if (!e->active) continue;
-        if (e->type <= ENTITY_NONE || e->type >= ENTITY_TYPE_COUNT) continue;
-        if (!em->initialized[e->type]) continue;
-
-        const Mesh *tmpl = &em->meshes[e->type];
-        Vec3 pos = e->position;
-        float rot = e->rotation_y;
-
-        /* For pickups, add bobbing offset */
-        if (e->type == ENTITY_PICKUP_HEALTH || e->type == ENTITY_PICKUP_AMMO) {
-            pos.y += sinf(rot / PICKUP_SPIN_SPEED * PICKUP_BOB_SPEED) * PICKUP_BOB_HEIGHT;
+        const Mesh *tmpl = entity_mesh(e, em);
+        if (!tmpl) {
+            continue;
         }
 
-        /* For doors, rotate around hinge point */
-        if (e->type == ENTITY_DOOR) {
-            pos = e->door.hinge;
-            rot = e->door.angle;
-        }
+        Vec3 pos;
+        float rot;
+        entity_pose(e, &pos, &rot);
 
         for (int t = 0; t < tmpl->count && written < max_tris; t++) {
             Triangle tri = tmpl->tris[t];

@@ -57,7 +57,9 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH) → `shad
 | `mesh` | Triangle storage, OBJ loader with fan triangulation |
 | `bvh` | SAH-based BVH build, stack-based iterative traversal |
 | `scene` | Two-level scene graph: static world BVH + dynamic entity BVH rebuilt per frame |
-| `entity` | Typed entities (pickup/door/prop) with transforms, growable array |
+| `entity` | Entity storage + type-agnostic dispatch (update, touch, use, mesh build) |
+| `entity_types` | `EntityDef` table: per-type name, `RenderKind`, and hooks (spawn/update/touch/use/pose/build_mesh) |
+| `kv` | `key=value` lookup in a text line (level args) |
 | `render` | Shading: directional sun + point lights + shadows + fog + light billboards |
 | `light` | Point light system: attenuation, flicker (layered sine), pendulum swing animation |
 | `texture` | TGA loader, nearest-neighbor sampling |
@@ -104,7 +106,7 @@ light <x> <y> <z> <r> <g> <b> <intensity> <radius> [key=value ...]
 
 **New procedural texture:** Add to `ProceduralTextureID` enum in `proctex.h`, write generator function in `proctex.c`, add to `proctex_names[]` and `proctex_generators[]` arrays.
 
-**New entity type:** Add to `EntityType` enum in `entity.h`, handle in `entity_update()` and interaction functions. Add parsing in `level.c:parse_entity()`.
+**New entity type:** Add to `EntityType` enum in `entity.h`, then one `EntityDef` row in `entity_types.c` with its level name, `RenderKind`, and only the hooks it needs (NULL = no behavior). Level parsing, update, touch, use and mesh build pick it up automatically — never add `switch (e->type)` to generic code. Entity indices are stable (inactive entities stay in the list).
 
 **New light:** Use the `light` directive in a level file. Keys: `shadows`, `flicker_speed`, `flicker_amount`, `anchor_x/y/z`, `cord`, `swing_speed`, `swing_angle`.
 

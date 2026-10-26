@@ -22,9 +22,9 @@ typedef enum {
     EV_WEAPON_FIRED,  /* pos = muzzle */
     EV_WEAPON_IMPACT, /* pos = hit point, entity = hit entity or none */
     EV_FOOTSTEP,      /* pos = feet */
-    EV_PICKUP,        /* pos = collector, amount = value collected */
-    EV_DOOR_OPENED,   /* pos = user */
-    EV_DOOR_CLOSED,   /* pos = user */
+    EV_PICKUP,        /* pos = collector, entity = pickup, amount = value */
+    EV_DOOR_OPENED,   /* pos = user, entity = door */
+    EV_DOOR_CLOSED,   /* pos = user, entity = door */
 } GameEventType;
 
 typedef struct {

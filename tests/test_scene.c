@@ -55,8 +55,7 @@ TEST(test_scene_two_level_bvh) {
     /* Dynamic: entity above floor */
     Entity prop = {
         .type = ENTITY_PROP, .position = vec3(0, 0, 0),
-        .rotation_y = 0, .active = true, .material_id = 0,
-        .mesh_id = ENTITY_PROP
+        .rotation_y = 0, .active = true, .material_id = 0
     };
     entity_add(&s.entities, prop);
     scene_rebuild_dynamic(&s);
@@ -83,7 +82,7 @@ TEST(test_scene_hit_identifies_entity) {
 
     /* Two props side by side; inactive one first so indices != order */
     Entity prop = {
-        .type = ENTITY_PROP, .active = false, .mesh_id = ENTITY_PROP
+        .type = ENTITY_PROP, .active = false
     };
     prop.position = vec3(-3, 0, 0);
     entity_add(&s.entities, prop);
@@ -144,7 +143,7 @@ TEST(test_scene_dynamic_rebuild) {
     /* Add entity, rebuild */
     Entity prop = {
         .type = ENTITY_PROP, .position = vec3(5, 0, 5),
-        .rotation_y = 0, .active = true, .mesh_id = ENTITY_PROP
+        .rotation_y = 0, .active = true
     };
     entity_add(&s.entities, prop);
     scene_rebuild_dynamic(&s);

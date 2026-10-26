@@ -61,14 +61,17 @@ TEST(test_entity_collect_pickup) {
     };
     entity_add(&list, health);
 
+    int touched[4];
+
     /* Player too far — no collection */
-    float collected = entity_try_collect(&list, vec3(5, 0, 0), COLLECT_RADIUS);
-    ASSERT_NEAR(collected, 0, 1e-6f);
+    int n = entity_touch(&list, vec3(5, 0, 0), COLLECT_RADIUS, touched, 4);
+    ASSERT(n == 0);
     ASSERT(list.items[0].active);
 
     /* Player close enough */
-    collected = entity_try_collect(&list, vec3(0, 0.5f, 0), COLLECT_RADIUS);
-    ASSERT_NEAR(collected, 25.0f, 1e-6f);
+    n = entity_touch(&list, vec3(0, 0.5f, 0), COLLECT_RADIUS, touched, 4);
+    ASSERT(n == 1);
+    ASSERT(touched[0] == 0);
     ASSERT(!list.items[0].active);
 
     entity_list_free(&list);
@@ -89,11 +92,13 @@ TEST(test_entity_door_toggle) {
     Vec3 player_pos = vec3(0, 1, 0);
     Vec3 forward = vec3(0, 0, -1);
 
-    entity_try_use_door(&list, player_pos, forward, USE_RANGE);
+    int used = ENTITY_INDEX_NONE;
+    ASSERT(entity_try_use(&list, player_pos, forward, USE_RANGE, &used) == USE_OPENED);
+    ASSERT(used == 0);
     ASSERT(list.items[0].door.target_angle > 0);
 
     /* Toggle back */
-    entity_try_use_door(&list, player_pos, forward, USE_RANGE);
+    ASSERT(entity_try_use(&list, player_pos, forward, USE_RANGE, NULL) == USE_CLOSED);
     ASSERT_NEAR(list.items[0].door.target_angle, 0, 1e-6f);
 
     entity_list_free(&list);
@@ -113,7 +118,7 @@ TEST(test_entity_door_out_of_range) {
     Vec3 player_pos = vec3(0, 1, 0);
     Vec3 forward = vec3(0, 0, -1);
 
-    entity_try_use_door(&list, player_pos, forward, USE_RANGE);
+    ASSERT(entity_try_use(&list, player_pos, forward, USE_RANGE, NULL) == USE_NOTHING);
     ASSERT_NEAR(list.items[0].door.target_angle, 0, 1e-6f);
 
     entity_list_free(&list);
@@ -128,8 +133,7 @@ TEST(test_entity_build_triangles) {
 
     Entity pickup = {
         .type = ENTITY_PICKUP_HEALTH, .position = vec3(1, 0.5f, 2),
-        .rotation_y = 0, .active = true, .material_id = 3,
-        .mesh_id = ENTITY_PICKUP_HEALTH
+        .rotation_y = 0, .active = true, .material_id = 3
     };
     entity_add(&list, pickup);
 
@@ -164,7 +168,7 @@ TEST(test_entity_inactive_skipped) {
 
     Entity pickup = {
         .type = ENTITY_PICKUP_HEALTH, .position = vec3(0, 0, 0),
-        .active = false, .mesh_id = ENTITY_PICKUP_HEALTH
+        .active = false
     };
     entity_add(&list, pickup);
 
@@ -196,6 +200,42 @@ TEST(test_entity_update_door_animates) {
     entity_list_free(&list);
 }
 
+TEST(test_entity_type_by_name) {
+    ASSERT_EQ_INT(entity_type_by_name("health"), ENTITY_PICKUP_HEALTH);
+    ASSERT_EQ_INT(entity_type_by_name("ammo"), ENTITY_PICKUP_AMMO);
+    ASSERT_EQ_INT(entity_type_by_name("door"), ENTITY_DOOR);
+    ASSERT_EQ_INT(entity_type_by_name("prop"), ENTITY_PROP);
+    ASSERT_EQ_INT(entity_type_by_name("dragon"), ENTITY_NONE);
+}
+
+TEST(test_entity_spawn_reads_args) {
+    Entity hp = entity_spawn(ENTITY_PICKUP_HEALTH, vec3(1, 2, 3), "amount=40 mat=5");
+    ASSERT(hp.active);
+    ASSERT_NEAR(hp.position.y, 2.0f, 1e-6f);
+    ASSERT_NEAR(hp.pickup.amount, 40.0f, 1e-6f);
+    ASSERT_EQ_INT(hp.material_id, 5);
+
+    /* Defaults when keys are absent; hinge falls back to position */
+    Entity door = entity_spawn(ENTITY_DOOR, vec3(4, 0, -6), "");
+    ASSERT_NEAR(door.door.swing_speed, DOOR_SWING_SPEED, 1e-6f);
+    ASSERT_NEAR(door.door.hinge.x, 4.0f, 1e-6f);
+    ASSERT_NEAR(door.door.hinge.z, -6.0f, 1e-6f);
+}
+
+TEST(test_entity_hookless_type_is_inert) {
+    EntityList list;
+    entity_list_init(&list);
+    entity_add(&list, entity_spawn(ENTITY_PROP, vec3(0, 0, -1), ""));
+
+    /* Props have no touch/use hooks: nothing reacts */
+    int touched[4];
+    ASSERT(entity_touch(&list, vec3(0, 0, -1), COLLECT_RADIUS, touched, 4) == 0);
+    ASSERT(entity_try_use(&list, vec3(0, 0, 0), vec3(0, 0, -1), USE_RANGE, NULL) == USE_NOTHING);
+    ASSERT(list.items[0].active);
+
+    entity_list_free(&list);
+}
+
 int main(void) {
     TEST_SUITE("entity");
     RUN_TEST(test_entity_list_init);
@@ -208,5 +248,8 @@ int main(void) {
     RUN_TEST(test_entity_build_triangles);
     RUN_TEST(test_entity_inactive_skipped);
     RUN_TEST(test_entity_update_door_animates);
+    RUN_TEST(test_entity_type_by_name);
+    RUN_TEST(test_entity_spawn_reads_args);
+    RUN_TEST(test_entity_hookless_type_is_inert);
     TEST_REPORT();
 }

@@ -2,6 +2,8 @@
 #include "scene.h"
 #include <math.h>
 
+#define PLAYER_TOUCH_MAX 8 /* entities touched per tick */
+
 Player player_create(Vec3 pos) {
     Player p;
     p.foot_y = pos.y - PLAYER_HEIGHT - PLAYER_EYE_OFFSET;
@@ -247,21 +249,24 @@ void player_update_scene(Player *p, const PlayerCmd *cmd, float dt, Scene *scene
         p->flashlight_on = !p->flashlight_on;
     }
 
-    /* Entity interaction: collect pickups */
-    float collected = entity_try_collect(&scene->entities, pos, COLLECT_RADIUS);
-    if (collected > 0) {
+    /* Entity interaction: walk-over pickups */
+    int touched[PLAYER_TOUCH_MAX];
+    int n = entity_touch(&scene->entities, pos, COLLECT_RADIUS, touched, PLAYER_TOUCH_MAX);
+    for (int i = 0; i < n; i++) {
+        const Entity *e = &scene->entities.items[touched[i]];
         events_push(ev, (GameEvent){.type = EV_PICKUP, .pos = pos,
-                                    .entity = ENTITY_INDEX_NONE, .amount = collected});
+                                    .entity = touched[i], .amount = e->pickup.amount});
     }
 
-    /* Entity interaction: use doors (1 = opened, -1 = closed, 0 = none) */
+    /* Entity interaction: use (doors) */
     if (!cmd_has(cmd, BTN_USE)) {
         return;
     }
-    int door = entity_try_use_door(&scene->entities, pos, yaw_forward(p), USE_RANGE);
-    if (door == 0) {
+    int used;
+    UseResult res = entity_try_use(&scene->entities, pos, yaw_forward(p), USE_RANGE, &used);
+    if (res == USE_NOTHING) {
         return;
     }
-    GameEventType type = (door > 0) ? EV_DOOR_OPENED : EV_DOOR_CLOSED;
-    events_push(ev, (GameEvent){.type = type, .pos = pos, .entity = ENTITY_INDEX_NONE});
+    GameEventType type = (res == USE_OPENED) ? EV_DOOR_OPENED : EV_DOOR_CLOSED;
+    events_push(ev, (GameEvent){.type = type, .pos = pos, .entity = used});
 }
