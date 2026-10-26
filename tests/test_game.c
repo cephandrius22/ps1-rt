@@ -3,7 +3,6 @@
 #include <math.h>
 
 #define TEST_LEVEL "tests/test.level"
-#define TICK (1.0f / 60.0f)
 
 /* Game is large (holds a Scene); keep it off the stack */
 static Game g;
@@ -30,26 +29,71 @@ TEST(test_game_tick_advances_time) {
     ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
     PlayerCmd idle = {0};
 
-    game_tick(&g, &idle, TICK);
-    game_tick(&g, &idle, TICK);
+    game_tick(&g, &idle);
+    game_tick(&g, &idle);
 
-    ASSERT_NEAR(g.time, 2.0f * TICK, 1e-6f);
+    ASSERT_NEAR(g.time, 2.0f * GAME_TICK_DT, 1e-6f);
     game_free(&g);
 }
 
-TEST(test_game_tick_collects_events) {
+TEST(test_game_update_collects_events_per_frame) {
     ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
     PlayerCmd fire = {.buttons = BTN_ATTACK};
 
-    game_tick(&g, &fire, TICK);
+    ASSERT(game_update(&g, &fire, GAME_TICK_DT) == 1);
     ASSERT(g.events.count >= 1);
     ASSERT(g.events.items[0].type == EV_WEAPON_FIRED);
 
-    /* Next tick starts with a fresh queue */
+    /* Next frame starts with a fresh queue */
     PlayerCmd idle = {0};
-    game_tick(&g, &idle, TICK);
+    game_update(&g, &idle, GAME_TICK_DT);
     ASSERT(g.events.count == 0);
 
+    game_free(&g);
+}
+
+TEST(test_game_update_tick_count) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    PlayerCmd idle = {0};
+
+    /* Half a tick: nothing yet; the second half completes one tick */
+    ASSERT(game_update(&g, &idle, GAME_TICK_DT * 0.5f) == 0);
+    ASSERT(game_update(&g, &idle, GAME_TICK_DT * 0.5f) == 1);
+
+    /* Three ticks' worth at once */
+    ASSERT(game_update(&g, &idle, GAME_TICK_DT * 3.0f + 1e-4f) == 3);
+
+    /* A long hitch is capped, and the backlog is dropped */
+    ASSERT(game_update(&g, &idle, 10.0f) == GAME_MAX_TICKS_PER_FRAME);
+    ASSERT(g.tick_accum < GAME_TICK_DT);
+
+    game_free(&g);
+}
+
+/* Mouse look from a frame that ran no tick must not be lost, and must
+ * apply exactly once even if the next frame runs several ticks. */
+TEST(test_game_update_look_applies_once) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    float yaw0 = g.player.view.yaw;
+
+    PlayerCmd look = {.yaw_delta = 0.1f};
+    PlayerCmd idle = {0};
+    game_update(&g, &look, GAME_TICK_DT * 0.5f);
+    game_update(&g, &idle, GAME_TICK_DT * 3.0f);
+
+    ASSERT_NEAR(g.player.view.yaw, yaw0 + 0.1f, 1e-5f);
+    game_free(&g);
+}
+
+/* Impulses (flashlight toggle) fire once, not once per tick */
+TEST(test_game_update_impulse_once) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    ASSERT(!g.player.flashlight_on);
+
+    PlayerCmd toggle = {.buttons = BTN_FLASHLIGHT};
+    game_update(&g, &toggle, GAME_TICK_DT * 3.0f);
+
+    ASSERT(g.player.flashlight_on);
     game_free(&g);
 }
 
@@ -58,6 +102,9 @@ int main(void) {
     RUN_TEST(test_game_init_spawns_player);
     RUN_TEST(test_game_init_missing_level);
     RUN_TEST(test_game_tick_advances_time);
-    RUN_TEST(test_game_tick_collects_events);
+    RUN_TEST(test_game_update_collects_events_per_frame);
+    RUN_TEST(test_game_update_tick_count);
+    RUN_TEST(test_game_update_look_applies_once);
+    RUN_TEST(test_game_update_impulse_once);
     TEST_REPORT();
 }

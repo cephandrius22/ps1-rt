@@ -98,14 +98,13 @@ int main(int argc, char *argv[]) {
         Uint64 frame_start = SDL_GetPerformanceCounter();
         float dt = (float)(frame_start - last_time) / (float)freq;
         last_time = frame_start;
-        if (dt > 0.05f) dt = 0.05f;
 
         PlayerCmd cmd;
         if (input_poll(&cmd) == INPUT_QUIT) {
             running = false;
         }
 
-        game_tick(&game, &cmd, dt);
+        game_update(&game, &cmd, dt);
         play_event_sounds(&audio, &game.events);
 
         /* Render with point lights and shadow rays (multithreaded) */

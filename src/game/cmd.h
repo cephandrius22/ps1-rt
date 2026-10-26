@@ -23,6 +23,8 @@ typedef enum {
     BTN_FLASHLIGHT = 1 << 3, /* impulse */
 } CmdButton;
 
+#define CMD_IMPULSES (BTN_FLASHLIGHT)
+
 typedef struct {
     float forward;     /* -1..1, + = forward */
     float strafe;      /* -1..1, + = right */
@@ -33,6 +35,27 @@ typedef struct {
 
 static inline int cmd_has(const PlayerCmd *cmd, CmdButton btn) {
     return (cmd->buttons & btn) != 0;
+}
+
+/* Fold a newer frame's input into a command not yet consumed by a tick.
+ * Axes and held buttons take the latest state; look deltas add up and
+ * impulses stick, so nothing is lost when a frame runs zero ticks. */
+static inline void cmd_accumulate(PlayerCmd *pending, const PlayerCmd *in) {
+    pending->forward = in->forward;
+    pending->strafe = in->strafe;
+    pending->yaw_delta += in->yaw_delta;
+    pending->pitch_delta += in->pitch_delta;
+
+    uint32_t impulses = (pending->buttons | in->buttons) & CMD_IMPULSES;
+    pending->buttons = (in->buttons & ~(uint32_t)CMD_IMPULSES) | impulses;
+}
+
+/* After a tick used the command: one-shot parts must not repeat, held
+ * state carries into further ticks of the same frame. */
+static inline void cmd_consume(PlayerCmd *cmd) {
+    cmd->yaw_delta = 0;
+    cmd->pitch_delta = 0;
+    cmd->buttons &= ~(uint32_t)CMD_IMPULSES;
 }
 
 #endif

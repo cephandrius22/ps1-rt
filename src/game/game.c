@@ -29,8 +29,8 @@ void game_free(Game *g) {
     scene_free(&g->scene);
 }
 
-void game_tick(Game *g, const PlayerCmd *cmd, float dt) {
-    events_clear(&g->events);
+void game_tick(Game *g, const PlayerCmd *cmd) {
+    const float dt = GAME_TICK_DT;
     g->time += dt;
 
     /* World first, so the player collides with this tick's entity poses */
@@ -40,4 +40,24 @@ void game_tick(Game *g, const PlayerCmd *cmd, float dt) {
 
     player_update(&g->player, cmd, dt, &g->scene, &g->events);
     weapon_update(&g->weapon, cmd, g->player.view, &g->scene, dt, &g->events);
+}
+
+int game_update(Game *g, const PlayerCmd *cmd, float frame_dt) {
+    events_clear(&g->events);
+    cmd_accumulate(&g->pending, cmd);
+    g->tick_accum += frame_dt;
+
+    int ticks = 0;
+    while (g->tick_accum >= GAME_TICK_DT && ticks < GAME_MAX_TICKS_PER_FRAME) {
+        game_tick(g, &g->pending);
+        cmd_consume(&g->pending);
+        g->tick_accum -= GAME_TICK_DT;
+        ticks++;
+    }
+
+    /* Too far behind (debugger, hitch): skip the backlog, keep remainder */
+    if (g->tick_accum >= GAME_TICK_DT) {
+        g->tick_accum = fmodf(g->tick_accum, GAME_TICK_DT);
+    }
+    return ticks;
 }

@@ -38,7 +38,7 @@ typedef struct {
     WeaponType type;
     float cooldown_timer;
     float kick;             /* current recoil offset */
-    bool fired_this_frame;
+    bool fired_this_tick;
     HitRecord last_hit;     /* center pellet of last shot */
 } Weapon;
 

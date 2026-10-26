@@ -12,7 +12,7 @@ Weapon weapon_create(WeaponType type) {
 
 /* Recover recoil and count down cooldown. Returns true if a shot may fire. */
 static bool tick_ready(Weapon *w, const WeaponDef *def, const PlayerCmd *cmd, float dt) {
-    w->fired_this_frame = false;
+    w->fired_this_tick = false;
 
     if (w->kick > 0) {
         w->kick -= def->kick_return * dt;
@@ -56,7 +56,7 @@ static void fire(Weapon *w, Pose aim, const Scene *scene, EventQueue *ev) {
 
     w->cooldown_timer = def->cooldown;
     w->kick = def->kick;
-    w->fired_this_frame = true;
+    w->fired_this_tick = true;
     events_push(ev, (GameEvent){.type = EV_WEAPON_FIRED, .pos = aim.pos,
                                 .entity = ENTITY_INDEX_NONE});
 

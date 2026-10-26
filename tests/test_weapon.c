@@ -10,7 +10,7 @@ TEST(test_weapon_create) {
     Weapon w = weapon_create(WEAPON_PISTOL);
     ASSERT_NEAR(w.cooldown_timer, 0.0f, 1e-6f);
     ASSERT_NEAR(w.kick, 0.0f, 1e-6f);
-    ASSERT(!w.fired_this_frame);
+    ASSERT(!w.fired_this_tick);
     ASSERT(!w.last_hit.hit);
 }
 
@@ -21,7 +21,7 @@ TEST(test_weapon_fire) {
 
     weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
 
-    ASSERT(w.fired_this_frame);
+    ASSERT(w.fired_this_tick);
     ASSERT(w.cooldown_timer > 0);
     ASSERT(w.kick > 0);
 }
@@ -33,11 +33,11 @@ TEST(test_weapon_cooldown) {
 
     /* First shot */
     weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
-    ASSERT(w.fired_this_frame);
+    ASSERT(w.fired_this_tick);
 
     /* Second frame: still holding shoot, but cooldown prevents firing */
     weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
-    ASSERT(!w.fired_this_frame);
+    ASSERT(!w.fired_this_tick);
 }
 
 TEST(test_weapon_cooldown_expires) {
@@ -48,7 +48,7 @@ TEST(test_weapon_cooldown_expires) {
 
     /* Fire */
     weapon_update(&w, &shoot, aim, &empty, 1.0f / 60.0f, &ev);
-    ASSERT(w.fired_this_frame);
+    ASSERT(w.fired_this_tick);
 
     /* Wait for cooldown to expire */
     for (int i = 0; i < 30; i++)
@@ -56,7 +56,7 @@ TEST(test_weapon_cooldown_expires) {
 
     /* Should be able to fire again */
     weapon_update(&w, &shoot, aim, &empty, 1.0f / 60.0f, &ev);
-    ASSERT(w.fired_this_frame);
+    ASSERT(w.fired_this_tick);
 }
 
 TEST(test_weapon_kick_recovers) {
@@ -84,7 +84,7 @@ TEST(test_weapon_no_fire_without_input) {
 
     weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
 
-    ASSERT(!w.fired_this_frame);
+    ASSERT(!w.fired_this_tick);
     ASSERT_NEAR(w.cooldown_timer, 0.0f, 1e-6f);
 }
 
@@ -110,7 +110,7 @@ TEST(test_weapon_hitscan_hits_world) {
 
     weapon_update(&w, &cmd, aim, &s, 1.0f / 60.0f, &ev);
 
-    ASSERT(w.fired_this_frame);
+    ASSERT(w.fired_this_tick);
     ASSERT(w.last_hit.hit);
     ASSERT_NEAR(w.last_hit.point.z, -5.0f, 0.1f);
 
