@@ -41,7 +41,7 @@ Target layering (each layer calls only layers below it):
   look delta, buttons). Player and weapon consume commands, never
   `InputState`/SDL. AI emits the same `PlayerCmd` → enemies reuse
   movement code; rebinding and demo recording become trivial.
-- **Event queue.** Replace per-frame flags on `Player` (`collected`,
+- ✅ **Event queue.** Replace per-frame flags on `Player` (`collected`,
   `door_action`, `walk_distance`) with a `GameEvent` queue
   (type, position, entity). Audio, HUD and particles consume it.
   Positions in events enable spatial audio later.

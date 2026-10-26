@@ -13,8 +13,24 @@
 #include "level.h"
 #include "threadpool.h"
 #include "audio.h"
+#include "event.h"
 
 #define WINDOW_SCALE 3
+
+/* Presentation side of the event queue: map game events to sounds */
+static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
+    for (int i = 0; i < events->count; i++) {
+        const GameEvent *ev = &events->items[i];
+        switch (ev->type) {
+        case EV_WEAPON_FIRED:  audio_play(audio, SND_WEAPON_FIRE, 0.8f);  break;
+        case EV_WEAPON_IMPACT: audio_play(audio, SND_WEAPON_IMPACT, 0.5f); break;
+        case EV_FOOTSTEP:      audio_play(audio, SND_FOOTSTEP, 0.4f);     break;
+        case EV_PICKUP:        audio_play(audio, SND_PICKUP, 0.6f);       break;
+        case EV_DOOR_OPENED:   audio_play(audio, SND_DOOR_OPEN, 0.7f);    break;
+        case EV_DOOR_CLOSED:   audio_play(audio, SND_DOOR_CLOSE, 0.7f);   break;
+        }
+    }
+}
 
 int main(int argc, char *argv[]) {
     (void)argc; (void)argv;
@@ -90,12 +106,11 @@ int main(int argc, char *argv[]) {
         printf("Audio init failed (continuing without sound)\n");
     }
 
-    #define FOOTSTEP_INTERVAL 2.5f  /* distance between footstep sounds */
-
     bool running = true;
     Uint64 freq = SDL_GetPerformanceFrequency();
     Uint64 last_time = SDL_GetPerformanceCounter();
     float game_time = 0;
+    EventQueue events;
 
     while (running) {
         Uint64 frame_start = SDL_GetPerformanceCounter();
@@ -103,6 +118,8 @@ int main(int argc, char *argv[]) {
         last_time = frame_start;
         if (dt > 0.05f) dt = 0.05f;
         game_time += dt;
+
+        events_clear(&events);
 
         PlayerCmd cmd;
         if (input_poll(&cmd) == INPUT_QUIT) {
@@ -119,25 +136,10 @@ int main(int argc, char *argv[]) {
         scene_rebuild_dynamic(&scene);
 
         /* Update player and weapon using full scene intersection */
-        player_update_scene(&player, &cmd, dt, &scene);
-        weapon_update_scene(&weapon, &cmd, &player.cam, &scene, dt);
+        player_update_scene(&player, &cmd, dt, &scene, &events);
+        weapon_update_scene(&weapon, &cmd, &player.cam, &scene, dt, &events);
 
-        /* Audio triggers */
-        if (weapon.fired_this_frame) {
-            audio_play(&audio, SND_WEAPON_FIRE, 0.8f);
-            if (weapon.last_hit.hit)
-                audio_play(&audio, SND_WEAPON_IMPACT, 0.5f);
-        }
-        if (player.walk_distance >= FOOTSTEP_INTERVAL) {
-            player.walk_distance -= FOOTSTEP_INTERVAL;
-            audio_play(&audio, SND_FOOTSTEP, 0.4f);
-        }
-        if (player.collected > 0)
-            audio_play(&audio, SND_PICKUP, 0.6f);
-        if (player.door_action == 1)
-            audio_play(&audio, SND_DOOR_OPEN, 0.7f);
-        else if (player.door_action == -1)
-            audio_play(&audio, SND_DOOR_CLOSE, 0.7f);
+        play_event_sounds(&audio, &events);
 
         /* Render with point lights and shadow rays (multithreaded) */
         render_scene_lit_mt(&fb, &player.cam, &scene, game_time, &pool, player.flashlight_on);

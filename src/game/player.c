@@ -10,8 +10,6 @@ Player player_create(Vec3 pos) {
     p.on_ground = false;
     p.flashlight_on = false;
     p.walk_distance = 0;
-    p.collected = 0;
-    p.door_action = 0;
     return p;
 }
 
@@ -84,7 +82,28 @@ static Vec3 wish_dir(const Player *p, const PlayerCmd *cmd) {
     return dir;
 }
 
-void player_update(Player *p, const PlayerCmd *cmd, float dt, const BVH *world) {
+/* Accumulate ground distance; emit one footstep per PLAYER_STEP_DIST */
+static void track_footsteps(Player *p, Vec3 new_pos, EventQueue *ev) {
+    if (!p->on_ground) {
+        return;
+    }
+
+    float dx = new_pos.x - p->cam.position.x;
+    float dz = new_pos.z - p->cam.position.z;
+    p->walk_distance += sqrtf(dx * dx + dz * dz);
+
+    if (p->walk_distance < PLAYER_STEP_DIST) {
+        return;
+    }
+    p->walk_distance -= PLAYER_STEP_DIST;
+
+    Vec3 feet = vec3(new_pos.x, p->foot_y, new_pos.z);
+    events_push(ev, (GameEvent){.type = EV_FOOTSTEP, .pos = feet,
+                                .entity = ENTITY_INDEX_NONE});
+}
+
+void player_update(Player *p, const PlayerCmd *cmd, float dt, const BVH *world,
+                   EventQueue *ev) {
     apply_look(p, cmd);
     Vec3 horizontal_move = vec3_mul(wish_dir(p, cmd), PLAYER_SPEED * dt);
 
@@ -140,11 +159,7 @@ void player_update(Player *p, const PlayerCmd *cmd, float dt, const BVH *world) 
 
     pos.y = p->foot_y + PLAYER_HEIGHT + PLAYER_EYE_OFFSET;
 
-    if (p->on_ground) {
-        float dx = pos.x - p->cam.position.x;
-        float dz = pos.z - p->cam.position.z;
-        p->walk_distance += sqrtf(dx * dx + dz * dz);
-    }
+    track_footsteps(p, pos, ev);
 
     p->cam.position = pos;
 }
@@ -184,7 +199,8 @@ static Vec3 try_move_axis_scene(Vec3 pos, Vec3 move, float foot_y, const Scene *
     return vec3_add(pos, vec3_mul(move_dir, move_len));
 }
 
-void player_update_scene(Player *p, const PlayerCmd *cmd, float dt, Scene *scene) {
+void player_update_scene(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
+                         EventQueue *ev) {
     apply_look(p, cmd);
     Vec3 horizontal_move = vec3_mul(wish_dir(p, cmd), PLAYER_SPEED * dt);
 
@@ -222,12 +238,7 @@ void player_update_scene(Player *p, const PlayerCmd *cmd, float dt, Scene *scene
 
     pos.y = p->foot_y + PLAYER_HEIGHT + PLAYER_EYE_OFFSET;
 
-    /* Track horizontal distance walked (for footstep sounds) */
-    if (p->on_ground) {
-        float dx = pos.x - p->cam.position.x;
-        float dz = pos.z - p->cam.position.z;
-        p->walk_distance += sqrtf(dx * dx + dz * dz);
-    }
+    track_footsteps(p, pos, ev);
 
     p->cam.position = pos;
 
@@ -237,11 +248,20 @@ void player_update_scene(Player *p, const PlayerCmd *cmd, float dt, Scene *scene
     }
 
     /* Entity interaction: collect pickups */
-    p->collected = entity_try_collect(&scene->entities, pos, COLLECT_RADIUS);
-
-    /* Entity interaction: use doors */
-    p->door_action = 0;
-    if (cmd_has(cmd, BTN_USE)) {
-        p->door_action = entity_try_use_door(&scene->entities, pos, yaw_forward(p), USE_RANGE);
+    float collected = entity_try_collect(&scene->entities, pos, COLLECT_RADIUS);
+    if (collected > 0) {
+        events_push(ev, (GameEvent){.type = EV_PICKUP, .pos = pos,
+                                    .entity = ENTITY_INDEX_NONE, .amount = collected});
     }
+
+    /* Entity interaction: use doors (1 = opened, -1 = closed, 0 = none) */
+    if (!cmd_has(cmd, BTN_USE)) {
+        return;
+    }
+    int door = entity_try_use_door(&scene->entities, pos, yaw_forward(p), USE_RANGE);
+    if (door == 0) {
+        return;
+    }
+    GameEventType type = (door > 0) ? EV_DOOR_OPENED : EV_DOOR_CLOSED;
+    events_push(ev, (GameEvent){.type = type, .pos = pos, .entity = ENTITY_INDEX_NONE});
 }

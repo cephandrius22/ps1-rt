@@ -10,6 +10,7 @@
 
 #include "camera.h"
 #include "cmd.h"
+#include "event.h"
 #include "bvh.h"
 
 struct Scene;
@@ -22,6 +23,7 @@ struct Scene;
 #define PLAYER_JUMP_VEL   7.0f
 #define STEP_HEIGHT       0.6f
 #define PLAYER_PITCH_MAX  1.4f
+#define PLAYER_STEP_DIST  2.5f  /* distance walked per footstep event */
 
 typedef struct {
     Camera cam;
@@ -29,13 +31,13 @@ typedef struct {
     float foot_y;
     bool on_ground;
     bool flashlight_on;
-    float walk_distance;  /* accumulates distance walked for footstep sounds */
-    float collected;      /* amount collected this frame (0 if none) */
-    int door_action;      /* 1=opened, -1=closed, 0=none this frame */
+    float walk_distance;  /* distance since last footstep event */
 } Player;
 
 Player player_create(Vec3 pos);
-void player_update(Player *p, const PlayerCmd *cmd, float dt, const BVH *world);
-void player_update_scene(Player *p, const PlayerCmd *cmd, float dt, struct Scene *scene);
+void player_update(Player *p, const PlayerCmd *cmd, float dt, const BVH *world,
+                   EventQueue *ev);
+void player_update_scene(Player *p, const PlayerCmd *cmd, float dt, struct Scene *scene,
+                         EventQueue *ev);
 
 #endif
