@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # PS1-Style CPU Raytracer
 
 Real-time software raytracer in C + SDL2. Renders at 320x240, upscaled 3x. PS1 aesthetic: vertex jitter, affine textures, Bayer dithering, 15-bit color.
@@ -6,7 +10,8 @@ Real-time software raytracer in C + SDL2. Renders at 320x240, upscaled 3x. PS1 a
 
 ```bash
 make rt          # build the binary
-make test        # build and run all 16 test suites (144 tests)
+make test        # build and run all test suites
+make tests/test_bvh && ./tests/test_bvh   # build and run one suite
 make clean       # remove all build artifacts
 ./rt             # run with default level (levels/e1m1.level)
 ./rt levels/foo.level  # run with a specific level file
@@ -85,4 +90,9 @@ light <x> <y> <z> <r> <g> <b> <intensity> <radius> [key=value ...]
 
 ## Tests
 
-Each `tests/test_*.c` is a standalone binary using `tests/test_framework.h`. Test targets in Makefile link only needed `.o` files. Run individual suites with `./tests/test_<module>`.
+Each `tests/test_*.c` is a standalone binary using `tests/test_framework.h` (`TEST`, `RUN_TEST`, `TEST_SUITE`, `TEST_REPORT`).
+
+- **New suite needs a Makefile rule.** `make test` picks up `tests/test_*.c` via wildcard, but there is no generic link rule — add an explicit target listing every `.o` the test depends on (transitive deps included, e.g. `scene.o` pulls `entity.o bvh.o mesh.o light.o texture.o`).
+- **Run from repo root.** `test_level` loads `tests/test.level` by relative path.
+
+Controls: WASD move, mouse look, Space jump, LMB shoot, E use, F flashlight, Esc quit.
