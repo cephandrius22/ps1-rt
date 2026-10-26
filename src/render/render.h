@@ -1,18 +1,20 @@
 /*
- * render.h — Scene rendering to a 320x240 framebuffer.
+ * render.h — Raytraced scene rendering to a 320x240 framebuffer.
  *
- * For each pixel: generates a ray, intersects the BVH, applies material/texture
- * lookup, directional lighting, distance fog, and PS1 dithering. Outputs ARGB
- * pixel data ready for SDL2 texture upload.
+ * Per pixel: camera ray → scene_intersect() (static + dynamic BVH) →
+ * material/texture → sun + point lights (shadow rays) + flashlight →
+ * distance fog → light billboards → PS1 dither. Output is ARGB, ready
+ * for SDL texture upload.
+ *
+ * Reads world/ for *what* is in the scene (geometry, materials, lights)
+ * and gfx/ for *how* to draw it (camera rays, texture sampling, dither).
  */
 #ifndef RENDER_H
 #define RENDER_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "camera.h"
-#include "mesh.h"
-#include "texture.h"
-#include "ps1_effects.h"
 
 /* Forward declare — full definition in scene.h */
 struct Scene;

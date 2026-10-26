@@ -8,15 +8,13 @@ Run `./rt` to see it in action — WASD to move, mouse to look around, Escape to
 
 ## Features
 
-- **CPU raytracer** — no GPU shaders, all rendering happens on the CPU
-- **BVH acceleration** — Surface Area Heuristic (SAH) for fast ray-triangle intersection
-- **OBJ model loading** — supports v, vt, vn, and quad/tri faces
-- **TGA texture loading** — uncompressed 24/32-bit TGA files, nearest-neighbor sampling
-- **PS1 vertex jitter** — vertices snapped to a coarse fixed-point grid
-- **PS1 dithering** — 4x4 Bayer matrix ordered dithering with 5-bit-per-channel color
-- **Distance fog** — objects fade into atmosphere at distance
-- **First-person controls** — WASD movement + mouse look
-- **320x240 internal resolution** — upscaled 3x to 960x720 window
+- **CPU raytracer** — no GPU shaders, all rendering happens on the CPU, multithreaded by scanline
+- **Two-level BVH** — SAH-built static world + per-tick dynamic entity BVH
+- **Lighting** — point lights with shadows, flicker and swing, a player flashlight, distance fog
+- **PS1 look** — vertex jitter, 4x4 Bayer dithering, 15-bit color, 320x240 upscaled 3x
+- **Level files** — rooms, boxes, quads, OBJ models, entities and lights in a text format (`levels/*.level`)
+- **Procedural textures** — concrete, brick, metal, grate, rust, tile, pipe; generated in code
+- **Gameplay core** — fixed 60 Hz simulation, first-person movement with collision, hitscan weapons, pickups, doors, procedural sound
 
 ## Building
 
@@ -31,7 +29,7 @@ Run `./rt` to see it in action — WASD to move, mouse to look around, Escape to
 make        # Build the raytracer (objects go to build/)
 ./rt        # Run it
 
-make test   # Run all unit tests
+make test   # Build and run all test suites
 make clean  # Remove build artifacts
 ```
 
@@ -56,40 +54,36 @@ levels/       .level scene files
 ### Rendering Pipeline
 
 1. For each pixel, generate a world-space ray from the camera
-2. Traverse the BVH to find the closest triangle intersection
-3. Look up surface color (texture, material, or procedural checkerboard)
-4. Apply directional lighting (N·L) with ambient term
-5. Blend with distance fog
+2. Intersect the static and dynamic BVHs for the closest triangle
+3. Look up surface color (procedural texture, material color, or checkerboard)
+4. Light it: ambient + sun + point lights (shadow rays, max 4 per pixel) + flashlight
+5. Blend with distance fog; draw light billboards
 6. Apply PS1 dithering and 15-bit color quantization
-7. Write to 320x240 framebuffer, SDL2 upscales to window
+7. Write to the 320x240 framebuffer; SDL2 upscales to the window
 
 ### PS1 Effects
 
-The PS1 look comes from three key effects:
-
-- **Vertex jitter**: Triangle vertices are snapped to a grid of resolution 1/128, simulating the PS1's lack of sub-pixel precision. Applied once at scene load before BVH construction.
-- **Affine texture mapping**: The `ps1_affine_uv()` function provides linear (non-perspective-correct) UV interpolation, producing the characteristic texture warping.
-- **Dithering**: A 4x4 Bayer matrix adds ordered noise before quantizing each color channel from 8-bit to 5-bit (32 levels), matching the PS1's 15-bit VRAM.
+- **Vertex jitter**: triangle vertices snap to a 1/128 grid at level load, before BVH construction, mimicking the PS1's lack of sub-pixel precision.
+- **Dithering**: a 4x4 Bayer matrix adds ordered noise before quantizing each channel to 5 bits, matching the PS1's 15-bit VRAM.
+- **Affine texture mapping**: `ps1_affine_uv()` exists, but shading does not use it yet; raytraced UVs are perspective-correct.
 
 ## Controls
 
-| Key       | Action        |
-|-----------|---------------|
-| W/A/S/D   | Move          |
-| Mouse     | Look around   |
-| Escape    | Quit          |
+| Key       | Action           |
+|-----------|------------------|
+| W/A/S/D   | Move             |
+| Mouse     | Look around      |
+| Space     | Jump             |
+| Left click| Shoot            |
+| E         | Use (doors)      |
+| F         | Flashlight       |
+| Escape    | Quit             |
 
-## Loading Custom Models
+## Levels and Models
 
-The OBJ loader is ready to use:
-
-```c
-Mesh m;
-mesh_init(&m);
-mesh_load_obj(&m, "assets/models/room.obj");
-```
-
-Place `.obj` files in `assets/models/` and `.tga` textures in `assets/textures/`.
+Levels are text files in `levels/`; run one with `./rt levels/yourmap.level`.
+The format is documented in `CLAUDE.md`. OBJ models are placed with the
+`obj` directive; put `.obj` files in `assets/models/`.
 
 ## License
 

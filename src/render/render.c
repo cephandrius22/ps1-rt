@@ -1,5 +1,6 @@
 #include "render.h"
 #include "scene.h"
+#include "ps1_effects.h"
 #include "threadpool.h"
 #include <stddef.h>
 

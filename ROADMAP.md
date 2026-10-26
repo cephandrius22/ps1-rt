@@ -7,8 +7,10 @@ playable soonest. Each phase ends in something you can play.
 ## Done
 
 - Collision & physics: gravity, jump, step climbing, wall sliding
-- Hitscan weapon with cooldown, recoil, viewmodel
-- Two-level BVH, entity system, pickups
+- Fixed 60 Hz simulation driven by `PlayerCmd`, events to presentation
+- Hitscan weapons from a `WeaponDef` table (pellets, spread); recoil is
+  tracked but not applied, no viewmodel drawn yet
+- Two-level BVH, data-driven entities: pickups, doors, props
 - Point lights, shadows, flicker, swinging bulbs, flashlight, fog
 - 8-voice mixer, procedural sounds, footsteps, ambient loop
 - Level file format, procedural textures
@@ -55,9 +57,9 @@ Carried into later phases:
   type on `WeaponDef`, game modes (dead, level end).
 - Phase 1: apply weapon `kick` to the view (tracked, never applied).
 - Phase 4: environment settings and one light model (below).
+- Phase 6: move SDL window code out of `main.c` into `platform/`.
 - Phase 7: interpolate rendering between ticks (displays above 60 Hz
-  show each tick on several frames); move SDL window code out of
-  `main.c` into `platform/`.
+  show each tick on several frames).
 
 ## Phase 1: Vertical slice
 
@@ -75,7 +77,7 @@ One room that is fun to fight in.
 
 ## Phase 2: Combat feel
 
-- Shotgun (multi-ray spread), one projectile weapon
+- Shotgun (a `WeaponDef` row: pellets + spread), one projectile weapon
 - Muzzle flash as short-lived light
 - Weapon bob, screen shake, damage flash
 - Blood/gibs as billboard particles
@@ -83,7 +85,7 @@ One room that is fun to fight in.
 
 ## Phase 3: Level logic
 
-- Doors back in, keys, switches
+- Doors back in e1m1 (entity type exists), keys, switches
 - `trigger` directive: on enter → open door, spawn monsters, play sound
 - Sound alerting: gunfire wakes nearby enemies
 - Waypoint graph via `node` directive for enemy pathing
@@ -101,17 +103,21 @@ One room that is fun to fight in.
 - Shootable lights, flashlight battery
 - Animated textures: flickering screens, water, slime
 - Low health desaturation
+- Affine texture warping in shading (`ps1_affine_uv()` exists, unused)
 
 ## Phase 5: Content
 
 - Episode of 3–4 levels with transitions
 - Secrets, intermission screen (kills, secrets, time)
 - Hot-reload level files
+- TGA textures from level materials (loader exists, not reachable from
+  `.level` files)
 
 ## Phase 6: Shell
 
 - Main menu, pause, mouse sensitivity
 - Save / load
+- Move SDL window/present code from `main.c` into `platform/`
 
 ## Phase 7: Performance (when profiling demands)
 
@@ -119,16 +125,15 @@ One room that is fun to fight in.
 - Tile-based rendering
 - Analytic sprite intersection (no triangles)
 - Interpolate rendering between fixed ticks
-- Move SDL window/present code from `main.c` into `platform/`
 
 ## Open decisions
 
 - **Enemies: sprites or low-poly models.** Leaning sprites (cheap, Doom
-  look). Phase 0's `render_kind` keeps both possible.
+  look). `RenderKind` on `EntityDef` keeps both possible.
 
 ## Design notes
 
 - Two-level BVH for dynamic objects
-- PS1 aesthetic throughout: vertex jitter, affine textures, dithering,
-  320x240
+- PS1 aesthetic throughout: vertex jitter, dithering, 320x240; affine
+  texture warping planned (Phase 4)
 - CPU raytracing only, no GPU shaders

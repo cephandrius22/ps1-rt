@@ -1,5 +1,9 @@
 /*
- * light.h — Real-time point light system with shadow rays.
+ * light.h — Point lights: storage, attenuation, flicker, swing animation.
+ *
+ * Lights are data owned by the scene; render/ does the shading and
+ * shadow rays. light_update() animates swinging bulbs each game tick;
+ * flicker is a pure function of time, evaluated when shading.
  */
 #ifndef LIGHT_H
 #define LIGHT_H
@@ -35,7 +39,7 @@ void light_list_init(LightList *list);
 void light_list_free(LightList *list);
 int  light_add(LightList *list, PointLight light);
 
-/* Update animated lights (swing, etc.). Call once per frame. */
+/* Update animated lights (swing, etc.). Call once per game tick. */
 void light_update(LightList *list, float time);
 
 /* Get effective intensity for a light at a given time (applies flicker) */

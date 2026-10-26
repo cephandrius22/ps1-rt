@@ -2,7 +2,7 @@
  * scene.h — Scene container with two-level BVH, entities, and lights.
  *
  * The static BVH holds world geometry (built once). The dynamic BVH holds
- * transformed entity geometry (rebuilt each frame). scene_intersect()
+ * transformed entity geometry (rebuilt each game tick). scene_intersect()
  * tests both and returns the closer hit.
  */
 #ifndef SCENE_H
@@ -17,7 +17,7 @@ typedef struct Scene {
     /* Static world geometry */
     BVH static_bvh;
 
-    /* Dynamic entity geometry (rebuilt per frame) */
+    /* Dynamic entity geometry (rebuilt per tick) */
     BVH dynamic_bvh;
     Triangle *dynamic_tris;
     int dynamic_tri_count;
@@ -44,7 +44,7 @@ void scene_free(Scene *s);
 /* Build the static BVH from world triangles (call once) */
 void scene_build_static(Scene *s, Triangle *tris, int count);
 
-/* Rebuild dynamic BVH from active entities (call each frame) */
+/* Rebuild dynamic BVH from active entities (call each tick) */
 void scene_rebuild_dynamic(Scene *s);
 
 /* Intersect ray against both BVHs, return closer hit */

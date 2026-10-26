@@ -1,5 +1,5 @@
 /*
- * event.h — Per-tick queue of things that happened in the game.
+ * event.h — Queue of things that happened in the game this frame.
  *
  * Gameplay pushes events; presentation (audio, later HUD/particles)
  * drains them. Producers never call consumers directly, so adding a
@@ -8,7 +8,8 @@
  *   player / weapon ──push──> EventQueue ──drain──> main → audio
  *                                                  (later: hud, fx)
  *
- * Cleared at the start of each tick. Overflow drops the newest event.
+ * Cleared at the start of each game_update(), so one frame's events
+ * from all of its ticks reach presentation. Overflow drops the newest.
  */
 #ifndef EVENT_H
 #define EVENT_H

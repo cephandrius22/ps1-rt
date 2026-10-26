@@ -3,8 +3,8 @@
  *
  * Sounds are identified by SoundID. On init, procedural sounds are
  * generated for each ID. Call audio_load_wav() to replace any
- * procedural sound with a WAV file. Playback mixes into SDL2's
- * audio queue.
+ * procedural sound with a WAV file. Up to AUDIO_MAX_VOICES voices are
+ * mixed in SDL2's audio callback thread.
  */
 #ifndef AUDIO_H
 #define AUDIO_H

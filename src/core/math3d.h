@@ -1,7 +1,7 @@
 /*
  * math3d.h — Inline 3D math library.
  *
- * Provides Vec3, Vec2, Mat4, and Ray types with common operations.
+ * Provides Vec3, Vec2, Mat4, Ray and Pose types with common operations.
  * All functions are static inline for zero-overhead use in hot loops.
  */
 #ifndef MATH3D_H

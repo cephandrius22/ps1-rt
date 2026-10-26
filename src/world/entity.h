@@ -34,7 +34,7 @@ typedef enum {
  * the field exists so types can choose without touching generic code. */
 typedef enum {
     RENDER_NONE,   /* invisible (triggers, spawn points) */
-    RENDER_MESH,   /* template mesh, posed per frame into the dynamic BVH */
+    RENDER_MESH,   /* template mesh, posed per tick into the dynamic BVH */
     RENDER_SPRITE, /* camera-facing billboard */
 } RenderKind;
 
