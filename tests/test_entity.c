@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/entity.h"
+#include "entity.h"
 #include <stdlib.h>
 
 TEST(test_entity_list_init) {

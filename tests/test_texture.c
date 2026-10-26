@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/texture.h"
+#include "texture.h"
 #include <stdlib.h>
 
 static Texture make_test_texture(int w, int h) {

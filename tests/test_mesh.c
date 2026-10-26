@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/mesh.h"
+#include "mesh.h"
 
 static Triangle make_floor_tri(void) {
     Triangle tri = {

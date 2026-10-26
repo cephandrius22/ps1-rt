@@ -1,72 +1,38 @@
 CC = cc
-CFLAGS = -Wall -Wextra -O2 $(shell sdl2-config --cflags)
+BUILD = build
+
+# Each layer directory is on the include path, so headers are included by
+# bare name ("scene.h") regardless of where they live.
+SRC_DIRS = $(patsubst %/.,%,$(wildcard src/*/.))
+INC = $(addprefix -I,$(SRC_DIRS))
+
+CFLAGS = -Wall -Wextra -O2 -MMD -MP $(INC) $(shell sdl2-config --cflags)
 LDFLAGS = $(shell sdl2-config --libs) -lm
 
-SRC = $(wildcard src/*.c)
-OBJ = $(SRC:.c=.o)
+SRC = $(wildcard src/*/*.c) src/main.c
+OBJ = $(SRC:%.c=$(BUILD)/%.o)
 BIN = rt
 
-# Source objects minus main.o for linking with tests
-LIB_OBJ = $(filter-out src/main.o, $(OBJ))
+# Everything except main.o, archived so tests link only what they use
+LIB_OBJ = $(filter-out $(BUILD)/src/main.o, $(OBJ))
+LIB = $(BUILD)/librt.a
 
-# Test files
 TEST_SRC = $(wildcard tests/test_*.c)
-TEST_BIN = $(TEST_SRC:tests/%.c=tests/%)
+TEST_BIN = $(TEST_SRC:tests/%.c=$(BUILD)/tests/%)
 
 $(BIN): $(OBJ)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-src/%.o: src/%.c
+$(BUILD)/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-# Build individual test binaries
-tests/test_math3d: tests/test_math3d.c src/math3d.h
-	$(CC) $(CFLAGS) -o $@ $< -lm
+$(LIB): $(LIB_OBJ)
+	ar rcs $@ $^
 
-tests/test_camera: tests/test_camera.c src/camera.o
-	$(CC) $(CFLAGS) -o $@ $< src/camera.o -lm
-
-tests/test_mesh: tests/test_mesh.c src/mesh.o
-	$(CC) $(CFLAGS) -o $@ $< src/mesh.o -lm
-
-tests/test_bvh: tests/test_bvh.c src/bvh.o src/mesh.o
-	$(CC) $(CFLAGS) -o $@ $< src/bvh.o src/mesh.o -lm
-
-tests/test_texture: tests/test_texture.c src/texture.o
-	$(CC) $(CFLAGS) -o $@ $< src/texture.o -lm
-
-tests/test_ps1_effects: tests/test_ps1_effects.c src/ps1_effects.o src/mesh.o
-	$(CC) $(CFLAGS) -o $@ $< src/ps1_effects.o src/mesh.o -lm
-
-tests/test_player: tests/test_player.c src/player.o src/camera.o src/input.o src/bvh.o src/mesh.o src/scene.o src/entity.o src/light.o src/texture.o
-	$(CC) $(CFLAGS) -o $@ $< src/player.o src/camera.o src/input.o src/bvh.o src/mesh.o src/scene.o src/entity.o src/light.o src/texture.o $(LDFLAGS)
-
-tests/test_weapon: tests/test_weapon.c src/weapon.o src/camera.o src/bvh.o src/mesh.o src/scene.o src/entity.o src/light.o src/texture.o
-	$(CC) $(CFLAGS) -o $@ $< src/weapon.o src/camera.o src/bvh.o src/mesh.o src/scene.o src/entity.o src/light.o src/texture.o -lm
-
-tests/test_entity: tests/test_entity.c src/entity.o src/mesh.o
-	$(CC) $(CFLAGS) -o $@ $< src/entity.o src/mesh.o -lm
-
-tests/test_light: tests/test_light.c src/light.o
-	$(CC) $(CFLAGS) -o $@ $< src/light.o -lm
-
-tests/test_scene: tests/test_scene.c src/scene.o src/entity.o src/bvh.o src/mesh.o src/light.o src/texture.o
-	$(CC) $(CFLAGS) -o $@ $< src/scene.o src/entity.o src/bvh.o src/mesh.o src/light.o src/texture.o -lm
-
-tests/test_audio: tests/test_audio.c src/audio.o
-	$(CC) $(CFLAGS) -o $@ $< src/audio.o $(LDFLAGS)
-
-tests/test_threadpool: tests/test_threadpool.c src/threadpool.o src/render.o src/scene.o src/entity.o src/bvh.o src/mesh.o src/light.o src/camera.o src/texture.o src/ps1_effects.o
-	$(CC) $(CFLAGS) -o $@ $< src/threadpool.o src/render.o src/scene.o src/entity.o src/bvh.o src/mesh.o src/light.o src/camera.o src/texture.o src/ps1_effects.o -lm
-
-tests/test_render: tests/test_render.c src/render.o src/camera.o src/mesh.o src/bvh.o src/texture.o src/ps1_effects.o src/scene.o src/entity.o src/light.o src/threadpool.o
-	$(CC) $(CFLAGS) -o $@ $< src/render.o src/camera.o src/mesh.o src/bvh.o src/texture.o src/ps1_effects.o src/scene.o src/entity.o src/light.o src/threadpool.o -lm
-
-tests/test_proctex: tests/test_proctex.c src/proctex.o src/texture.o
-	$(CC) $(CFLAGS) -o $@ $< src/proctex.o src/texture.o -lm
-
-tests/test_level: tests/test_level.c src/level.o src/proctex.o src/scene.o src/entity.o src/bvh.o src/mesh.o src/light.o src/texture.o src/ps1_effects.o
-	$(CC) $(CFLAGS) -o $@ $< src/level.o src/proctex.o src/scene.o src/entity.o src/bvh.o src/mesh.o src/light.o src/texture.o src/ps1_effects.o -lm
+$(BUILD)/tests/%: tests/%.c $(LIB)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -o $@ $< $(LIB) $(LDFLAGS)
 
 test: $(TEST_BIN)
 	@echo ""
@@ -83,7 +49,13 @@ test: $(TEST_BIN)
 		echo "All test suites passed"; \
 	fi
 
+# Editor support: clangd reads this when there's no compile database
+compile_flags.txt: Makefile
+	@printf '%s\n' $(CFLAGS) | grep -v '^-M' > $@
+
 clean:
-	rm -f $(OBJ) $(BIN) $(TEST_BIN)
+	rm -rf $(BUILD) $(BIN)
+
+-include $(OBJ:.o=.d) $(TEST_BIN:=.d)
 
 .PHONY: clean test

@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/level.h"
+#include "level.h"
 
 TEST(test_level_load_success) {
     Scene scene;

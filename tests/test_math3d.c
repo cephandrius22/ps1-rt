@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/math3d.h"
+#include "math3d.h"
 
 TEST(test_vec3_add) {
     Vec3 a = vec3(1, 2, 3);

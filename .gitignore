@@ -1,22 +1,7 @@
 # Build artifacts
-*.o
+build/
 rt
-tests/test_math3d
-tests/test_camera
-tests/test_mesh
-tests/test_bvh
-tests/test_texture
-tests/test_ps1_effects
-tests/test_player
-tests/test_weapon
-tests/test_entity
-tests/test_light
-tests/test_scene
-tests/test_audio
-tests/test_threadpool
-tests/test_render
-tests/test_proctex
-tests/test_level
+compile_flags.txt
 
 # macOS
 .DS_Store

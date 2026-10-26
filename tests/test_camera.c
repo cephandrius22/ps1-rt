@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/camera.h"
+#include "camera.h"
 
 TEST(test_camera_create) {
     Camera cam = camera_create(vec3(1, 2, 3), 0.5f, -0.2f, 1.2f);

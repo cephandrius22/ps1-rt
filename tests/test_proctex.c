@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/proctex.h"
+#include "proctex.h"
 
 TEST(test_proctex_find_concrete) {
     ASSERT_EQ_INT(proctex_find("concrete"), PTEX_CONCRETE);

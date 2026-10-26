@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/scene.h"
+#include "scene.h"
 
 static void add_floor_tri(Mesh *m) {
     mesh_init(m);

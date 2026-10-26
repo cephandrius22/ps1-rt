@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/bvh.h"
+#include "bvh.h"
 
 static Triangle make_tri_at(float x, float y, float z) {
     return (Triangle){

@@ -1,7 +1,7 @@
 #include "test_framework.h"
-#include "../src/threadpool.h"
-#include "../src/render.h"
-#include "../src/scene.h"
+#include "threadpool.h"
+#include "render.h"
+#include "scene.h"
 #include <string.h>
 
 /* --- Thread pool lifecycle tests --- */

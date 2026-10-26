@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/ps1_effects.h"
+#include "ps1_effects.h"
 
 TEST(test_snap_vertex_basic) {
     Vec3 v = vec3(1.0f, 2.0f, 3.0f);

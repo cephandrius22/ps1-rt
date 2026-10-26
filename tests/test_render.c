@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/render.h"
+#include "render.h"
 
 TEST(test_color_rgb) {
     uint32_t c = color_rgb(0xFF, 0x80, 0x40);

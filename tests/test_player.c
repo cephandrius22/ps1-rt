@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/player.h"
+#include "player.h"
 
 #define PLAYER_EYE_Y (PLAYER_HEIGHT + PLAYER_EYE_OFFSET)
 

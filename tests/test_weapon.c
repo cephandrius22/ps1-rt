@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/weapon.h"
+#include "weapon.h"
 
 TEST(test_weapon_create) {
     Weapon w = weapon_create();

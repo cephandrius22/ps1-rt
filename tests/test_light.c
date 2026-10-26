@@ -1,5 +1,5 @@
 #include "test_framework.h"
-#include "../src/light.h"
+#include "light.h"
 
 TEST(test_light_list_init) {
     LightList list;
