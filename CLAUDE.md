@@ -24,17 +24,19 @@ Requires: SDL2 (`sdl2-config`), C compiler, pthreads, `-lm`.
 
 ### Layers
 
-`src/` is split by layer. A module may call down, never up or sideways
-across `game`/`render`. Every layer dir is on the include path, so
-headers are included by bare name (`"scene.h"`).
+`src/` is split by layer. A module calls only the layer directly below;
+`core/` is the shared foundation every layer may use. `game/` and
+`render/` are siblings and never include each other — `main.c` copies
+values between them. Every layer dir is on the include path, so headers
+are included by bare name (`"scene.h"`).
 
 ```
-  main.c        wires everything, owns the loop
-  game/  render/   gameplay (player, weapon, cmd) | shading
-  world/        scene, entity, light, level loader
-  gfx/          camera, mesh, bvh, texture, proctex, ps1_effects
-  core/         math3d, threadpool
-  platform/     SDL input + audio; talks to game via PlayerCmd only
+  main.c          wires platform + game + render, owns the loop
+  game/  render/  game state, player, weapon, cmd, events | shading, overlay
+  world/          scene, entity, light, level loader
+  gfx/            camera, mesh, bvh, texture, proctex, ps1_effects
+  core/           math3d (Vec3, Ray, Pose), threadpool, kv
+  platform/       SDL input + audio; talks to game via PlayerCmd only
 ```
 
 - **PlayerCmd (`game/cmd.h`) is the only input contract.** `input_poll()`
@@ -44,7 +46,9 @@ headers are included by bare name (`"scene.h"`).
 
 ### Core Pipeline
 
-`main.c` — Game loop: level load → `input_poll()` → physics → light update → render → audio triggers → SDL blit
+`main.c` per frame: `input_poll()` → `game_update()` → `play_event_sounds()` → `camera_from_pose()` → `render_scene_lit_mt()` → `overlay_draw()` → SDL present
+
+`game_update()` runs 0..`GAME_MAX_TICKS_PER_FRAME` fixed ticks at `GAME_TICK_HZ` (60). Each `game_tick()`: entities → lights → rebuild dynamic BVH → player → weapon.
 
 Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH) → `shade_pixel_lit()` → PS1 dither → framebuffer
 
@@ -52,8 +56,8 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH) → `shad
 
 | Module | Purpose |
 |--------|---------|
-| `math3d.h` | Vec3, Mat4, Ray, UV — header-only with inline functions |
-| `camera` | Camera state, perspective ray generation per pixel |
+| `math3d.h` | Vec3, Mat4, Ray, UV, `Pose` (pos + yaw/pitch) — header-only |
+| `camera` | Render camera (`camera_from_pose()`), perspective ray per pixel |
 | `mesh` | Triangle storage, OBJ loader with fan triangulation |
 | `bvh` | SAH-based BVH build, stack-based iterative traversal |
 | `scene` | Two-level scene graph: static world BVH + dynamic entity BVH rebuilt per frame |
@@ -61,14 +65,16 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH) → `shad
 | `entity_types` | `EntityDef` table: per-type name, `RenderKind`, and hooks (spawn/update/touch/use/pose/build_mesh) |
 | `kv` | `key=value` lookup in a text line (level args) |
 | `render` | Shading: directional sun + point lights + shadows + fog + light billboards |
+| `overlay` | 2D layer over the frame (viewmodel, HUD), fed an `OverlayState` by `main.c` |
 | `light` | Point light system: attenuation, flicker (layered sine), pendulum swing animation |
 | `texture` | TGA loader, nearest-neighbor sampling |
 | `proctex` | Procedural texture generation: concrete, brick, metal_panel, metal_grate, rust, floor_tile, pipe |
 | `level` | Text-based `.level` file loader — parses materials, geometry, entities, lights |
 | `ps1_effects` | Vertex jitter (1/128 grid), affine UV, 4x4 Bayer dither, 15-bit color quantize |
-| `player` | First-person movement with gravity, wall sliding, ground snap via BVH raycasts |
+| `game` | `Game` struct: owns scene, player, weapon, events; fixed-timestep `game_update()` |
+| `player` | First-person movement with gravity, wall sliding, ground snap via scene raycasts |
 | `weapon` | Hitscan firing driven by `WeaponDef` (`weapon_types.c`): damage, cooldown, range, pellets, spread, kick |
-| `event` | `GameEvent` queue: gameplay pushes, presentation drains each tick |
+| `event` | `GameEvent` queue: gameplay pushes, presentation drains each frame |
 | `cmd` | `PlayerCmd`: move axes, look deltas, button bitmask (held + impulse) |
 | `input` | SDL2 keyboard/mouse → `PlayerCmd`, relative mouse mode |
 | `audio` | 8-voice mixer via SDL2 audio callback, procedural sound gen, WAV loader ready |
@@ -80,7 +86,9 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH) → `shad
 - **Two-level BVH:** `scene.static_bvh` is built once at level load. `scene.dynamic_bvh` is rebuilt each frame from entity triangles. `scene_intersect()` tests both.
 - **Procedural textures:** `proctex.c` generates 32x32/64x64 textures in code using hash-based noise. Materials in level files reference them by name (e.g., `concrete`, `brick`).
 - **Multithreaded render:** `render_scene_lit_mt()` splits screen rows across thread pool workers. Each worker gets a pre-assigned chunk — no work stealing.
-- **Event queue:** player/weapon push `GameEvent`s (type, pos, entity, amount) into an `EventQueue` cleared each tick. `main.c:play_event_sounds()` maps them to `audio_play()`. New reactions (HUD, particles) consume the queue; gameplay code stays untouched.
+- **Fixed timestep:** gameplay only sees `GAME_TICK_DT`, never frame time. Input is folded into `Game.pending` (`cmd_accumulate`): look deltas and impulses apply exactly once even when a frame runs 0 or several ticks. Add one-shot buttons to `CMD_IMPULSES`.
+- **Pose, not Camera, in gameplay:** `Player.view` is a `Pose`; weapons aim with a `Pose`. `main.c` builds the render `Camera` (adds FOV). Game code never includes `camera.h`.
+- **Event queue:** player/weapon push `GameEvent`s (type, pos, entity, amount) into `Game.events`, cleared at the start of each `game_update()`. `main.c:play_event_sounds()` maps them to `audio_play()`. New reactions (HUD, particles) consume the queue; gameplay code stays untouched.
 - **Hit → entity:** `Triangle.owner`/`HitRecord.owner` is an opaque tag at the `gfx` layer. Entity triangles get `owner = index + 1`; call `entity_hit(&rec)` for the entity index or `ENTITY_INDEX_NONE`. Zero-initialized triangles read as world.
 - **Materials:** `Scene` holds parallel arrays of `Material` and `Texture`. Triangles reference materials by index. Fallback is checkerboard.
 - **Shadow rays:** Capped at `MAX_SHADOW_LIGHTS` (4) per pixel for performance. Sun shadow is separate.

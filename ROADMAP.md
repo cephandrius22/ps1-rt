@@ -14,66 +14,50 @@ playable soonest. Each phase ends in something you can play.
 - Level file format, procedural textures
 - Multithreaded rendering
 
-## Phase 0: Structure
+## Phase 0: Structure ✅
 
-Do this before Phase 1. Each item removes a lock-in that Phase 1+ would
-otherwise build on top of.
-
-Target layering (each layer calls only layers below it):
+Removed lock-ins that Phase 1+ would otherwise build on.
 
 ```
   main.c          wires platform + game + render, owns the loop
      |
-  game/ render/   gameplay (player, weapon, ai, events) | shading, overlay
+  game/ render/   game state, player, weapon, events | shading, overlay
      |
   world/          scene, entity, light, level loader
      |
   gfx/            camera, mesh, bvh, texture, proctex, ps1 effects
      |
-  core/           math3d, threadpool
+  core/           math3d, threadpool, kv (shared foundation)
 
-  platform/       SDL window, input device, audio device
+  platform/       SDL input device, audio device
                   (talks to game only through commands/events)
 ```
 
-- ✅ **Directories by layer.** `src/*` moved into the folders above.
-- ✅ **Commands, not keys.** Platform input produces a `PlayerCmd` (move,
-  look delta, buttons). Player and weapon consume commands, never
-  `InputState`/SDL. AI emits the same `PlayerCmd` → enemies reuse
-  movement code; rebinding and demo recording become trivial.
-- ✅ **Event queue.** Replace per-frame flags on `Player` (`collected`,
-  `door_action`, `walk_distance`) with a `GameEvent` queue
-  (type, position, entity). Audio, HUD and particles consume it.
-  Positions in events enable spatial audio later.
-- ✅ **Hits know what they hit.** `HitRecord.owner` tag +
-  `entity_hit()` give the entity index. Required for damage.
-- ✅ **Data-driven entity types.** `EntityDef` table in
-  `entity_types.c` with hooks (spawn, update, touch, use, pose,
-  build_mesh) and `RenderKind` (mesh | sprite | none), so the
-  sprite-vs-model choice stays open per type. Deferred to Phase 1,
-  when damage exists: `damage` hook and generic health/velocity/radius.
-- ✅ **Data-driven weapons.** `WeaponDef` table (damage, cooldown,
-  range, pellets, spread, kick). Ammo type deferred to Phase 1 with ammo.
-  Note: `kick` is tracked but never applied to the view.
-- **Environment in the level.** Move sun, ambient, fog out of
-  `make_render_params()` into a `Environment` struct on `Scene`, set by
-  new level directives (`fog`, `ambient`, `sun`).
-- **One light model.** Fold the flashlight into the light list as a
-  spot light (`Light.kind` = point | spot). Muzzle flash and enemy glow
-  reuse it.
-- **Gameplay doesn't draw.** Move `weapon_draw_viewmodel()` and HUD into
-  a `render/overlay` module fed by game state.
-- **Fixed-timestep logic.** Update game at a fixed tick (e.g. 60 Hz),
-  render as fast as possible. Deterministic physics, replayable demos.
-- **Game state + modes.** `Game` struct owning scene, player, weapons;
-  mode machine: menu → playing → intermission. Needed for level
-  transitions, pause, save/load.
-- ✅ **Tests link a static lib** of all non-main objects; no per-test
-  Makefile rules.
-- **Cleanup.** Drop legacy `render_scene()`/`SceneMaterials` path and
-  the BVH-only `player_update()`/`weapon_update()` duplicates.
-- **Player owns a Camera.** `player.h` reaches into `gfx/` for its pose.
-  Give `Player` a position/yaw/pitch; derive the camera at render time.
+- ✅ **Directories by layer.**
+- ✅ **Commands, not keys.** `PlayerCmd`; AI/demos can drive any actor.
+- ✅ **Event queue.** `GameEvent` (type, position, entity, amount).
+- ✅ **Hits know what they hit.** `HitRecord.owner` + `entity_hit()`.
+- ✅ **Data-driven entity types.** `EntityDef` hooks + `RenderKind`.
+- ✅ **Data-driven weapons.** `WeaponDef` (damage, cooldown, range,
+  pellets, spread, kick).
+- ✅ **Gameplay doesn't draw.** `render/overlay` fed by `OverlayState`.
+- ✅ **Fixed-timestep logic.** 60 Hz ticks, input accumulated so look
+  and impulses apply once.
+- ✅ **Game state.** `Game` owns scene, player, weapon, events, mode.
+- ✅ **Tests link a static lib.**
+- ✅ **Cleanup.** Legacy `render_scene()` and BVH-only update paths gone.
+- ✅ **Pose, not Camera.** Player and weapons use `Pose`; camera is
+  derived at render time.
+
+Carried into later phases:
+
+- Phase 1: `damage` entity hook, generic health/velocity/radius, ammo
+  type on `WeaponDef`, game modes (dead, level end).
+- Phase 1: apply weapon `kick` to the view (tracked, never applied).
+- Phase 4: environment settings and one light model (below).
+- Phase 7: interpolate rendering between ticks (displays above 60 Hz
+  show each tick on several frames); move SDL window code out of
+  `main.c` into `platform/`.
 
 ## Phase 1: Vertical slice
 
@@ -86,6 +70,8 @@ One room that is fun to fight in.
   `scene_occluded()`
 - Enemy sounds: alert, attack, pain, death
 - Exit trigger ends the level
+- Game modes: dead, level end
+- Apply weapon `kick` to the view
 
 ## Phase 2: Combat feel
 
@@ -104,6 +90,12 @@ One room that is fun to fight in.
 
 ## Phase 4: Atmosphere
 
+- **Environment in the level.** Move sun, ambient, fog out of
+  `make_render_params()` into an `Environment` on `Scene`, set by level
+  directives (`fog`, `ambient`, `sun`).
+- **One light model.** Fold the flashlight into the light list as a
+  spot light (`Light.kind` = point | spot). Muzzle flash and enemy glow
+  reuse it.
 - Per-area light level and fog color (Doom sectors)
 - Ambient soundscapes per zone, simple reverb, stereo panning
 - Shootable lights, flashlight battery
@@ -126,6 +118,8 @@ One room that is fun to fight in.
 - Refit dynamic BVH instead of rebuilding
 - Tile-based rendering
 - Analytic sprite intersection (no triangles)
+- Interpolate rendering between fixed ticks
+- Move SDL window/present code from `main.c` into `platform/`
 
 ## Open decisions
 

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include "render.h"
+#include "overlay.h"
 #include "camera.h"
 #include "input.h"
 #include "game.h"
@@ -111,7 +112,11 @@ int main(int argc, char *argv[]) {
         Camera cam = camera_from_pose(game.player.view, VIEW_FOV);
         render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool,
                             game.player.flashlight_on);
-        weapon_draw_viewmodel(fb.pixels, SCREEN_W, SCREEN_H, &game.weapon);
+        OverlayState overlay = {
+            .weapon_kick = game.weapon.kick,
+            .weapon_fired = game.weapon.fired_this_tick,
+        };
+        overlay_draw(&fb, &overlay);
 
         SDL_UpdateTexture(texture, NULL, fb.pixels, SCREEN_W * sizeof(uint32_t));
         SDL_RenderClear(sdl_renderer);

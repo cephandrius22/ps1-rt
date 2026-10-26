@@ -40,12 +40,13 @@ make clean  # Remove build artifacts
 ```
 src/
   main.c      Entry point, game loop
-  core/       math3d (inline math), threadpool
+  core/       math3d (inline math, Pose), threadpool, kv parser
   gfx/        camera, mesh + OBJ loader, BVH, TGA textures, procedural
               textures, PS1 effects
   world/      scene (two-level BVH), entities, lights, .level loader
-  game/       PlayerCmd, player controller, weapon
-  render/     per-pixel shading, multithreaded frame render
+  game/       Game state + fixed-timestep loop, PlayerCmd, events,
+              player controller, weapons
+  render/     per-pixel shading, multithreaded frame render, overlay
   platform/   SDL input → PlayerCmd, audio mixer
 
 tests/        one standalone binary per module (test_framework.h)

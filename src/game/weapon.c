@@ -81,7 +81,3 @@ void weapon_update(Weapon *w, const PlayerCmd *cmd, Pose aim,
     }
     fire(w, aim, scene, ev);
 }
-
-void weapon_draw_viewmodel(uint32_t *pixels, int w, int h, const Weapon *wpn) {
-    (void)pixels; (void)w; (void)h; (void)wpn;
-}

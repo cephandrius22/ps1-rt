@@ -14,7 +14,6 @@
 #include "math3d.h"
 #include "cmd.h"
 #include "event.h"
-#include <stdint.h>
 
 struct Scene;
 
@@ -52,8 +51,5 @@ Ray weapon_pellet_ray(Pose aim, const WeaponDef *def, int i);
 /* One tick: cooldown/recoil, and fire along aim if attack is held */
 void weapon_update(Weapon *w, const PlayerCmd *cmd, Pose aim,
                    const struct Scene *scene, float dt, EventQueue *ev);
-
-/* Draw viewmodel onto framebuffer */
-void weapon_draw_viewmodel(uint32_t *pixels, int w, int h, const Weapon *w_);
 
 #endif
