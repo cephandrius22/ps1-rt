@@ -124,6 +124,7 @@ static void parse_spawn(const char *line, LevelInfo *info) {
     sscanf(line, "spawn %f %f %f %f",
            &info->spawn_pos.x, &info->spawn_pos.y, &info->spawn_pos.z,
            &info->spawn_yaw);
+    info->has_spawn = true;
 }
 
 static void parse_material(const char *line, LevelParser *p) {
@@ -227,6 +228,26 @@ static void parse_obj(const char *line, LevelParser *p) {
     mesh_free(&obj_mesh);
 }
 
+#define KEY_NAME_MAX 32
+
+/* Warn about key=value pairs the type doesn't use (likely typos) */
+static void warn_unknown_keys(const char *line, const EntityDef *def) {
+    for (const char *eq = strchr(line, '='); eq; eq = strchr(eq + 1, '=')) {
+        const char *start = eq;
+        while (start > line && start[-1] != ' ' && start[-1] != '\t') {
+            start--;
+        }
+        char key[KEY_NAME_MAX];
+        int len = (int)(eq - start) < KEY_NAME_MAX - 1 ? (int)(eq - start) : KEY_NAME_MAX - 1;
+        memcpy(key, start, (size_t)len);
+        key[len] = '\0';
+
+        if (!entity_key_known(def, key)) {
+            fprintf(stderr, "level: %s has unknown key '%s'\n", def->name, key);
+        }
+    }
+}
+
 static void parse_entity(const char *line, LevelParser *p) {
     char type_str[32];
     float x, y, z;
@@ -241,8 +262,11 @@ static void parse_entity(const char *line, LevelParser *p) {
         return;
     }
 
+    const EntityDef *def = entity_def(type);
+    warn_unknown_keys(line, def);
+
     Entity e = entity_spawn(type, vec3(x, y, z), line);
-    e.material_id = matlib_entity(&p->mats, entity_def(type), line);
+    e.material_id = matlib_entity(&p->mats, def, line);
     entity_add(&p->scene->entities, e);
 }
 
@@ -306,6 +330,7 @@ int level_load(Scene *scene, const char *filename, LevelInfo *info) {
 
     /* Default spawn */
     info->spawn_pos = vec3(0, 0, 0);
+    info->has_spawn = false;
     info->spawn_yaw = 0;
 
     char line[512];

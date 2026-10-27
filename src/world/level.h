@@ -14,6 +14,7 @@
 typedef struct {
     Vec3 spawn_pos;
     float spawn_yaw; /* degrees */
+    bool has_spawn;  /* false: the level never placed one (spawn is the origin) */
 } LevelInfo;
 
 /* Load a level into the scene: TrenchBroom .map (by extension, see

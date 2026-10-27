@@ -443,6 +443,9 @@ static void entity_args(const KeyValues *kvs, const EntityDef *def, char *out, s
         if (is_reserved_key(kv->key)) {
             continue;
         }
+        if (!entity_key_known(def, kv->key)) {
+            fprintf(stderr, "map: %s has unknown key '%s'\n", def->name, kv->key);
+        }
         const EntityKey *meta = entity_key(def, kv->key);
         if (meta && meta->type == KEY_LENGTH) {
             float meters = (float)atof(kv->value) / MAP_UNITS_PER_METER;
@@ -459,7 +462,27 @@ static void entity_args(const KeyValues *kvs, const EntityDef *def, char *out, s
     }
 }
 
+static const char *light_keys[] = {
+    "intensity", "radius", "color", "shadows", "flicker_speed", "flicker_amount",
+    "cord", "swing_speed", "swing_angle",
+};
+
+static void warn_unknown_light_keys(const KeyValues *kvs) {
+    for (int i = 0; i < kvs->count; i++) {
+        const char *key = kvs->pairs[i].key;
+        bool known = is_reserved_key(key);
+        for (size_t k = 0; k < sizeof(light_keys) / sizeof(light_keys[0]) && !known; k++) {
+            known = strcmp(key, light_keys[k]) == 0;
+        }
+        if (!known) {
+            fprintf(stderr, "map: light has unknown key '%s'\n", key);
+        }
+    }
+}
+
 static void spawn_light(MapLoader *ml, const KeyValues *kvs, Vec3 pos) {
+    warn_unknown_light_keys(kvs);
+
     D3 rgb = kv_vector(kvs, "color", d3(1, 1, 1));
     if (rgb.x > 1 || rgb.y > 1 || rgb.z > 1) {
         rgb = d3_mul(rgb, 1.0 / COLOR_BYTE_MAX); /* editor color picker: 0..255 */
@@ -488,6 +511,7 @@ static void spawn_point_entity(MapLoader *ml, const KeyValues *kvs, const char *
 
     if (strcmp(classname, "info_player_start") == 0) {
         ml->info->spawn_pos = pos;
+        ml->info->has_spawn = true;
         ml->info->spawn_yaw = map_angle_to_yaw((float)atof(kv_get(kvs, "angle", "0")));
         return;
     }
@@ -583,6 +607,7 @@ int mapfile_load(Scene *scene, const char *filename, LevelInfo *info) {
     matlib_init(&ml.mats, scene);
     mesh_init(&ml.world);
     info->spawn_pos = vec3(0, 0, 0);
+    info->has_spawn = false;
     info->spawn_yaw = 0;
 
     Lexer lx = {.p = text, .line = 1};

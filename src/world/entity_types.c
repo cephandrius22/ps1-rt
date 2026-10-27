@@ -356,6 +356,10 @@ const EntityKey *entity_key(const EntityDef *def, const char *name) {
     return NULL;
 }
 
+bool entity_key_known(const EntityDef *def, const char *name) {
+    return strcmp(name, "rot") == 0 || strcmp(name, "mat") == 0 || entity_key(def, name) != NULL;
+}
+
 EntityType entity_type_by_name(const char *name) {
     for (int t = ENTITY_NONE + 1; t < ENTITY_TYPE_COUNT; t++) {
         if (strcmp(entity_defs[t].name, name) == 0) {

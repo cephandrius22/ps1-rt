@@ -197,6 +197,10 @@ const EntityDef *entity_def(EntityType type);
 
 /* Key metadata for a type, or NULL if the type doesn't declare it */
 const EntityKey *entity_key(const EntityDef *def, const char *name);
+
+/* True for keys any entity accepts ("rot", "mat") or that def declares.
+ * Loaders warn on the rest; they're usually typos. */
+bool entity_key_known(const EntityDef *def, const char *name);
 EntityType entity_type_by_name(const char *name); /* ENTITY_NONE if unknown */
 
 /* Create an entity of a type at pos, letting the type read its args.

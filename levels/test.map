@@ -1,0 +1,17 @@
+// Game: Generic
+// Format: Standard
+// Generator: TrenchBroom 2026.2 (Build v2026.2 Release macOS)
+// entity 0
+{
+"classname" "worldspawn"
+"_tb_mod" "textures"
+// brush 0
+{
+( -64 -64 -16 ) ( -64 -63 -16 ) ( -64 -64 -15 ) rt/rust 0 0 0 1 1
+( -64 -64 -16 ) ( -64 -64 -15 ) ( -63 -64 -16 ) rt/rust 0 0 0 1 1
+( -64 -64 -16 ) ( -63 -64 -16 ) ( -64 -63 -16 ) rt/rust 0 0 0 1 1
+( 64 64 16 ) ( 64 65 16 ) ( 65 64 16 ) rt/rust 0 0 0 1 1
+( 64 64 16 ) ( 65 64 16 ) ( 64 64 17 ) rt/rust 0 0 0 1 1
+( 64 64 16 ) ( 64 64 17 ) ( 64 65 16 ) rt/rust 0 0 0 1 1
+}
+}

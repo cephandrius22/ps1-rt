@@ -1,6 +1,7 @@
 #include "game.h"
 #include "level.h"
 #include "ai.h"
+#include "levelcheck.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,6 +9,10 @@
 #define DEG_TO_RAD       ((float)M_PI / 180.0f)
 #define DEAD_EYE_HEIGHT  0.3f /* death cam: eye this far above the feet */
 #define DEAD_EYE_SPEED   2.0f /* how fast the view sinks, units/second */
+
+static BodySize player_body(void) {
+    return (BodySize){PLAYER_RADIUS, PLAYER_HEIGHT};
+}
 
 static int count_enemies(const EntityList *list) {
     int n = 0;
@@ -37,6 +42,7 @@ GameLoadResult game_init(Game *g, const char *level_path) {
     g->weapon = weapon_create(WEAPON_PISTOL);
     g->kills_total = count_enemies(&g->scene.entities);
 
+    level_check(&g->scene, &info, player_body(), stderr);
     return GAME_LOAD_OK;
 }
 
@@ -54,6 +60,7 @@ GameLoadResult game_reload(Game *g) {
         return GAME_LOAD_FAILED;
     }
 
+    level_check(&fresh, &info, player_body(), stderr);
     scene_free(&g->scene);
     g->scene = fresh;
     g->kills = 0;
