@@ -3,6 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
+/* Barycentric slack: a ray exactly on an edge shared by two triangles
+ * must hit at least one of them. Without it, rounding can reject both
+ * and leave a crack (e.g. a floor diagonal the player falls through). */
+#define BARY_EPS 1e-5f
+
 bool ray_triangle_intersect(Ray ray, const Triangle *tri, float t_min, float t_max, HitRecord *rec) {
     Vec3 e1 = vec3_sub(tri->v1, tri->v0);
     Vec3 e2 = vec3_sub(tri->v2, tri->v0);
@@ -16,13 +21,13 @@ bool ray_triangle_intersect(Ray ray, const Triangle *tri, float t_min, float t_m
     float f = 1.0f / a;
     Vec3 s = vec3_sub(ray.origin, tri->v0);
     float u = f * vec3_dot(s, h);
-    if (u < 0.0f || u > 1.0f) {
+    if (u < -BARY_EPS || u > 1.0f + BARY_EPS) {
         return false;
     }
 
     Vec3 q = vec3_cross(s, e1);
     float v = f * vec3_dot(ray.dir, q);
-    if (v < 0.0f || u + v > 1.0f) {
+    if (v < -BARY_EPS || u + v > 1.0f + BARY_EPS) {
         return false;
     }
 

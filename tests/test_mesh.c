@@ -159,6 +159,21 @@ TEST(test_mesh_intersect_closest) {
     mesh_free(&m);
 }
 
+/* Two triangles sharing a diagonal: a ray exactly on the shared edge
+ * must hit (no crack between them) */
+TEST(test_ray_on_shared_edge_hits) {
+    Triangle a = {.v0 = vec3(-5, 0, -5), .v1 = vec3(5, 0, 5), .v2 = vec3(5, 0, -5),
+                  .normal = vec3(0, 1, 0)};
+    Triangle b = {.v0 = vec3(-5, 0, -5), .v1 = vec3(-5, 0, 5), .v2 = vec3(5, 0, 5),
+                  .normal = vec3(0, 1, 0)};
+    Ray down = {vec3(0, 0.05f, 0), vec3(0, -1, 0)}; /* on the diagonal */
+
+    HitRecord ra, rb;
+    bool hit = ray_triangle_intersect(down, &a, 0, 1, &ra) ||
+               ray_triangle_intersect(down, &b, 0, 1, &rb);
+    ASSERT(hit);
+}
+
 int main(void) {
     TEST_SUITE("ray-triangle intersection");
     RUN_TEST(test_ray_tri_hit);
@@ -173,5 +188,6 @@ int main(void) {
     RUN_TEST(test_mesh_grow);
     RUN_TEST(test_mesh_intersect);
     RUN_TEST(test_mesh_intersect_closest);
+    RUN_TEST(test_ray_on_shared_edge_hits);
     TEST_REPORT();
 }
