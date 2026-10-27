@@ -13,8 +13,10 @@
  *   PlayerCmd ──> pending cmd ──┘                     player, weapon
  *                                       └──> events (drained once per frame)
  *
- * Mode is the hook for menus, death and intermission; Phase 1 adds
- * modes as features need them.
+ * Modes:
+ *
+ *   PLAYING ──player dies──> DEAD ──attack/use after delay──> reload level
+ *                                                             (PLAYING)
  */
 #ifndef GAME_H
 #define GAME_H
@@ -28,9 +30,12 @@
 #define GAME_TICK_HZ             60
 #define GAME_TICK_DT             (1.0f / GAME_TICK_HZ)
 #define GAME_MAX_TICKS_PER_FRAME 5 /* beyond this, drop time (no death spiral) */
+#define GAME_LEVEL_PATH_MAX      256
+#define GAME_RESPAWN_DELAY       1.0f /* seconds dead before respawn allowed */
 
 typedef enum {
     GAME_PLAYING,
+    GAME_DEAD,     /* world keeps running; player input only respawns */
 } GameMode;
 
 typedef enum {
@@ -40,6 +45,8 @@ typedef enum {
 
 typedef struct {
     GameMode mode;
+    float mode_time;     /* seconds since mode last changed */
+    char level_path[GAME_LEVEL_PATH_MAX];
     Scene scene;
     Player player;
     Weapon weapon;

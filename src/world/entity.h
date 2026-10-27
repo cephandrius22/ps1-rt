@@ -8,7 +8,8 @@
  *
  *   level "entity health ..." ──name──> EntityDef ──spawn()──> Entity
  *   entity_update()  ──> def->update()
- *   entity_touch()   ──> def->touch()   (walk-over, e.g. pickups)
+ *   entity_overlap() ──> touchable entities inside a body; the toucher
+ *                        decides, then entity_touch() ──> def->touch()
  *   entity_try_use() ──> def->use()     (E key, e.g. doors)
  *   entity_build_triangles() ──> def->pose() + template mesh (RENDER_MESH)
  *
@@ -42,6 +43,13 @@ typedef enum {
     TOUCH_IGNORED,
     TOUCH_CONSUMED, /* entity reacted and was deactivated (e.g. collected) */
 } TouchResult;
+
+/* What touching a type means to the toucher. World code only stores it;
+ * gameplay interprets it (e.g. heal the player, end the level). */
+typedef enum {
+    TOUCH_EFFECT_NONE,
+    TOUCH_EFFECT_HEALTH, /* amount = pickup.amount */
+} TouchEffect;
 
 typedef enum {
     USE_NOTHING,
@@ -84,6 +92,7 @@ typedef struct {
 typedef struct {
     const char *name;       /* level-file keyword, e.g. "health" */
     RenderKind render;
+    TouchEffect touch_effect;
 
     /* Fill type-specific fields from level key=values, e.g. "amount=25" */
     void (*spawn)(Entity *e, const char *args);
@@ -132,9 +141,13 @@ void entity_meshes_free(EntityMeshes *em);
 /* Advance all active entities one tick */
 void entity_update(EntityList *list, float dt, float time);
 
-/* Touch every active entity whose position lies inside body. Writes
- * indices of entities that reacted into out (up to max). Returns how many. */
-int entity_touch(EntityList *list, Cylinder body, int *out, int max);
+/* Find active touchable entities whose position lies inside body. Writes
+ * their indices into out (up to max). Returns how many. No side effects:
+ * the caller decides which to touch (e.g. skip health at full health). */
+int entity_overlap(const EntityList *list, Cylinder body, int *out, int max);
+
+/* Run entity i's touch hook (e.g. a pickup deactivates itself) */
+TouchResult entity_touch(EntityList *list, int i);
 
 /* Use the nearest usable entity in range and roughly in front.
  * Writes its index to used (if non-NULL). */

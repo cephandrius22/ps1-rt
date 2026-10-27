@@ -97,6 +97,40 @@ TEST(test_game_update_impulse_once) {
     game_free(&g);
 }
 
+/* Run n idle-ish ticks with the given command */
+static void run_ticks(const PlayerCmd *cmd, int n) {
+    for (int i = 0; i < n; i++) {
+        game_tick(&g, cmd);
+    }
+}
+
+TEST(test_game_death_and_respawn) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    PlayerCmd idle = {0};
+    PlayerCmd attack = {.buttons = BTN_ATTACK};
+    float spawn_x = g.player.view.pos.x;
+
+    player_damage(&g.player, PLAYER_MAX_HEALTH, &g.events);
+    game_tick(&g, &idle);
+    ASSERT(g.mode == GAME_DEAD);
+
+    /* Too soon: attack doesn't respawn yet, view sinks */
+    float eye_y = g.player.view.pos.y;
+    run_ticks(&attack, 10);
+    ASSERT(g.mode == GAME_DEAD);
+    ASSERT(g.player.view.pos.y < eye_y);
+
+    /* After the delay, attack reloads the level with a fresh player */
+    run_ticks(&idle, GAME_TICK_HZ * 2);
+    game_tick(&g, &attack);
+    ASSERT(g.mode == GAME_PLAYING);
+    ASSERT(player_alive(&g.player));
+    ASSERT_NEAR(g.player.health, PLAYER_MAX_HEALTH, 1e-6f);
+    ASSERT_NEAR(g.player.view.pos.x, spawn_x, 1e-5f);
+
+    game_free(&g);
+}
+
 int main(void) {
     TEST_SUITE("game");
     RUN_TEST(test_game_init_spawns_player);
@@ -106,5 +140,6 @@ int main(void) {
     RUN_TEST(test_game_update_tick_count);
     RUN_TEST(test_game_update_look_applies_once);
     RUN_TEST(test_game_update_impulse_once);
+    RUN_TEST(test_game_death_and_respawn);
     TEST_REPORT();
 }

@@ -106,22 +106,27 @@ static bool cylinder_contains(Cylinder c, Vec3 p) {
     return dx * dx + dz * dz < c.radius * c.radius;
 }
 
-int entity_touch(EntityList *list, Cylinder body, int *out, int max) {
-    int touched = 0;
-    for (int i = 0; i < list->count && touched < max; i++) {
-        Entity *e = &list->items[i];
-        const EntityDef *def = entity_def(e->type);
-        if (!e->active || !def->touch) {
+int entity_overlap(const EntityList *list, Cylinder body, int *out, int max) {
+    int found = 0;
+    for (int i = 0; i < list->count && found < max; i++) {
+        const Entity *e = &list->items[i];
+        if (!e->active || !entity_def(e->type)->touch) {
             continue;
         }
-        if (!cylinder_contains(body, e->position)) {
-            continue;
-        }
-        if (def->touch(e) == TOUCH_CONSUMED) {
-            out[touched++] = i;
+        if (cylinder_contains(body, e->position)) {
+            out[found++] = i;
         }
     }
-    return touched;
+    return found;
+}
+
+TouchResult entity_touch(EntityList *list, int i) {
+    Entity *e = &list->items[i];
+    const EntityDef *def = entity_def(e->type);
+    if (!e->active || !def->touch) {
+        return TOUCH_IGNORED;
+    }
+    return def->touch(e);
 }
 
 /* Where the entity is this frame; types without pose() sit at position */

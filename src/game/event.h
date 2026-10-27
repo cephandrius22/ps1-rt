@@ -26,6 +26,8 @@ typedef enum {
     EV_PICKUP,        /* pos = collector, entity = pickup, amount = value */
     EV_DOOR_OPENED,   /* pos = user, entity = door */
     EV_DOOR_CLOSED,   /* pos = user, entity = door */
+    EV_PLAYER_HURT,   /* pos = player eye, amount = damage taken */
+    EV_PLAYER_DIED,   /* pos = player eye, amount = final blow */
 } GameEventType;
 
 typedef struct {

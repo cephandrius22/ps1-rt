@@ -3,7 +3,7 @@
  *
  * Applies a PlayerCmd: yaw-relative movement and look (pitch clamped).
  * Includes gravity, ground snapping, wall collision with sliding, and
- * step climbing.
+ * step climbing. Owns health; pickups apply their TouchEffect here.
  */
 #ifndef PLAYER_H
 #define PLAYER_H
@@ -23,6 +23,7 @@ struct Scene;
 #define STEP_HEIGHT       0.6f
 #define PLAYER_PITCH_MAX  1.4f
 #define PLAYER_STEP_DIST  2.5f  /* distance walked per footstep event */
+#define PLAYER_MAX_HEALTH 100.0f
 
 typedef struct {
     Pose view;            /* eye position + look direction */
@@ -31,11 +32,20 @@ typedef struct {
     bool on_ground;
     bool flashlight_on;
     float walk_distance;  /* distance since last footstep event */
+    float health;         /* 0 = dead */
 } Player;
 
 Player player_create(Vec3 pos);
 /* One tick: look, move with collision, footsteps, touch and use entities */
 void player_update(Player *p, const PlayerCmd *cmd, float dt, struct Scene *scene,
                    EventQueue *ev);
+
+/* Apply damage; pushes EV_PLAYER_HURT, or EV_PLAYER_DIED when health
+ * reaches 0. Ignored once dead. */
+void player_damage(Player *p, float amount, EventQueue *ev);
+
+static inline bool player_alive(const Player *p) {
+    return p->health > 0;
+}
 
 #endif

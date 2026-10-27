@@ -228,6 +228,7 @@ TEST(test_player_collects_floor_pickup) {
     entity_add(&s.entities, entity_spawn(ENTITY_PICKUP_HEALTH, vec3(0, 0.5f, -0.5f), "amount=25"));
 
     Player p = grounded_player();
+    p.health = 50.0f; /* full health would leave the pickup */
     PlayerCmd cmd = {0};
     EventQueue q = {0};
     player_update(&p, &cmd, 1.0f / 60.0f, &s, &q);
@@ -261,6 +262,53 @@ TEST(test_player_ignores_pickup_overhead) {
     scene_free(&s);
 }
 
+/* Health pickups heal up to the cap and stay put at full health */
+TEST(test_player_health_pickup) {
+    Scene s;
+    Mesh m;
+    floor_scene(&s, &m);
+    entity_add(&s.entities, entity_spawn(ENTITY_PICKUP_HEALTH, vec3(0, 0.5f, -0.5f), "amount=25"));
+
+    Player p = grounded_player();
+    PlayerCmd cmd = {0};
+    EventQueue q = {0};
+
+    /* Full health: pickup is left for later */
+    player_update(&p, &cmd, 1.0f / 60.0f, &s, &q);
+    ASSERT(q.count == 0);
+    ASSERT(s.entities.items[0].active);
+
+    /* Hurt: pickup heals, capped at max */
+    p.health = 90.0f;
+    player_update(&p, &cmd, 1.0f / 60.0f, &s, &q);
+    ASSERT(q.count == 1);
+    ASSERT(q.items[0].type == EV_PICKUP);
+    ASSERT_NEAR(p.health, PLAYER_MAX_HEALTH, 1e-6f);
+    ASSERT(!s.entities.items[0].active);
+
+    mesh_free(&m);
+    scene_free(&s);
+}
+
+TEST(test_player_damage_and_death) {
+    Player p = grounded_player();
+    EventQueue q = {0};
+    ASSERT(player_alive(&p));
+
+    player_damage(&p, 30.0f, &q);
+    ASSERT_NEAR(p.health, PLAYER_MAX_HEALTH - 30.0f, 1e-6f);
+    ASSERT(q.items[0].type == EV_PLAYER_HURT);
+
+    player_damage(&p, 500.0f, &q);
+    ASSERT(!player_alive(&p));
+    ASSERT_NEAR(p.health, 0.0f, 1e-6f);
+    ASSERT(q.items[1].type == EV_PLAYER_DIED);
+
+    /* Dead players take no further damage events */
+    player_damage(&p, 10.0f, &q);
+    ASSERT(q.count == 2);
+}
+
 int main(void) {
     floor_scene(&floor_world, &floor_mesh);
 
@@ -285,5 +333,7 @@ int main(void) {
     RUN_TEST(test_player_ignores_pickup_overhead);
     mesh_free(&floor_mesh);
     scene_free(&floor_world);
+    RUN_TEST(test_player_health_pickup);
+    RUN_TEST(test_player_damage_and_death);
     TEST_REPORT();
 }

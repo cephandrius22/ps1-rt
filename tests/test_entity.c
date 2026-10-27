@@ -61,20 +61,21 @@ TEST(test_entity_collect_pickup) {
     };
     entity_add(&list, health);
 
-    int touched[4];
+    int found[4];
 
-    /* Player too far — no collection */
+    /* Player too far — nothing overlaps */
     Cylinder far = {.base = vec3(5, 0, 0), .radius = COLLECT_RADIUS, .height = 1.6f};
-    int n = entity_touch(&list, far, touched, 4);
-    ASSERT(n == 0);
+    ASSERT(entity_overlap(&list, far, found, 4) == 0);
+
+    /* Close enough: overlap has no side effects until touched */
+    Cylinder near = {.base = vec3(0, 0, 0), .radius = COLLECT_RADIUS, .height = 1.6f};
+    ASSERT(entity_overlap(&list, near, found, 4) == 1);
+    ASSERT(found[0] == 0);
     ASSERT(list.items[0].active);
 
-    /* Player close enough */
-    Cylinder near = {.base = vec3(0, 0, 0), .radius = COLLECT_RADIUS, .height = 1.6f};
-    n = entity_touch(&list, near, touched, 4);
-    ASSERT(n == 1);
-    ASSERT(touched[0] == 0);
+    ASSERT(entity_touch(&list, found[0]) == TOUCH_CONSUMED);
     ASSERT(!list.items[0].active);
+    ASSERT(entity_touch(&list, found[0]) == TOUCH_IGNORED);
 
     entity_list_free(&list);
 }
@@ -232,9 +233,10 @@ TEST(test_entity_hookless_type_is_inert) {
     entity_add(&list, entity_spawn(ENTITY_PROP, vec3(0, 0, -1), ""));
 
     /* Props have no touch/use hooks: nothing reacts */
-    int touched[4];
+    int found[4];
     Cylinder body = {.base = vec3(0, 0, -1), .radius = COLLECT_RADIUS, .height = 1.6f};
-    ASSERT(entity_touch(&list, body, touched, 4) == 0);
+    ASSERT(entity_overlap(&list, body, found, 4) == 0);
+    ASSERT(entity_touch(&list, 0) == TOUCH_IGNORED);
     ASSERT(entity_try_use(&list, vec3(0, 0, 0), vec3(0, 0, -1), USE_RANGE, NULL) == USE_NOTHING);
     ASSERT(list.items[0].active);
 

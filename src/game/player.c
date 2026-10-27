@@ -18,6 +18,7 @@ Player player_create(Vec3 pos) {
     p.on_ground = false;
     p.flashlight_on = false;
     p.walk_distance = 0;
+    p.health = PLAYER_MAX_HEALTH;
     return p;
 }
 
@@ -138,18 +139,40 @@ static void track_footsteps(Player *p, Vec3 new_pos, EventQueue *ev) {
 
 /* --- Interaction --- */
 
+/* Apply what touching e means to the player. Returns false to leave
+ * the entity untouched (e.g. health pickup at full health stays put). */
+static bool apply_touch_effect(Player *p, const Entity *e) {
+    switch (entity_def(e->type)->touch_effect) {
+    case TOUCH_EFFECT_HEALTH:
+        if (p->health >= PLAYER_MAX_HEALTH) {
+            return false;
+        }
+        p->health = fminf(p->health + e->pickup.amount, PLAYER_MAX_HEALTH);
+        return true;
+    case TOUCH_EFFECT_NONE:
+        return true;
+    }
+    return true;
+}
+
 /* Walk-over pickups: anything inside the body cylinder */
-static void touch_entities(const Player *p, Scene *scene, EventQueue *ev) {
+static void touch_entities(Player *p, Scene *scene, EventQueue *ev) {
     Vec3 pos = p->view.pos;
     Cylinder body = {.base = vec3(pos.x, p->foot_y, pos.z),
                      .radius = COLLECT_RADIUS, .height = PLAYER_HEIGHT};
 
-    int touched[PLAYER_TOUCH_MAX];
-    int n = entity_touch(&scene->entities, body, touched, PLAYER_TOUCH_MAX);
+    int found[PLAYER_TOUCH_MAX];
+    int n = entity_overlap(&scene->entities, body, found, PLAYER_TOUCH_MAX);
     for (int i = 0; i < n; i++) {
-        const Entity *e = &scene->entities.items[touched[i]];
+        const Entity *e = &scene->entities.items[found[i]];
+        if (!apply_touch_effect(p, e)) {
+            continue;
+        }
+        if (entity_touch(&scene->entities, found[i]) != TOUCH_CONSUMED) {
+            continue;
+        }
         events_push(ev, (GameEvent){.type = EV_PICKUP, .pos = pos,
-                                    .entity = touched[i], .amount = e->pickup.amount});
+                                    .entity = found[i], .amount = e->pickup.amount});
     }
 }
 
@@ -200,4 +223,17 @@ void player_update(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
     if (cmd_has(cmd, BTN_USE)) {
         use_entity(p, scene, ev);
     }
+}
+
+/* --- Damage --- */
+
+void player_damage(Player *p, float amount, EventQueue *ev) {
+    if (!player_alive(p) || amount <= 0) {
+        return;
+    }
+
+    p->health = fmaxf(p->health - amount, 0.0f);
+    GameEventType type = player_alive(p) ? EV_PLAYER_HURT : EV_PLAYER_DIED;
+    events_push(ev, (GameEvent){.type = type, .pos = p->view.pos,
+                                .entity = ENTITY_INDEX_NONE, .amount = amount});
 }

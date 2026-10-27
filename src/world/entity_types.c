@@ -166,7 +166,7 @@ static void prop_mesh(Mesh *m) {
 static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
     [ENTITY_NONE] = { .name = NULL, .render = RENDER_NONE },
     [ENTITY_PICKUP_HEALTH] = {
-        .name = "health", .render = RENDER_MESH,
+        .name = "health", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_HEALTH,
         .spawn = health_spawn, .update = pickup_update, .touch = pickup_touch,
         .pose = pickup_pose, .build_mesh = pickup_mesh,
     },

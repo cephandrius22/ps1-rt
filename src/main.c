@@ -25,6 +25,8 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
         case EV_PICKUP:        audio_play(audio, SND_PICKUP, 0.6f);       break;
         case EV_DOOR_OPENED:   audio_play(audio, SND_DOOR_OPEN, 0.7f);    break;
         case EV_DOOR_CLOSED:   audio_play(audio, SND_DOOR_CLOSE, 0.7f);   break;
+        case EV_PLAYER_HURT:   break; /* sounds arrive with enemy audio */
+        case EV_PLAYER_DIED:   break;
         }
     }
 }
