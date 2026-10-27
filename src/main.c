@@ -21,6 +21,7 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
         switch (ev->type) {
         case EV_WEAPON_FIRED:  audio_play(audio, SND_WEAPON_FIRE, 0.8f);  break;
         case EV_WEAPON_IMPACT: audio_play(audio, SND_WEAPON_IMPACT, 0.5f); break;
+        case EV_WEAPON_EMPTY:  break; /* dry-fire click arrives with audio step */
         case EV_FOOTSTEP:      audio_play(audio, SND_FOOTSTEP, 0.4f);     break;
         case EV_PICKUP:        audio_play(audio, SND_PICKUP, 0.6f);       break;
         case EV_DOOR_OPENED:   audio_play(audio, SND_DOOR_OPEN, 0.7f);    break;

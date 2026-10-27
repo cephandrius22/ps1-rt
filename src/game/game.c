@@ -60,7 +60,8 @@ static void restart_level(Game *g) {
 
 static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     player_update(&g->player, cmd, dt, &g->scene, &g->events);
-    weapon_update(&g->weapon, cmd, g->player.view, &g->scene, dt, &g->events);
+    weapon_update(&g->weapon, cmd, g->player.view, &g->scene, dt,
+                  &g->player.inv, &g->events);
 
     if (!player_alive(&g->player)) {
         set_mode(g, GAME_DEAD);

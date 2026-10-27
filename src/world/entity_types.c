@@ -171,7 +171,7 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
         .pose = pickup_pose, .build_mesh = pickup_mesh,
     },
     [ENTITY_PICKUP_AMMO] = {
-        .name = "ammo", .render = RENDER_MESH,
+        .name = "ammo", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_AMMO,
         .spawn = ammo_spawn, .update = pickup_update, .touch = pickup_touch,
         .pose = pickup_pose, .build_mesh = pickup_mesh,
     },

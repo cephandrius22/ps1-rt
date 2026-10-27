@@ -49,6 +49,7 @@ typedef enum {
 typedef enum {
     TOUCH_EFFECT_NONE,
     TOUCH_EFFECT_HEALTH, /* amount = pickup.amount */
+    TOUCH_EFFECT_AMMO,   /* amount = pickup.amount (bullets, for now) */
 } TouchEffect;
 
 typedef enum {

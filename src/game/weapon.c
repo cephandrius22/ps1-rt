@@ -74,10 +74,25 @@ static void fire(Weapon *w, Pose aim, const Scene *scene, EventQueue *ev) {
     }
 }
 
+/* Attack with an empty pool: click once per cooldown, no shot */
+static void dry_fire(Weapon *w, Pose aim, EventQueue *ev) {
+    w->cooldown_timer = weapon_def(w->type)->cooldown;
+    events_push(ev, (GameEvent){.type = EV_WEAPON_EMPTY, .pos = aim.pos,
+                                .entity = ENTITY_INDEX_NONE});
+}
+
 void weapon_update(Weapon *w, const PlayerCmd *cmd, Pose aim,
-                   const Scene *scene, float dt, EventQueue *ev) {
-    if (!tick_ready(w, weapon_def(w->type), cmd, dt)) {
+                   const Scene *scene, float dt, Inventory *inv,
+                   EventQueue *ev) {
+    const WeaponDef *def = weapon_def(w->type);
+    if (!tick_ready(w, def, cmd, dt)) {
         return;
     }
+
+    if (!inventory_has(inv, def->ammo, def->ammo_per_shot)) {
+        dry_fire(w, aim, ev);
+        return;
+    }
+    inventory_take(inv, def->ammo, def->ammo_per_shot);
     fire(w, aim, scene, ev);
 }

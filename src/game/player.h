@@ -3,7 +3,7 @@
  *
  * Applies a PlayerCmd: yaw-relative movement and look (pitch clamped).
  * Includes gravity, ground snapping, wall collision with sliding, and
- * step climbing. Owns health; pickups apply their TouchEffect here.
+ * step climbing. Owns health and ammo; pickups apply their TouchEffect here.
  */
 #ifndef PLAYER_H
 #define PLAYER_H
@@ -11,6 +11,7 @@
 #include "math3d.h"
 #include "cmd.h"
 #include "event.h"
+#include "inventory.h"
 
 struct Scene;
 
@@ -33,6 +34,7 @@ typedef struct {
     bool flashlight_on;
     float walk_distance;  /* distance since last footstep event */
     float health;         /* 0 = dead */
+    Inventory inv;        /* ammo pools */
 } Player;
 
 Player player_create(Vec3 pos);

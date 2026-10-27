@@ -309,6 +309,30 @@ TEST(test_player_damage_and_death) {
     ASSERT(q.count == 2);
 }
 
+/* Ammo pickups refill bullets up to the cap */
+TEST(test_player_ammo_pickup) {
+    Scene s;
+    Mesh m;
+    floor_scene(&s, &m);
+    entity_add(&s.entities, entity_spawn(ENTITY_PICKUP_AMMO, vec3(0, 0.5f, -0.5f), "amount=10"));
+    entity_add(&s.entities, entity_spawn(ENTITY_PICKUP_AMMO, vec3(0, 0.5f, 0.5f), "amount=10"));
+
+    Player p = grounded_player();
+    p.inv.ammo[AMMO_BULLETS] = AMMO_BULLETS_MAX - 5;
+    PlayerCmd cmd = {0};
+    EventQueue q = {0};
+    player_update(&p, &cmd, 1.0f / 60.0f, &s, &q);
+
+    /* First pickup tops up to max; second is left since the pool is full */
+    ASSERT_EQ_INT(p.inv.ammo[AMMO_BULLETS], AMMO_BULLETS_MAX);
+    ASSERT(q.count == 1);
+    ASSERT(!s.entities.items[0].active);
+    ASSERT(s.entities.items[1].active);
+
+    mesh_free(&m);
+    scene_free(&s);
+}
+
 int main(void) {
     floor_scene(&floor_world, &floor_mesh);
 
@@ -335,5 +359,6 @@ int main(void) {
     scene_free(&floor_world);
     RUN_TEST(test_player_health_pickup);
     RUN_TEST(test_player_damage_and_death);
+    RUN_TEST(test_player_ammo_pickup);
     TEST_REPORT();
 }

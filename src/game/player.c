@@ -19,6 +19,7 @@ Player player_create(Vec3 pos) {
     p.flashlight_on = false;
     p.walk_distance = 0;
     p.health = PLAYER_MAX_HEALTH;
+    p.inv = inventory_create();
     return p;
 }
 
@@ -149,6 +150,8 @@ static bool apply_touch_effect(Player *p, const Entity *e) {
         }
         p->health = fminf(p->health + e->pickup.amount, PLAYER_MAX_HEALTH);
         return true;
+    case TOUCH_EFFECT_AMMO:
+        return inventory_add(&p->inv, AMMO_BULLETS, (int)e->pickup.amount) > 0;
     case TOUCH_EFFECT_NONE:
         return true;
     }

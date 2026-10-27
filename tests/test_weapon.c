@@ -5,6 +5,7 @@
 
 static EventQueue ev; /* sink for events tests don't inspect */
 static Scene empty;   /* nothing to hit */
+static Inventory inv; /* refilled before each suite run; plenty of ammo */
 
 TEST(test_weapon_create) {
     Weapon w = weapon_create(WEAPON_PISTOL);
@@ -19,7 +20,7 @@ TEST(test_weapon_fire) {
     Pose aim = {.pos = vec3(0, 1, 0)};
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
-    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &inv, &ev);
 
     ASSERT(w.fired_this_tick);
     ASSERT(w.cooldown_timer > 0);
@@ -32,11 +33,11 @@ TEST(test_weapon_cooldown) {
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
     /* First shot */
-    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &inv, &ev);
     ASSERT(w.fired_this_tick);
 
     /* Second frame: still holding shoot, but cooldown prevents firing */
-    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &inv, &ev);
     ASSERT(!w.fired_this_tick);
 }
 
@@ -47,16 +48,16 @@ TEST(test_weapon_cooldown_expires) {
     PlayerCmd no_shoot = {0};
 
     /* Fire */
-    weapon_update(&w, &shoot, aim, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &shoot, aim, &empty, 1.0f / 60.0f, &inv, &ev);
     ASSERT(w.fired_this_tick);
 
     /* Wait for cooldown to expire */
     for (int i = 0; i < 30; i++) {
-        weapon_update(&w, &no_shoot, aim, &empty, 1.0f / 60.0f, &ev);
+        weapon_update(&w, &no_shoot, aim, &empty, 1.0f / 60.0f, &inv, &ev);
     }
 
     /* Should be able to fire again */
-    weapon_update(&w, &shoot, aim, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &shoot, aim, &empty, 1.0f / 60.0f, &inv, &ev);
     ASSERT(w.fired_this_tick);
 }
 
@@ -66,13 +67,13 @@ TEST(test_weapon_kick_recovers) {
     PlayerCmd shoot = {.buttons = BTN_ATTACK};
     PlayerCmd no_input = {0};
 
-    weapon_update(&w, &shoot, aim, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &shoot, aim, &empty, 1.0f / 60.0f, &inv, &ev);
     float kick_after_shot = w.kick;
     ASSERT(kick_after_shot > 0);
 
     /* Let kick recover */
     for (int i = 0; i < 60; i++) {
-        weapon_update(&w, &no_input, aim, &empty, 1.0f / 60.0f, &ev);
+        weapon_update(&w, &no_input, aim, &empty, 1.0f / 60.0f, &inv, &ev);
     }
 
     ASSERT(w.kick < kick_after_shot);
@@ -84,7 +85,7 @@ TEST(test_weapon_no_fire_without_input) {
     Pose aim = {.pos = vec3(0, 1, 0)};
     PlayerCmd cmd = {0};
 
-    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &inv, &ev);
 
     ASSERT(!w.fired_this_tick);
     ASSERT_NEAR(w.cooldown_timer, 0.0f, 1e-6f);
@@ -110,7 +111,7 @@ TEST(test_weapon_hitscan_hits_world) {
     Pose aim = {.pos = vec3(0, 0, 0)};
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
-    weapon_update(&w, &cmd, aim, &s, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, aim, &s, 1.0f / 60.0f, &inv, &ev);
 
     ASSERT(w.fired_this_tick);
     ASSERT(w.last_hit.hit);
@@ -137,7 +138,7 @@ TEST(test_weapon_fire_events) {
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
     EventQueue q = {0};
 
-    weapon_update(&w, &cmd, aim, &s, 1.0f / 60.0f, &q);
+    weapon_update(&w, &cmd, aim, &s, 1.0f / 60.0f, &inv, &q);
 
     /* Fired, then impacted world geometry (no entity) */
     ASSERT(q.count == 2);
@@ -157,7 +158,7 @@ TEST(test_weapon_miss_no_impact) {
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
     EventQueue q = {0};
 
-    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &q);
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &inv, &q);
 
     ASSERT(q.count == 1);
     ASSERT(q.items[0].type == EV_WEAPON_FIRED);
@@ -176,7 +177,7 @@ TEST(test_weapon_uses_def_cooldown) {
     Pose aim = {.pos = vec3(0, 0, 0)};
     PlayerCmd cmd = {.buttons = BTN_ATTACK};
 
-    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &ev);
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &inv, &ev);
 
     ASSERT_NEAR(w.cooldown_timer, weapon_def(WEAPON_PISTOL)->cooldown, 1e-6f);
     ASSERT_NEAR(w.kick, weapon_def(WEAPON_PISTOL)->kick, 1e-6f);
@@ -204,8 +205,40 @@ TEST(test_weapon_pellet_spread) {
     ASSERT(vec3_dot(a.dir, b.dir) < 0.9999f);
 }
 
+TEST(test_weapon_consumes_ammo) {
+    Weapon w = weapon_create(WEAPON_PISTOL);
+    Pose aim = {.pos = vec3(0, 1, 0)};
+    PlayerCmd cmd = {.buttons = BTN_ATTACK};
+    Inventory mine = inventory_create();
+    int before = mine.ammo[AMMO_BULLETS];
+
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &mine, &ev);
+
+    ASSERT(w.fired_this_tick);
+    ASSERT_EQ_INT(mine.ammo[AMMO_BULLETS], before - weapon_def(WEAPON_PISTOL)->ammo_per_shot);
+}
+
+TEST(test_weapon_dry_fire_when_empty) {
+    Weapon w = weapon_create(WEAPON_PISTOL);
+    Pose aim = {.pos = vec3(0, 1, 0)};
+    PlayerCmd cmd = {.buttons = BTN_ATTACK};
+    Inventory none = {0};
+    EventQueue q = {0};
+
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &none, &q);
+
+    ASSERT(!w.fired_this_tick);
+    ASSERT(q.count == 1);
+    ASSERT(q.items[0].type == EV_WEAPON_EMPTY);
+
+    /* Holding attack clicks once per cooldown, not every tick */
+    weapon_update(&w, &cmd, aim, &empty, 1.0f / 60.0f, &none, &q);
+    ASSERT(q.count == 1);
+}
+
 int main(void) {
     scene_init(&empty);
+    inv = inventory_create();
 
     TEST_SUITE("weapon");
     RUN_TEST(test_weapon_create);
@@ -220,6 +253,8 @@ int main(void) {
     RUN_TEST(test_weapon_def_table);
     RUN_TEST(test_weapon_uses_def_cooldown);
     RUN_TEST(test_weapon_pellet_spread);
+    RUN_TEST(test_weapon_consumes_ammo);
+    RUN_TEST(test_weapon_dry_fire_when_empty);
     scene_free(&empty);
     TEST_REPORT();
 }

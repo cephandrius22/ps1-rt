@@ -13,6 +13,8 @@ static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
         .spread      = 0.0f,
         .kick        = 0.04f,
         .kick_return = 0.3f,
+        .ammo        = AMMO_BULLETS,
+        .ammo_per_shot = 1,
     },
 };
 
