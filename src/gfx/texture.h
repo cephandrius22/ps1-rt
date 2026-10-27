@@ -24,6 +24,10 @@ typedef struct {
 
 /* Load an uncompressed 24/32-bit TGA (alpha dropped). 0 on success, -1 on error. */
 int texture_load_tga(Texture *tex, const char *filename);
+
+/* Save as uncompressed 32-bit TGA, color-keyed texels fully transparent
+ * (so the editor shows sprite holes). 0 on success, -1 on error. */
+int texture_save_tga(const Texture *tex, const char *filename);
 void texture_free(Texture *tex);
 
 /* Nearest texel at (u, v), wrapped to [0, 1); v = 0 is the top row.

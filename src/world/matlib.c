@@ -76,6 +76,9 @@ int matlib_entity(MatLib *lib, const EntityDef *def, const char *args) {
     char name[MATLIB_NAME_MAX];
     if (kv_string(args, "mat", name, sizeof(name))) {
         int idx = matlib_find(lib, name);
+        if (idx == MATLIB_NONE && proctex_find(name) >= 0) {
+            return matlib_texture(lib, name, def->default_color); /* mat=<texture> */
+        }
         if (idx == MATLIB_NONE) {
             fprintf(stderr, "level: unknown material '%s', using 0\n", name);
             return 0;

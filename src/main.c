@@ -18,6 +18,7 @@
 #include <SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 #include <math.h>
 #include "render.h"
@@ -28,6 +29,7 @@
 #include "threadpool.h"
 #include "audio.h"
 #include "filewatch.h"
+#include "editor_export.h"
 
 #define WINDOW_SCALE 3
 #define VIEW_FOV     1.2f /* radians */
@@ -86,6 +88,11 @@ static OverlayMode overlay_mode(GameMode mode) {
 }
 
 int main(int argc, char *argv[]) {
+    /* Tool mode: write TrenchBroom textures + FGD, no window */
+    if (argc > 2 && strcmp(argv[1], "--export-editor") == 0) {
+        return editor_export(argv[2]) == 0 ? 0 : 1;
+    }
+
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;

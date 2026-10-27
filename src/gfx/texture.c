@@ -72,6 +72,40 @@ int texture_load_tga(Texture *tex, const char *filename) {
     return 0;
 }
 
+#define TGA_TRUECOLOR    2
+#define TGA_BPP_RGBA     32
+#define TGA_TOP_LEFT     0x28  /* origin top-left + 8 alpha bits */
+#define ALPHA_OPAQUE     255
+#define ALPHA_CLEAR      0
+
+int texture_save_tga(const Texture *tex, const char *filename) {
+    FILE *f = fopen(filename, "wb");
+    if (!f) {
+        fprintf(stderr, "Failed to write TGA: %s\n", filename);
+        return -1;
+    }
+
+    TGAHeader hdr = {
+        .image_type = TGA_TRUECOLOR,
+        .width = (uint16_t)tex->width,
+        .height = (uint16_t)tex->height,
+        .bpp = TGA_BPP_RGBA,
+        .descriptor = TGA_TOP_LEFT,
+    };
+    fwrite(&hdr, sizeof(hdr), 1, f);
+
+    /* TGA stores BGRA */
+    for (int i = 0; i < tex->width * tex->height; i++) {
+        const uint8_t *p = tex->pixels + i * 3;
+        bool key = p[0] == TEXTURE_KEY_R && p[1] == TEXTURE_KEY_G && p[2] == TEXTURE_KEY_B;
+        uint8_t bgra[4] = {p[2], p[1], p[0], key ? ALPHA_CLEAR : ALPHA_OPAQUE};
+        fwrite(bgra, 1, sizeof(bgra), f);
+    }
+
+    fclose(f);
+    return 0;
+}
+
 void texture_free(Texture *tex) {
     free(tex->pixels);
     tex->pixels = NULL;

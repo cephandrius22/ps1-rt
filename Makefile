@@ -49,6 +49,18 @@ test: $(TEST_BIN)
 		echo "All test suites passed"; \
 	fi
 
+# TrenchBroom: generate textures + FGD from code, link the game config
+# into TrenchBroom's games folder (macOS path; override TB_GAMES elsewhere)
+TB_GAMES ?= $(HOME)/Library/Application Support/TrenchBroom/games
+
+editor: $(BIN)
+	@mkdir -p editor/game/textures/rt editor/trenchbroom/RT
+	./$(BIN) --export-editor editor
+	@mkdir -p "$(TB_GAMES)"
+	@ln -sfn "$(CURDIR)/editor/trenchbroom/RT" "$(TB_GAMES)/RT"
+	@echo "Linked $(TB_GAMES)/RT -> editor/trenchbroom/RT"
+	@echo "In TrenchBroom: Preferences > RT > Game Path = $(CURDIR)/editor/game"
+
 # Editor support: clangd reads this when there's no compile database
 compile_flags.txt: Makefile
 	@printf '%s\n' $(CFLAGS) | grep -v '^-M' > $@
@@ -58,4 +70,4 @@ clean:
 
 -include $(OBJ:.o=.d) $(TEST_BIN:=.d)
 
-.PHONY: clean test
+.PHONY: clean test editor

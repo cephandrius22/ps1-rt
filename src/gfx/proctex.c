@@ -429,6 +429,13 @@ static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
     gen_rust, gen_floor_tile, gen_pipe, gen_barrel, gen_ghoul
 };
 
+const char *proctex_name(ProceduralTextureID id) {
+    if (id < 0 || id >= PTEX_COUNT) {
+        return NULL;
+    }
+    return proctex_names[id];
+}
+
 int proctex_find(const char *name) {
     if (!name || strcmp(name, "none") == 0) {
         return -1;

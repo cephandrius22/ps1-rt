@@ -45,8 +45,9 @@ int matlib_find(const MatLib *lib, const char *name);
  * color. Lets .map faces and entity defaults name textures directly. */
 int matlib_texture(MatLib *lib, const char *texture, Vec3 color);
 
-/* Material for an entity: mat=<name> from args if given, else the type's
- * default (a material named after its texture, or "@type" if untextured) */
+/* Material for an entity: mat=<name> from args if given (a declared
+ * material or a texture name), else the type's default (a material named
+ * after its texture, or "@type" if untextured) */
 int matlib_entity(MatLib *lib, const EntityDef *def, const char *args);
 
 /* Pixel size of a material's texture; 64x64 if untextured */

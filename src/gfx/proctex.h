@@ -33,6 +33,9 @@ typedef enum {
     GHOUL_FRAME_COUNT
 } GhoulFrame;
 
+/* Name a level or map uses for a texture, e.g. "brick" */
+const char *proctex_name(ProceduralTextureID id);
+
 /* Look up texture ID by name string. Returns -1 if not found or "none". */
 int proctex_find(const char *name);
 
