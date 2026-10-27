@@ -84,11 +84,41 @@ Carried forward:
 - Phase 2: viewmodel sprite (overlay has `weapon_kick` ready).
 - Phase 3: enemies walk straight at the player on a fixed height (no
   gravity, steps or pathing); only sight wakes them.
-- Phase 5: exit replays the level instead of loading the next; entity
-  `mat=` is a material index (fragile), should accept a name.
+- Phase 5: exit replays the level instead of loading the next.
+  (`mat=` by name: done in Phase 1.5.)
 - Phase 7: sprites are a linear scan per ray (~1.6 ms/frame for the six
   in e1m1).
 - Playtest: sounds and fight balance are untested by ear/hand.
+
+## Phase 1.5: Tooling ✅
+
+Make levels cheap to build and iterate on before designing them for real.
+
+- ✅ Materials by name: `mat=<material or texture>`; entity types bring
+  default materials, so most entities need no `mat=` at all
+- ✅ Hot reload: saving the level file reloads it in place (player keeps
+  position); a broken save keeps the old level
+- ✅ TrenchBroom `.map` importer: brushes (Standard + Valve 220),
+  layers/groups, `info_player_start`, `light`, every entity type by name;
+  32 units = 1 m
+- ✅ `make editor`: textures and FGD generated from code (proctex, the
+  `EntityDef` key table), game config symlinked into TrenchBroom
+- ✅ Level checker: spawn/exit present, player/enemies not stuck or
+  floating, unknown keys/classes/textures, budget line
+- ✅ Budgets measured: ~0.12 ms per light, ~0.11 ms per sprite, triangles
+  cheap; warn above 30k triangles / 32 lights / 40 sprites
+- ✅ F3 debug overlay: work time, budget use, position in meters and map
+  units
+- ✅ Fixed: rays on shared triangle edges fell through (crack); floor
+  diagonals now always hit
+
+Carried forward:
+
+- Phase 3: brush entities (doors, triggers) are ignored by the importer;
+  doors in `.map` are point entities placed at the hinge.
+- Phase 5: e1m1 is still a `.level`; port it to `.map` when content work
+  starts.
+- Not done: noclip (offered, not chosen).
 
 ## Phase 2: Combat feel
 
@@ -103,7 +133,8 @@ Carried forward:
 ## Phase 3: Level logic
 
 - Doors back in e1m1 (entity type exists), keys, switches
-- `trigger` directive: on enter → open door, spawn monsters, play sound
+- Triggers as TrenchBroom brush entities (`trigger_once` etc.): on enter
+  → open door, spawn monsters, play sound; doors as `func_door` brushes
 - Sound alerting: gunfire wakes nearby enemies
 - Waypoint graph via `node` directive for enemy pathing
 - Enemy gravity and step climbing (they keep their spawn height today)
@@ -126,9 +157,7 @@ Carried forward:
 ## Phase 5: Content
 
 - Episode of 3–4 levels; exit loads the next level (it replays today)
-- `mat=<name>` on entities instead of a material index
 - Secrets, intermission screen (kills, secrets, time)
-- Hot-reload level files
 - TGA textures from level materials (loader exists, not reachable from
   `.level` files)
 

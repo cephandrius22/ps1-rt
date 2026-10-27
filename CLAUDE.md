@@ -15,7 +15,8 @@ make build/tests/test_bvh && ./build/tests/test_bvh   # one suite
 make clean       # remove build/ and rt
 make compile_flags.txt  # include paths for clangd
 ./rt             # run with default level (levels/e1m1.level)
-./rt levels/foo.level  # run with a specific level file
+./rt levels/foo.level  # run a .level or TrenchBroom .map; reloads on save
+make editor      # export textures + FGD, link TrenchBroom game config
 ```
 
 Requires: SDL2 (`sdl2-config`), C compiler, pthreads, `-lm`.
@@ -33,8 +34,8 @@ on the include path, so headers are included by bare name (`"scene.h"`).
 - `render/` is the one module that also uses `gfx/` directly: `world/`
   says *what* is in the scene, `gfx/` says *how* to draw it (camera
   rays, texture sampling, dither).
-- `platform/` knows only `cmd.h` from `game/`; `main.c` is the only file
-  that sees every layer.
+- `platform/` knows only `cmd.h` from `game/`; `main.c` (and `tools/`,
+  run from main) are the only code that sees every layer.
 
 ```
   main.c          wires platform + game + render, owns the loop
@@ -42,7 +43,8 @@ on the include path, so headers are included by bare name (`"scene.h"`).
   world/          scene, entity, sprite, light, level loader
   gfx/            camera, mesh, bvh, texture, proctex, ps1_effects
   core/           math3d (Vec3, Ray, Pose), threadpool, kv
-  platform/       SDL input + audio; talks to game via PlayerCmd only
+  platform/       SDL input + audio, file watch; talks to game via PlayerCmd only
+  tools/          editor export (`./rt --export-editor`), invoked by main
 ```
 
 - **PlayerCmd (`game/cmd.h`) is the only input contract.** `input_poll()`
@@ -52,7 +54,7 @@ on the include path, so headers are included by bare name (`"scene.h"`).
 
 ### Core Pipeline
 
-`main.c` per frame: `input_poll()` → `game_update()` → `play_event_sounds()` → `camera_from_pose()` → `render_scene_lit_mt()` → `overlay_draw()` → SDL present
+`main.c` per frame: `input_poll()` → hot reload check (`filewatch_poll()` → `game_reload()`) → `game_update()` → `play_event_sounds()` → `camera_from_pose()` → `render_scene_lit_mt()` → `overlay_draw()` (+ F3 debug lines) → SDL present
 
 `game_update()` runs 0..`GAME_MAX_TICKS_PER_FRAME` fixed ticks at `GAME_TICK_HZ` (60). Each `game_tick()`: entities → lights → rebuild dynamic BVH + sprites → then by `GameMode`:
 - `GAME_PLAYING`: AI → player (exit pad → `GAME_LEVEL_END`) → weapon → `resolve_impacts()` (bullet damage, kills) → player dead → `GAME_DEAD`
@@ -73,13 +75,18 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `sprite` | Upright billboards facing each ray, color-keyed holes, frame sheets; `SPRITE_SOLID`/`SPRITE_GHOST` |
 | `entity` | Entity storage + type-agnostic dispatch (update, touch, use, mesh build) |
 | `entity_types` | `EntityDef` table: per-type name, `RenderKind`, `TouchEffect`, hooks (spawn/update/touch/use/damage/pose/build_mesh/sprite) |
-| `kv` | `key=value` lookup in a text line (level args) |
+| `kv` | `key=value` lookup in a text line (level args): float, int, string |
 | `render` | Shading: directional sun + point lights + shadows + fog + light billboards |
 | `overlay` | HUD (health, ammo), death tint, level-end kill count; 3x5 bitmap digits. Fed an `OverlayState` by `main.c` |
 | `light` | Point light system: attenuation, flicker (layered sine), pendulum swing animation |
-| `texture` | Nearest-neighbor sampling; TGA loader exists but levels can't reference TGA files yet |
+| `texture` | Nearest-neighbor sampling; TGA load (levels can't reference TGA files yet) and save (editor export) |
 | `proctex` | Procedural textures: concrete, brick, metal_panel, metal_grate, rust, floor_tile, pipe; color-keyed sprites: barrel, ghoul (5-frame sheet, `GhoulFrame`) |
-| `level` | Text-based `.level` file loader — parses materials, geometry, entities, lights |
+| `level` | `level_load()` dispatches by extension; `.level` text loader; `level_finish()` shared last step (jitter, textures, BVH) |
+| `mapfile` | TrenchBroom/Quake `.map` loader: brushes → triangles (plane clipping), Standard + Valve 220 UVs, entities |
+| `matlib` | Named material registry shared by both loaders; generates procedural textures on first use; entity default materials |
+| `levelcheck` | Load-time warnings (spawn/exit, stuck or floating bodies) and budget line (`BUDGET_*`) |
+| `filewatch` | Polls a file's mtime; reports a change once it has settled (hot reload) |
+| `editor_export` | Writes TrenchBroom textures (TGA) and `rt.fgd` from the proctex generators and `EntityDef` table |
 | `ps1_effects` | Vertex jitter (1/128 grid, applied at level load), 4x4 Bayer dither + 15-bit quantize (per pixel). `ps1_affine_uv()` exists but shading doesn't use it |
 | `game` | `Game` struct: owns scene, player, weapon, events, mode, kills; fixed-timestep `game_update()`, `game_view()` (view + recoil) |
 | `player` | First-person movement with gravity, wall sliding, ground snap; health, `Inventory`; applies `TouchEffect`s |
@@ -107,7 +114,11 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 - **Touch:** `entity_overlap()` finds touchables in the body cylinder without side effects; the player applies the type's `TouchEffect` (heal, ammo, exit) and only then calls `entity_touch()`. Health/ammo at cap leave pickups in place. Origins up to `TOUCH_FOOT_SLACK` below the feet count (floor pads).
 - **Damage:** weapon emits `EV_WEAPON_IMPACT` (entity, amount); `game.c:resolve_impacts()` calls `entity_damage()` → type's `damage` hook → `EV_ENEMY_PAIN`/`EV_ENEMY_DIED`. Enemies hurt the player via `player_damage()`.
 - **Enemies:** world owns health and `EnemyState` (and draws frames from it); `game/ai.c` owns transitions and stats (`EnemyDef`). Enemies move on a fixed height (no gravity/steps yet) and walk straight at the player.
-- **Materials:** `Scene` holds parallel arrays of `Material` and `Texture`. Triangles reference materials by index. A material's texture is a procedural texture name or `none`; fallback is checkerboard.
+- **Materials:** `Scene` holds parallel arrays of `Material` and `Texture`. Triangles reference materials by index. A material's texture is a procedural texture name or `none`; fallback is checkerboard. Loaders resolve every name through `MatLib`: `.map` faces and `mat=` may name a texture directly; entities without `mat=` get their type's `default_texture`/`default_color`.
+- **Entity keys:** each `EntityDef` lists its keys (`EntityKey`: name, `KeyType`, default, description). The `.map` loader converts `KEY_LENGTH` from units to meters; both loaders warn on unknown keys; the FGD is generated from the same list. Keep spawn-hook defaults and key defaults on the same constant.
+- **Map space:** Z up, 32 units = 1 m; `map_to_engine()` is (x, y, z) → (x, z, −y)/32. Map `angle` (0 = east) → engine yaw via `map_angle_to_yaw()` (−90°).
+- **Hot reload:** `main.c` polls the level file 4×/s; `game_reload()` loads into a fresh `Scene` first, so a broken save keeps the old level. The player keeps position and view; the world, enemies and health reset.
+- **Ray robustness:** `ray_triangle_intersect()` allows `BARY_EPS` slack so rays exactly on shared edges never fall through a crack.
 - **Shadow rays:** Capped at `MAX_SHADOW_LIGHTS` (4) per pixel for performance. Sun shadow is separate.
 
 ### Level File Format
@@ -123,7 +134,7 @@ entity <type> <x> <y> <z> [key=value ...]
 light <x> <y> <z> <r> <g> <b> <intensity> <radius> [key=value ...]
 ```
 
-Entity types (all take `rot=` and `mat=<material index, 0-based in file order>`):
+Entity types (all take `rot=` (radians) and `mat=<material or texture name>`; without `mat=` the type's default material is used):
 
 | Type | Keys | Notes |
 |------|------|-------|
@@ -131,19 +142,29 @@ Entity types (all take `rot=` and `mat=<material index, 0-based in file order>`)
 | `ammo` | `amount` (10) | bullets, not taken at cap |
 | `door` | `hinge_x`, `hinge_z` | E toggles |
 | `prop` | — | static cube |
-| `decor` | `w` (0.8), `h` (1.0), `solid` (1) | sprite; material should use a sprite texture (`barrel`) |
-| `ghoul` | `health` (60) | melee enemy sprite; material should use `ghoul` |
+| `decor` | `w` (0.8), `h` (1.0), `solid` (1) | sprite; default texture `barrel` |
+| `ghoul` | `health` (60) | melee enemy sprite; default texture `ghoul` |
 | `exit` | — | floor pad; touching it ends the level |
 
 `room` generates inner-facing geometry (you're inside it). `box` generates outer-facing geometry (obstacles). UVs auto-tile based on world dimensions.
 
+### TrenchBroom (.map) Levels
+
+Setup once: `make editor`, then in TrenchBroom Preferences → RT → Game Path = `<repo>/editor/game`. The game config is versioned in `editor/trenchbroom/RT/`; textures and `rt.fgd` there are generated (git-ignored) — rerun `make editor` after changing textures or entity types.
+
+- Brushes in `worldspawn`, `func_group` (TrenchBroom layers/groups) and `func_detail` become static geometry. Other brush entities are ignored for now (Phase 3 triggers/doors).
+- Point entities: `info_player_start` (origin = feet, `angle`), `light` (`intensity`, `radius` in units, `color`, `shadows`, `flicker_*`, `cord` in units, `swing_*`), and every entity type by name with its keys. Lengths are in units.
+- Textures `skip`/`clip` produce no geometry. Use Valve 220 format (the config's only format); Standard faces also load.
+- Doors in `.map`: place the entity at the hinge (`hinge_x/z` are `.level` only).
+- Run `./rt levels/foo.map`; saving in TrenchBroom reloads the game. Check the terminal for `check:` warnings and the `budget:` line; F3 shows the same budgets live.
+
 ### Adding Content
 
-**New level:** Create a `.level` file in `levels/`. See `levels/e1m1.level` for reference. Run with `./rt levels/yourmap.level`.
+**New level:** Build it in TrenchBroom (see above) and save as `levels/<name>.map`, or hand-write a `.level` (see `levels/e1m1.level`). Budgets: 30k triangles, 32 lights, 40 sprites (`levelcheck.h`; measured: ~0.12 ms per light, ~0.11 ms per sprite).
 
 **New procedural texture:** Add to `ProceduralTextureID` enum in `proctex.h`, write generator function in `proctex.c`, add to `proctex_names[]` and `proctex_generators[]` arrays. Sprite textures fill empty pixels with the color key; preview with an offscreen render, since tests can't judge looks.
 
-**New entity type:** Add to `EntityType` enum in `entity.h`, then one `EntityDef` row in `entity_types.c` with its level name, `RenderKind`, and only the hooks it needs (NULL = no behavior). Level parsing, update, touch, use and mesh build pick it up automatically — never add `switch (e->type)` to generic code. Entity indices are stable (inactive entities stay in the list).
+**New entity type:** Add to `EntityType` enum in `entity.h`, then one `EntityDef` row in `entity_types.c` with its level name, `RenderKind`, default material, `desc`, `keys`, and only the hooks it needs (NULL = no behavior). Level parsing (both formats), update, touch, use, mesh build and the FGD pick it up automatically — never add `switch (e->type)` to generic code. Entity indices are stable (inactive entities stay in the list). Run `make editor` to see it in TrenchBroom.
 
 **New weapon:** Add to `WeaponType` in `weapon.h` and one row in `weapon_types.c`. Shotgun-style = `pellets > 1` + `spread`. Each pellet hit emits `EV_WEAPON_IMPACT` with `amount = damage`.
 
@@ -161,6 +182,8 @@ Each `tests/test_*.c` is a standalone binary using `tests/test_framework.h` (`TE
 
 - **New suite:** just add `tests/test_<name>.c`. Tests link against `build/librt.a` (all objects except `main.o`), so no Makefile edit is needed.
 - **New source dir under `src/`:** picked up automatically (sources and include path).
-- **Run from repo root.** `test_level` loads `tests/test.level` by relative path.
+- **Run from repo root.** Tests load fixtures by relative path (`tests/test.level`, `tests/test.map`) and write scratch files under `build/tests/`.
+- **`tests/test.map`** is generated by `tests/gen_test_map.py` so every brush face winds outward; regenerate rather than hand-edit.
+- **`tests/test.level`** spawns the player outside its room (no floor). The checker flags it; existing tests depend on that spawn, so leave it.
 
-Controls: WASD move, mouse look, Space jump, LMB shoot, E use, F flashlight, Esc quit. Dead or at the exit: LMB/E (after 1 s) restarts the level.
+Controls: WASD move, mouse look, Space jump, LMB shoot, E use, F flashlight, F3 debug overlay, Esc quit. Dead or at the exit: LMB/E (after 1 s) restarts the level.
