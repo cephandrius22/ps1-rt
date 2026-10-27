@@ -214,11 +214,12 @@ TEST(test_entity_type_by_name) {
 }
 
 TEST(test_entity_spawn_reads_args) {
-    Entity hp = entity_spawn(ENTITY_PICKUP_HEALTH, vec3(1, 2, 3), "amount=40 mat=5");
+    Entity hp = entity_spawn(ENTITY_PICKUP_HEALTH, vec3(1, 2, 3), "amount=40 rot=1.5");
     ASSERT(hp.active);
     ASSERT_NEAR(hp.position.y, 2.0f, 1e-6f);
     ASSERT_NEAR(hp.pickup.amount, 40.0f, 1e-6f);
-    ASSERT_EQ_INT(hp.material_id, 5);
+    ASSERT_NEAR(hp.rotation_y, 1.5f, 1e-6f);
+    ASSERT_EQ_INT(hp.material_id, 0); /* resolved later by the level loader */
 
     /* Defaults when keys are absent; hinge falls back to position */
     Entity door = entity_spawn(ENTITY_DOOR, vec3(4, 0, -6), "");

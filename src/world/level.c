@@ -2,40 +2,26 @@
 #include "proctex.h"
 #include "ps1_effects.h"
 #include "kv.h"
+#include "matlib.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
-#define MAX_MATERIALS 64
 #define UV_TILE_SCALE 2.0f /* 1 texture repeat per this many world units */
 
 typedef struct {
-    char name[32];
-    int scene_index; /* index into scene->materials[] */
-} MatEntry;
-
-typedef struct {
-    MatEntry mats[MAX_MATERIALS];
-    int mat_count;
-
-    Texture proc_textures[PTEX_COUNT];
-    bool proc_generated[PTEX_COUNT];
-    int proc_scene_index[PTEX_COUNT]; /* maps PTEX_* to scene->textures[] index */
-
+    MatLib mats;
     Mesh world_mesh;
     Scene *scene;
-
-    int next_tex_index;
 } LevelParser;
 
 /* --- Material name lookup --- */
 
 static int find_mat(LevelParser *p, const char *name) {
-    for (int i = 0; i < p->mat_count; i++) {
-        if (strcmp(p->mats[i].name, name) == 0) {
-            return p->mats[i].scene_index;
-        }
+    int idx = matlib_find(&p->mats, name);
+    if (idx != MATLIB_NONE) {
+        return idx;
     }
     fprintf(stderr, "level: unknown material '%s', using 0\n", name);
     return 0;
@@ -140,39 +126,12 @@ static void parse_spawn(const char *line, LevelInfo *info) {
 }
 
 static void parse_material(const char *line, LevelParser *p) {
-    if (p->mat_count >= MAX_MATERIALS) {
-        fprintf(stderr, "level: too many materials (max %d)\n", MAX_MATERIALS);
+    char name[MATLIB_NAME_MAX], tex_name[MATLIB_NAME_MAX];
+    float r = 0.5f, g = 0.5f, b = 0.5f;
+    if (sscanf(line, "material %31s %31s %f %f %f", name, tex_name, &r, &g, &b) < 2) {
         return;
     }
-
-    char name[32], tex_name[32];
-    float r = 0.5f, g = 0.5f, b = 0.5f;
-    sscanf(line, "material %31s %31s %f %f %f", name, tex_name, &r, &g, &b);
-
-    int tex_id = -1;
-    int ptex = proctex_find(tex_name);
-    if (ptex >= 0) {
-        /* Generate this procedural texture if not already done */
-        if (!p->proc_generated[ptex]) {
-            proctex_generate(&p->proc_textures[ptex], ptex);
-            p->proc_generated[ptex] = true;
-            p->proc_scene_index[ptex] = p->next_tex_index++;
-        }
-        tex_id = p->proc_scene_index[ptex];
-    }
-
-    int idx = p->mat_count;
-    MatEntry *me = &p->mats[idx];
-    strncpy(me->name, name, 31);
-    me->name[31] = '\0';
-    me->scene_index = idx;
-    p->mat_count++;
-
-    /* Grow scene materials array */
-    p->scene->materials = realloc(p->scene->materials,
-                                   (size_t)(idx + 1) * sizeof(Material));
-    p->scene->materials[idx] = (Material){.color = vec3(r, g, b), .texture_id = tex_id};
-    p->scene->material_count = idx + 1;
+    matlib_add(&p->mats, name, tex_name, vec3(r, g, b));
 }
 
 static void parse_room(const char *line, LevelParser *p) {
@@ -267,7 +226,27 @@ static void parse_obj(const char *line, LevelParser *p) {
     mesh_free(&obj_mesh);
 }
 
-static void parse_entity(const char *line, Scene *scene) {
+#define DEFAULT_MAT_PREFIX "@" /* untextured defaults: "@health", "@exit" */
+
+/* Material for an entity: mat=<name> if given, else the type's default
+ * (a material named after its texture, or "@type" when untextured) */
+static int entity_material(LevelParser *p, const EntityDef *def, const char *line) {
+    char name[MATLIB_NAME_MAX];
+    if (kv_string(line, "mat", name, sizeof(name))) {
+        return find_mat(p, name);
+    }
+
+    const char *tex = def->default_texture ? def->default_texture : "none";
+    if (proctex_find(tex) >= 0) {
+        return matlib_texture(&p->mats, tex, def->default_color);
+    }
+
+    snprintf(name, sizeof(name), DEFAULT_MAT_PREFIX "%s", def->name);
+    int idx = matlib_find(&p->mats, name);
+    return idx != MATLIB_NONE ? idx : matlib_add(&p->mats, name, "none", def->default_color);
+}
+
+static void parse_entity(const char *line, LevelParser *p) {
     char type_str[32];
     float x, y, z;
 
@@ -281,7 +260,9 @@ static void parse_entity(const char *line, Scene *scene) {
         return;
     }
 
-    entity_add(&scene->entities, entity_spawn(type, vec3(x, y, z), line));
+    Entity e = entity_spawn(type, vec3(x, y, z), line);
+    e.material_id = entity_material(p, entity_def(type), line);
+    entity_add(&p->scene->entities, e);
 }
 
 static void parse_light(const char *line, Scene *scene) {
@@ -322,13 +303,9 @@ int level_load(Scene *scene, const char *filename, LevelInfo *info) {
     }
 
     /* Initialize parser state */
-    LevelParser parser = {0};
-    parser.scene = scene;
+    LevelParser parser = {.scene = scene};
+    matlib_init(&parser.mats, scene);
     mesh_init(&parser.world_mesh);
-    for (int i = 0; i < PTEX_COUNT; i++) {
-        parser.proc_generated[i] = false;
-        parser.proc_scene_index[i] = -1;
-    }
 
     /* Default spawn */
     info->spawn_pos = vec3(0, 0, 0);
@@ -368,7 +345,7 @@ int level_load(Scene *scene, const char *filename, LevelInfo *info) {
         } else if (strncmp(p, "obj ", 4) == 0) {
             parse_obj(p, &parser);
         } else if (strncmp(p, "entity ", 7) == 0) {
-            parse_entity(p, scene);
+            parse_entity(p, &parser);
         } else if (strncmp(p, "light ", 6) == 0) {
             parse_light(p, scene);
         } else {
@@ -378,16 +355,7 @@ int level_load(Scene *scene, const char *filename, LevelInfo *info) {
 
     fclose(f);
 
-    /* Build texture array from generated procedural textures */
-    if (parser.next_tex_index > 0) {
-        scene->textures = malloc((size_t)parser.next_tex_index * sizeof(Texture));
-        scene->texture_count = parser.next_tex_index;
-        for (int i = 0; i < PTEX_COUNT; i++) {
-            if (parser.proc_generated[i]) {
-                scene->textures[parser.proc_scene_index[i]] = parser.proc_textures[i];
-            }
-        }
-    }
+    matlib_finish(&parser.mats);
 
     /* Apply PS1 vertex jitter to world geometry */
     for (int i = 0; i < parser.world_mesh.count; i++) {

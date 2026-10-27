@@ -262,33 +262,40 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
     [ENTITY_NONE] = { .name = NULL, .render = RENDER_NONE },
     [ENTITY_PICKUP_HEALTH] = {
         .name = "health", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_HEALTH,
+        .default_texture = "none", .default_color = {0.9f, 0.2f, 0.2f},
         .spawn = health_spawn, .update = pickup_update, .touch = pickup_touch,
         .pose = pickup_pose, .build_mesh = pickup_mesh,
     },
     [ENTITY_PICKUP_AMMO] = {
         .name = "ammo", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_AMMO,
+        .default_texture = "none", .default_color = {0.9f, 0.8f, 0.2f},
         .spawn = ammo_spawn, .update = pickup_update, .touch = pickup_touch,
         .pose = pickup_pose, .build_mesh = pickup_mesh,
     },
     [ENTITY_DOOR] = {
         .name = "door", .render = RENDER_MESH,
+        .default_texture = "rust", .default_color = {0.4f, 0.2f, 0.1f},
         .spawn = door_spawn, .update = door_update, .use = door_use,
         .pose = door_pose, .build_mesh = door_mesh,
     },
     [ENTITY_PROP] = {
         .name = "prop", .render = RENDER_MESH,
+        .default_texture = "none", .default_color = {0.5f, 0.5f, 0.5f},
         .build_mesh = prop_mesh,
     },
     [ENTITY_DECOR] = {
         .name = "decor", .render = RENDER_SPRITE,
+        .default_texture = "barrel", .default_color = {1, 1, 1},
         .spawn = decor_spawn, .sprite = decor_sprite,
     },
     [ENTITY_GHOUL] = {
         .name = "ghoul", .render = RENDER_SPRITE,
+        .default_texture = "ghoul", .default_color = {1, 1, 1},
         .spawn = ghoul_spawn, .damage = ghoul_damage, .sprite = ghoul_sprite,
     },
     [ENTITY_EXIT] = {
         .name = "exit", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_EXIT,
+        .default_texture = "none", .default_color = {0.9f, 0.1f, 0.05f},
         .touch = exit_touch, .build_mesh = exit_mesh,
     },
 };

@@ -49,7 +49,6 @@ Entity entity_spawn(EntityType type, Vec3 pos, const char *args) {
         .position = pos,
         .active = true,
         .rotation_y = kv_float(args, "rot", 0),
-        .material_id = kv_int(args, "mat", 0),
     };
 
     const EntityDef *def = entity_def(type);

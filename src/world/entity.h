@@ -130,6 +130,11 @@ typedef struct {
     RenderKind render;
     TouchEffect touch_effect;
 
+    /* Material used when a level gives no mat=: a procedural texture name
+     * (or "none") plus color, so designers can just place a "ghoul" */
+    const char *default_texture;
+    Vec3 default_color;
+
     /* Fill type-specific fields from level key=values, e.g. "amount=25" */
     void (*spawn)(Entity *e, const char *args);
 
@@ -169,7 +174,8 @@ typedef struct {
 const EntityDef *entity_def(EntityType type);
 EntityType entity_type_by_name(const char *name); /* ENTITY_NONE if unknown */
 
-/* Create an entity of a type at pos, letting the type read its args */
+/* Create an entity of a type at pos, letting the type read its args.
+ * material_id is left 0; the level loader resolves mat= or the default. */
 Entity entity_spawn(EntityType type, Vec3 pos, const char *args);
 
 /* Growable entity array. entity_add returns the new (stable) index, or

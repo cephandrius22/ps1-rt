@@ -25,6 +25,21 @@ float kv_float(const char *line, const char *key, float def) {
     return (float)atof(val);
 }
 
+bool kv_string(const char *line, const char *key, char *out, size_t size) {
+    const char *val = kv_find(line, key);
+    if (!val || size == 0) {
+        return false;
+    }
+
+    size_t n = strcspn(val, " \t\r\n");
+    if (n >= size) {
+        n = size - 1;
+    }
+    memcpy(out, val, n);
+    out[n] = '\0';
+    return true;
+}
+
 int kv_int(const char *line, const char *key, int def) {
     const char *val = kv_find(line, key);
     if (!val) {

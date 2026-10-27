@@ -12,7 +12,7 @@ room -5 0 -5 5 3 5 stone floor ceil
 box -1 0 -1 1 2 1 stone
 
 # Entities
-entity health 3 0.5 0 amount=50
+entity health 3 0.5 0 amount=50 mat=red_flat
 entity door 0 0 -5 hinge_x=0 hinge_z=-5
 
 # Lights

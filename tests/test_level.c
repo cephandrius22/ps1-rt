@@ -27,8 +27,8 @@ TEST(test_level_materials) {
     scene_init(&scene);
     LevelInfo info;
     level_load(&scene, "tests/test.level", &info);
-    /* 4 materials: stone, floor, ceil, red_flat */
-    ASSERT_EQ_INT(scene.material_count, 4);
+    /* 4 declared (stone, floor, ceil, red_flat) + the door's default "rust" */
+    ASSERT_EQ_INT(scene.material_count, 5);
     /* stone has concrete texture */
     ASSERT(scene.materials[0].texture_id >= 0);
     /* ceil has no texture */
@@ -44,8 +44,8 @@ TEST(test_level_textures) {
     scene_init(&scene);
     LevelInfo info;
     level_load(&scene, "tests/test.level", &info);
-    /* Should have 2 procedural textures: concrete, floor_tile */
-    ASSERT_EQ_INT(scene.texture_count, 2);
+    /* 3 procedural textures: concrete, floor_tile, rust (door default) */
+    ASSERT_EQ_INT(scene.texture_count, 3);
     ASSERT(scene.textures[0].pixels != NULL);
     ASSERT(scene.textures[1].pixels != NULL);
     scene_free(&scene);
@@ -99,6 +99,22 @@ TEST(test_level_missing_file) {
     scene_free(&scene);
 }
 
+/* mat=<name> picks a declared material; without mat= the type's default
+ * material is created (door → "rust", textured) */
+TEST(test_level_entity_materials) {
+    Scene scene;
+    scene_init(&scene);
+    LevelInfo info;
+    level_load(&scene, "tests/test.level", &info);
+
+    const Entity *health = &scene.entities.items[0];
+    const Entity *door = &scene.entities.items[1];
+    ASSERT_EQ_INT(health->material_id, 3); /* red_flat */
+    ASSERT(door->material_id != health->material_id);
+    ASSERT(scene.materials[door->material_id].texture_id >= 0);
+    scene_free(&scene);
+}
+
 int main(void) {
     TEST_SUITE("level");
     RUN_TEST(test_level_load_success);
@@ -109,5 +125,6 @@ int main(void) {
     RUN_TEST(test_level_entities);
     RUN_TEST(test_level_lights);
     RUN_TEST(test_level_missing_file);
+    RUN_TEST(test_level_entity_materials);
     TEST_REPORT();
 }
