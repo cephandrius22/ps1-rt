@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <math.h>
 #include "render.h"
 #include "overlay.h"
 #include "camera.h"
@@ -116,8 +117,10 @@ int main(int argc, char *argv[]) {
         render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool,
                             game.player.flashlight_on);
         OverlayState overlay = {
+            .mode = game.mode == GAME_DEAD ? OVERLAY_DEAD : OVERLAY_PLAYING,
+            .health = (int)ceilf(game.player.health),
+            .ammo = game_ammo(&game),
             .weapon_kick = game.weapon.kick,
-            .weapon_fired = game.weapon.fired_this_tick,
         };
         overlay_draw(&fb, &overlay);
 

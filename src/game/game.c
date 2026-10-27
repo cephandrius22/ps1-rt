@@ -64,6 +64,11 @@ Pose game_view(const Game *g) {
     return view;
 }
 
+int game_ammo(const Game *g) {
+    AmmoType type = weapon_def(g->weapon.type)->ammo;
+    return g->player.inv.ammo[type];
+}
+
 static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     player_update(&g->player, cmd, dt, &g->scene, &g->events);
     weapon_update(&g->weapon, cmd, game_view(g), &g->scene, dt,

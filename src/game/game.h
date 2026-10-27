@@ -71,4 +71,7 @@ void game_tick(Game *g, const PlayerCmd *cmd);
  * Used both to aim shots and to place the render camera. */
 Pose game_view(const Game *g);
 
+/* Ammo left for the current weapon (for the HUD) */
+int game_ammo(const Game *g);
+
 #endif
