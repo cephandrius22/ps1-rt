@@ -8,6 +8,7 @@
 #define INPUT_H
 
 #include "cmd.h"
+#include <stdbool.h>
 
 #define MOUSE_SENSITIVITY 0.003f /* radians per mouse count */
 
@@ -16,11 +17,16 @@ typedef enum {
     INPUT_QUIT,
 } InputStatus;
 
+/* Presentation-only requests (never reach game logic, unlike PlayerCmd) */
+typedef struct {
+    bool toggle_debug; /* F3 pressed this frame */
+} UiCmd;
+
 /* Capture the mouse (relative mode) */
 void input_init(void);
 
 /* Drain pending events and build this frame's command; game_update()
  * spreads it over however many ticks the frame runs. */
-InputStatus input_poll(PlayerCmd *cmd);
+InputStatus input_poll(PlayerCmd *cmd, UiCmd *ui);
 
 #endif

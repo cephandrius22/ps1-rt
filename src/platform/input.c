@@ -10,8 +10,9 @@ static float key_axis(const Uint8 *keys, SDL_Scancode pos, SDL_Scancode neg) {
     return (float)keys[pos] - (float)keys[neg];
 }
 
-InputStatus input_poll(PlayerCmd *cmd) {
+InputStatus input_poll(PlayerCmd *cmd, UiCmd *ui) {
     *cmd = (PlayerCmd){0};
+    *ui = (UiCmd){0};
     InputStatus status = INPUT_CONTINUE;
     int mouse_dx = 0;
     int mouse_dy = 0;
@@ -36,6 +37,9 @@ InputStatus input_poll(PlayerCmd *cmd) {
 
         if (e.key.keysym.sym == SDLK_ESCAPE) {
             status = INPUT_QUIT;
+        }
+        if (e.key.keysym.sym == SDLK_F3) {
+            ui->toggle_debug = true;
         }
         if (e.key.keysym.sym == SDLK_f) {
             cmd->buttons |= BTN_FLASHLIGHT;

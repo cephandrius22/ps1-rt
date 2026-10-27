@@ -21,6 +21,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
+#include <stdarg.h>
 #include "render.h"
 #include "overlay.h"
 #include "camera.h"
@@ -30,11 +31,18 @@
 #include "audio.h"
 #include "filewatch.h"
 #include "editor_export.h"
+#include "levelcheck.h"
+#include "mapfile.h"
 
 #define WINDOW_SCALE 3
 #define VIEW_FOV     1.2f /* radians */
 #define DEFAULT_LEVEL "levels/e1m1.level"
 #define RELOAD_POLL_SEC 0.25f /* how often to check the level file for saves */
+#define FRAME_BUDGET_MS 16.7f /* 60 fps */
+#define WARN_FRACTION   0.8f  /* debug values turn yellow at 80% of their limit */
+#define MS_SMOOTHING    0.1f  /* weight of the newest frame in debug averages */
+#define DEG_PER_RAD     (180.0f / (float)M_PI)
+#define FULL_TURN_DEG   360.0f
 
 /* Presentation side of the event queue: map game events to sounds */
 static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
@@ -75,6 +83,46 @@ static void hot_reload(Game *game, FileWatch *watch, float *since_poll, float dt
     } else {
         printf("\nReload of %s failed; keeping the current level\n", game->level_path);
     }
+}
+
+static DebugSeverity severity(float value, float limit) {
+    if (value > limit) {
+        return DEBUG_OVER;
+    }
+    return value >= limit * WARN_FRACTION ? DEBUG_WARN : DEBUG_OK;
+}
+
+static void debug_line(OverlayState *o, DebugSeverity sev, const char *fmt, ...) {
+    if (o->debug_count >= OVERLAY_DEBUG_LINES) {
+        return;
+    }
+    DebugLine *line = &o->debug[o->debug_count++];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(line->text, sizeof(line->text), fmt, args);
+    va_end(args);
+    line->severity = sev;
+}
+
+/* F3 overlay: work time per frame (excluding vsync wait), budget use,
+ * and where the player stands in meters and TrenchBroom units/angle */
+static void fill_debug(OverlayState *o, const Game *g, float work_ms, float fps) {
+    const Scene *s = &g->scene;
+    debug_line(o, severity(work_ms, FRAME_BUDGET_MS), "%.1f MS %.0f FPS", work_ms, fps);
+    debug_line(o, severity((float)s->static_bvh.tri_count, BUDGET_TRIANGLES),
+               "TRI %d/%d", s->static_bvh.tri_count, BUDGET_TRIANGLES);
+    debug_line(o, severity((float)s->lights.count, BUDGET_LIGHTS),
+               "LIT %d/%d", s->lights.count, BUDGET_LIGHTS);
+    debug_line(o, severity((float)s->sprite_count, BUDGET_SPRITES),
+               "SPR %d/%d", s->sprite_count, BUDGET_SPRITES);
+
+    const Player *p = &g->player;
+    float k = MAP_UNITS_PER_METER;
+    float angle = fmodf(p->view.yaw * DEG_PER_RAD + 90.0f, FULL_TURN_DEG); /* map "angle" */
+    angle = angle < 0 ? angle + FULL_TURN_DEG : angle;
+    debug_line(o, DEBUG_OK, "POS %.1f %.1f %.1f MAP %.0f %.0f %.0f A %.0f",
+               p->view.pos.x, p->foot_y, p->view.pos.z,
+               p->view.pos.x * k, -p->view.pos.z * k, p->foot_y * k, angle);
 }
 
 /* Game mode → what the overlay should show */
@@ -159,6 +207,9 @@ int main(int argc, char *argv[]) {
     float since_poll = 0;
 
     bool running = true;
+    bool show_debug = false;
+    float work_ms = 0;   /* smoothed */
+    float fps = 0;       /* smoothed */
     Uint64 freq = SDL_GetPerformanceFrequency();
     Uint64 last_time = SDL_GetPerformanceCounter();
 
@@ -168,8 +219,12 @@ int main(int argc, char *argv[]) {
         last_time = frame_start;
 
         PlayerCmd cmd;
-        if (input_poll(&cmd) == INPUT_QUIT) {
+        UiCmd ui;
+        if (input_poll(&cmd, &ui) == INPUT_QUIT) {
             running = false;
+        }
+        if (ui.toggle_debug) {
+            show_debug = !show_debug;
         }
 
         hot_reload(&game, &level_watch, &since_poll, dt);
@@ -188,7 +243,15 @@ int main(int argc, char *argv[]) {
             .kills_total = game.kills_total,
             .weapon_kick = game.weapon.kick,
         };
+        if (show_debug) {
+            fill_debug(&overlay, &game, work_ms, fps);
+        }
         overlay_draw(&fb, &overlay);
+
+        /* Work time: everything this frame except waiting for vsync */
+        float frame_work = (float)(SDL_GetPerformanceCounter() - frame_start) / (float)freq * 1000.0f;
+        work_ms += (frame_work - work_ms) * MS_SMOOTHING;
+        fps += ((dt > 0 ? 1.0f / dt : 0) - fps) * MS_SMOOTHING;
 
         SDL_UpdateTexture(texture, NULL, fb.pixels, SCREEN_W * sizeof(uint32_t));
         SDL_RenderClear(sdl_renderer);

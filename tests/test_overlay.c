@@ -1,5 +1,6 @@
 #include "test_framework.h"
 #include "overlay.h"
+#include <stdio.h>
 
 #define BG 0xFF808080u /* mid grey */
 
@@ -57,10 +58,29 @@ TEST(test_overlay_level_end_shows_kills) {
     ASSERT(bright > 0);
 }
 
+TEST(test_overlay_debug_text_top_left) {
+    framebuffer_clear(&fb, BG);
+    OverlayState s = {.mode = OVERLAY_PLAYING, .health = 100, .ammo = 50, .debug_count = 2};
+    snprintf(s.debug[0].text, OVERLAY_DEBUG_CHARS, "7.1 MS 60 FPS");
+    snprintf(s.debug[1].text, OVERLAY_DEBUG_CHARS, "TRI 252/30000");
+    s.debug[1].severity = DEBUG_OVER;
+    overlay_draw(&fb, &s);
+
+    ASSERT(count_changed(0, 0, 80, 20) > 0);                       /* text drawn */
+    ASSERT(count_changed(SCREEN_W / 2, 0, SCREEN_W, SCREEN_H / 2) == 0);
+
+    /* Hidden when there are no lines */
+    framebuffer_clear(&fb, BG);
+    s.debug_count = 0;
+    overlay_draw(&fb, &s);
+    ASSERT(count_changed(0, 0, 80, 20) == 0);
+}
+
 int main(void) {
     TEST_SUITE("overlay");
     RUN_TEST(test_overlay_draws_hud_corners);
     RUN_TEST(test_overlay_dead_tints_red);
     RUN_TEST(test_overlay_level_end_shows_kills);
+    RUN_TEST(test_overlay_debug_text_top_left);
     TEST_REPORT();
 }

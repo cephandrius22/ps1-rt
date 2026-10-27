@@ -1,4 +1,5 @@
 #include "overlay.h"
+#include <stddef.h>
 
 /* 3x5 pixel digits, one row per 3-bit value (MSB = left pixel).
  * Example: '1' = 010 110 010 010 111 */
@@ -14,9 +15,23 @@ static const unsigned char digit_rows[10][GLYPH_H] = {
     {7, 5, 7, 5, 7}, {7, 5, 7, 1, 7},
 };
 
-/* Icons, same encoding */
+/* Letters A-Z, same encoding (e.g. 'A' = 010 101 111 101 101) */
+static const unsigned char letter_rows[26][GLYPH_H] = {
+    {2, 5, 7, 5, 5}, {6, 5, 6, 5, 6}, {3, 4, 4, 4, 3}, {6, 5, 5, 5, 6}, /* A-D */
+    {7, 4, 6, 4, 7}, {7, 4, 6, 4, 4}, {3, 4, 5, 5, 3}, {5, 5, 7, 5, 5}, /* E-H */
+    {7, 2, 2, 2, 7}, {1, 1, 1, 5, 2}, {5, 5, 6, 5, 5}, {4, 4, 4, 4, 7}, /* I-L */
+    {5, 7, 7, 5, 5}, {6, 5, 5, 5, 5}, {2, 5, 5, 5, 2}, {6, 5, 6, 4, 4}, /* M-P */
+    {2, 5, 5, 6, 3}, {6, 5, 6, 5, 5}, {3, 4, 2, 1, 6}, {7, 2, 2, 2, 2}, /* Q-T */
+    {5, 5, 5, 5, 7}, {5, 5, 5, 5, 2}, {5, 5, 7, 7, 5}, {5, 5, 2, 5, 5}, /* U-X */
+    {5, 5, 2, 2, 2}, {7, 1, 2, 4, 7},                                   /* Y-Z */
+};
+
+/* Icons and punctuation, same encoding */
 static const unsigned char cross_rows[GLYPH_H] = {0, 2, 7, 2, 0};
 static const unsigned char slash_rows[GLYPH_H] = {1, 1, 2, 4, 4};
+static const unsigned char dot_rows[GLYPH_H]   = {0, 0, 0, 0, 2};
+static const unsigned char dash_rows[GLYPH_H]  = {0, 0, 7, 0, 0};
+static const unsigned char colon_rows[GLYPH_H] = {0, 2, 0, 2, 0};
 
 #define HUD_MARGIN      6
 #define HUD_SHADOW      0xFF000000u
@@ -26,6 +41,12 @@ static const unsigned char slash_rows[GLYPH_H] = {1, 1, 2, 4, 4};
 #define HUD_TITLE       0xFFD8D0B8u /* bone white */
 #define DEAD_TINT_KEEP  0.35f       /* fraction of green/blue kept when dead */
 #define END_DIM         0.3f        /* brightness kept behind the level-end text */
+#define DEBUG_SCALE     1           /* debug text: 3x5 pixels per glyph */
+#define DEBUG_MARGIN    3
+#define DEBUG_LINE_GAP  2           /* pixels between debug lines */
+#define DEBUG_OK_COLOR   0xFF8CD278u /* green */
+#define DEBUG_WARN_COLOR 0xFFE6C850u /* yellow */
+#define DEBUG_OVER_COLOR 0xFFE65046u /* red */
 
 static void put_pixel(Framebuffer *fb, int x, int y, uint32_t color) {
     if (x < 0 || x >= SCREEN_W || y < 0 || y >= SCREEN_H) {
@@ -39,7 +60,8 @@ static void put_pixel(Framebuffer *fb, int x, int y, uint32_t color) {
 static void draw_glyph(Framebuffer *fb, const unsigned char rows[GLYPH_H],
                        int x, int y, int scale, uint32_t color) {
     for (int pass = 0; pass < 2; pass++) {
-        int off = pass == 0 ? scale / 2 : 0;
+        int shadow = scale / 2 > 0 ? scale / 2 : 1;
+        int off = pass == 0 ? shadow : 0;
         uint32_t c = pass == 0 ? HUD_SHADOW : color;
 
         for (int row = 0; row < GLYPH_H; row++) {
@@ -99,6 +121,54 @@ static void tint_dead(Framebuffer *fb) {
     }
 }
 
+/* Glyph for a character, or NULL for space/unsupported (drawn blank) */
+static const unsigned char *glyph_for(char c) {
+    if (c >= '0' && c <= '9') {
+        return digit_rows[c - '0'];
+    }
+    if (c >= 'A' && c <= 'Z') {
+        return letter_rows[c - 'A'];
+    }
+    if (c >= 'a' && c <= 'z') {
+        return letter_rows[c - 'a'];
+    }
+    switch (c) {
+    case '.': return dot_rows;
+    case '-': return dash_rows;
+    case '/': return slash_rows;
+    case ':': return colon_rows;
+    default:  return NULL;
+    }
+}
+
+static void draw_text(Framebuffer *fb, const char *text, int x, int y, int scale, uint32_t color) {
+    for (const char *c = text; *c; c++) {
+        const unsigned char *rows = glyph_for(*c);
+        if (rows) {
+            draw_glyph(fb, rows, x, y, scale, color);
+        }
+        x += glyph_advance(scale);
+    }
+}
+
+static uint32_t severity_color(DebugSeverity severity) {
+    switch (severity) {
+    case DEBUG_OK:   return DEBUG_OK_COLOR;
+    case DEBUG_WARN: return DEBUG_WARN_COLOR;
+    case DEBUG_OVER: return DEBUG_OVER_COLOR;
+    }
+    return DEBUG_OK_COLOR;
+}
+
+static void draw_debug(Framebuffer *fb, const OverlayState *state) {
+    int y = DEBUG_MARGIN;
+    for (int i = 0; i < state->debug_count && i < OVERLAY_DEBUG_LINES; i++) {
+        const DebugLine *line = &state->debug[i];
+        draw_text(fb, line->text, DEBUG_MARGIN, y, DEBUG_SCALE, severity_color(line->severity));
+        y += GLYPH_H * DEBUG_SCALE + DEBUG_LINE_GAP;
+    }
+}
+
 static void dim(Framebuffer *fb, float keep) {
     for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
         uint32_t p = fb->pixels[i];
@@ -144,4 +214,6 @@ void overlay_draw(Framebuffer *fb, const OverlayState *state) {
     /* Ammo: number, bottom right */
     int ammo_x = SCREEN_W - HUD_MARGIN - number_width(state->ammo, HUD_SCALE);
     draw_number(fb, state->ammo, ammo_x, y, HUD_SCALE, HUD_AMMO);
+
+    draw_debug(fb, state);
 }
