@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
         play_event_sounds(&audio, &game.events);
 
         /* Render with point lights and shadow rays (multithreaded) */
-        Camera cam = camera_from_pose(game.player.view, VIEW_FOV);
+        Camera cam = camera_from_pose(game_view(&game), VIEW_FOV);
         render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool,
                             game.player.flashlight_on);
         OverlayState overlay = {

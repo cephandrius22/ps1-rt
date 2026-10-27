@@ -58,9 +58,15 @@ static void restart_level(Game *g) {
     g->pending = pending;
 }
 
+Pose game_view(const Game *g) {
+    Pose view = g->player.view;
+    view.pitch += g->weapon.kick;
+    return view;
+}
+
 static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     player_update(&g->player, cmd, dt, &g->scene, &g->events);
-    weapon_update(&g->weapon, cmd, g->player.view, &g->scene, dt,
+    weapon_update(&g->weapon, cmd, game_view(g), &g->scene, dt,
                   &g->player.inv, &g->events);
 
     if (!player_alive(&g->player)) {

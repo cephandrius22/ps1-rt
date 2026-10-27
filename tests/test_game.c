@@ -131,6 +131,23 @@ TEST(test_game_death_and_respawn) {
     game_free(&g);
 }
 
+/* Firing kicks the view up; it settles back over time */
+TEST(test_game_recoil_kicks_view) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    PlayerCmd fire = {.buttons = BTN_ATTACK};
+    PlayerCmd idle = {0};
+    float pitch = g.player.view.pitch;
+
+    game_tick(&g, &fire);
+    ASSERT(game_view(&g).pitch > pitch);
+    ASSERT_NEAR(g.player.view.pitch, pitch, 1e-6f); /* look input untouched */
+
+    run_ticks(&idle, GAME_TICK_HZ * 2);
+    ASSERT_NEAR(game_view(&g).pitch, pitch, 1e-6f);
+
+    game_free(&g);
+}
+
 int main(void) {
     TEST_SUITE("game");
     RUN_TEST(test_game_init_spawns_player);
@@ -141,5 +158,6 @@ int main(void) {
     RUN_TEST(test_game_update_look_applies_once);
     RUN_TEST(test_game_update_impulse_once);
     RUN_TEST(test_game_death_and_respawn);
+    RUN_TEST(test_game_recoil_kicks_view);
     TEST_REPORT();
 }

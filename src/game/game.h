@@ -67,4 +67,8 @@ int game_update(Game *g, const PlayerCmd *cmd, float frame_dt);
 /* One fixed tick; appends to g->events. Exposed for tests. */
 void game_tick(Game *g, const PlayerCmd *cmd);
 
+/* Where the player is looking right now: view plus weapon recoil.
+ * Used both to aim shots and to place the render camera. */
+Pose game_view(const Game *g);
+
 #endif
