@@ -1,6 +1,7 @@
 #include "test_framework.h"
 #include "game.h"
 #include <math.h>
+#include <stdio.h>
 
 #define TEST_LEVEL "tests/test.level"
 
@@ -203,6 +204,27 @@ TEST(test_game_exit_ends_level) {
     game_free(&g);
 }
 
+/* Hot reload keeps where the player stands; a bad path keeps the old level */
+TEST(test_game_reload_keeps_pose) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    g.player.view.pos = vec3(1, 2, 3);
+    g.player.view.yaw = 0.7f;
+    g.player.health = 10;
+    g.scene.entities.items[0].active = false;
+
+    ASSERT(game_reload(&g) == GAME_LOAD_OK);
+    ASSERT_NEAR(g.player.view.pos.x, 1, 1e-6f);
+    ASSERT_NEAR(g.player.view.pos.z, 3, 1e-6f);
+    ASSERT_NEAR(g.player.view.yaw, 0.7f, 1e-6f);
+    ASSERT_NEAR(g.player.health, PLAYER_MAX_HEALTH, 1e-6f);
+    ASSERT(g.scene.entities.items[0].active); /* world reset */
+
+    snprintf(g.level_path, sizeof(g.level_path), "tests/no_such.level");
+    ASSERT(game_reload(&g) == GAME_LOAD_FAILED);
+    ASSERT_EQ_INT(g.scene.entities.count, 2); /* still the old level */
+    game_free(&g);
+}
+
 int main(void) {
     TEST_SUITE("game");
     RUN_TEST(test_game_init_spawns_player);
@@ -216,5 +238,6 @@ int main(void) {
     RUN_TEST(test_game_recoil_kicks_view);
     RUN_TEST(test_game_shooting_kills_ghoul);
     RUN_TEST(test_game_exit_ends_level);
+    RUN_TEST(test_game_reload_keeps_pose);
     TEST_REPORT();
 }

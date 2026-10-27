@@ -44,6 +44,33 @@ void game_free(Game *g) {
     scene_free(&g->scene);
 }
 
+GameLoadResult game_reload(Game *g) {
+    /* Load beside the running level so a broken save changes nothing */
+    Scene fresh;
+    scene_init(&fresh);
+    LevelInfo info;
+    if (level_load(&fresh, g->level_path, &info) != 0) {
+        scene_free(&fresh);
+        return GAME_LOAD_FAILED;
+    }
+
+    scene_free(&g->scene);
+    g->scene = fresh;
+    g->kills = 0;
+    g->kills_total = count_enemies(&g->scene.entities);
+    g->mode = GAME_PLAYING;
+    g->mode_time = 0;
+
+    /* Same spot and view, fresh body: designers iterate, not survive */
+    Player kept = g->player;
+    g->player = player_create(kept.view.pos);
+    g->player.view = kept.view;
+    g->player.foot_y = kept.foot_y;
+    g->player.on_ground = kept.on_ground;
+    g->player.flashlight_on = kept.flashlight_on;
+    return GAME_LOAD_OK;
+}
+
 static void set_mode(Game *g, GameMode mode) {
     g->mode = mode;
     g->mode_time = 0;

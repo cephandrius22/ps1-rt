@@ -9,6 +9,8 @@
  *                     Game fields ──> OverlayState ──> overlay_draw()
  *                                                        ──> SDL present
  *
+ * The level file is watched: saving it in an editor reloads it in place.
+ *
  * Holds no game rules: it only translates between game/, render/ and
  * platform/ (event → sound, game mode → overlay mode). SDL window and
  * present code also live here until Phase 6 moves them to platform/.
@@ -25,10 +27,12 @@
 #include "game.h"
 #include "threadpool.h"
 #include "audio.h"
+#include "filewatch.h"
 
 #define WINDOW_SCALE 3
 #define VIEW_FOV     1.2f /* radians */
 #define DEFAULT_LEVEL "levels/e1m1.level"
+#define RELOAD_POLL_SEC 0.25f /* how often to check the level file for saves */
 
 /* Presentation side of the event queue: map game events to sounds */
 static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
@@ -50,6 +54,24 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
         case EV_ENEMY_DIED:    audio_play(audio, SND_ENEMY_DEATH, 0.8f);  break;
         case EV_LEVEL_EXIT:    audio_play(audio, SND_DOOR_OPEN, 0.8f);    break;
         }
+    }
+}
+
+/* Every RELOAD_POLL_SEC, reload the level if its file was saved */
+static void hot_reload(Game *game, FileWatch *watch, float *since_poll, float dt) {
+    *since_poll += dt;
+    if (*since_poll < RELOAD_POLL_SEC) {
+        return;
+    }
+    *since_poll = 0;
+
+    if (filewatch_poll(watch) != FILE_CHANGED) {
+        return;
+    }
+    if (game_reload(game) == GAME_LOAD_OK) {
+        printf("\nReloaded %s\n", game->level_path);
+    } else {
+        printf("\nReload of %s failed; keeping the current level\n", game->level_path);
     }
 }
 
@@ -125,6 +147,10 @@ int main(int argc, char *argv[]) {
         printf("Audio init failed (continuing without sound)\n");
     }
 
+    FileWatch level_watch;
+    filewatch_init(&level_watch, level_file);
+    float since_poll = 0;
+
     bool running = true;
     Uint64 freq = SDL_GetPerformanceFrequency();
     Uint64 last_time = SDL_GetPerformanceCounter();
@@ -139,6 +165,7 @@ int main(int argc, char *argv[]) {
             running = false;
         }
 
+        hot_reload(&game, &level_watch, &since_poll, dt);
         game_update(&game, &cmd, dt);
         play_event_sounds(&audio, &game.events);
 

@@ -71,6 +71,11 @@ void game_free(Game *g);
  * covers. Returns the number of ticks run. */
 int game_update(Game *g, const PlayerCmd *cmd, float frame_dt);
 
+/* Reload the level file in place for editing: world and enemies reset,
+ * the player keeps position and view. On failure the current level keeps
+ * running. Mode returns to PLAYING. */
+GameLoadResult game_reload(Game *g);
+
 /* One fixed tick; appends to g->events. Exposed for tests. */
 void game_tick(Game *g, const PlayerCmd *cmd);
 
