@@ -8,6 +8,7 @@
 #define TEXTURE_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "math3d.h"
 
 typedef struct {
@@ -24,5 +25,13 @@ typedef struct {
 int texture_load_tga(Texture *tex, const char *filename);
 void texture_free(Texture *tex);
 Vec3 texture_sample(const Texture *tex, float u, float v);
+
+/* Sprites use magenta as "no pixel here" (color key, no alpha channel) */
+#define TEXTURE_KEY_R 255
+#define TEXTURE_KEY_G 0
+#define TEXTURE_KEY_B 255
+
+/* False if the texel at (u, v) is the color key */
+bool texture_opaque(const Texture *tex, float u, float v);
 
 #endif

@@ -2,7 +2,8 @@
  * proctex.h — Procedural texture generation for industrial environments.
  *
  * Generates low-res textures (32x32 or 64x64) in code using hash-based noise.
- * No external image files needed.
+ * No external image files needed. Sprite textures (barrel) use the
+ * TEXTURE_KEY color for empty pixels.
  */
 #ifndef PROCTEX_H
 #define PROCTEX_H
@@ -17,6 +18,7 @@ typedef enum {
     PTEX_RUST,
     PTEX_FLOOR_TILE,
     PTEX_PIPE,
+    PTEX_BARREL,      /* sprite: 32x40, color-keyed */
     PTEX_COUNT
 } ProceduralTextureID;
 

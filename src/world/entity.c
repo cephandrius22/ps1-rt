@@ -249,6 +249,41 @@ int entity_build_triangles(const EntityList *list, const EntityMeshes *em,
     return written;
 }
 
+/* --- Sprite generation --- */
+
+static bool is_sprite(const Entity *e) {
+    const EntityDef *def = entity_def(e->type);
+    return e->active && def->render == RENDER_SPRITE && def->sprite;
+}
+
+int entity_count_sprites(const EntityList *list) {
+    int total = 0;
+    for (int i = 0; i < list->count; i++) {
+        total += is_sprite(&list->items[i]);
+    }
+    return total;
+}
+
+int entity_build_sprites(const EntityList *list, Sprite *out, int max) {
+    int written = 0;
+    for (int i = 0; i < list->count && written < max; i++) {
+        const Entity *e = &list->items[i];
+        if (!is_sprite(e)) {
+            continue;
+        }
+
+        Sprite sp = {
+            .base = e->position,
+            .material_id = e->material_id,
+            .frame_count = 1,
+            .owner = i + 1,
+        };
+        entity_def(e->type)->sprite(e, &sp);
+        out[written++] = sp;
+    }
+    return written;
+}
+
 int entity_hit(const HitRecord *rec) {
     if (!rec->hit || rec->owner <= 0) {
         return ENTITY_INDEX_NONE;

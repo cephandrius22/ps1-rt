@@ -161,6 +161,24 @@ static void prop_mesh(Mesh *m) {
                   vec3(PROP_HALF_SIZE, PROP_HEIGHT, PROP_HALF_SIZE));
 }
 
+/* --- Decor: static sprite (barrel, candle, corpse) --- */
+
+#define DECOR_WIDTH_DEF  0.8f
+#define DECOR_HEIGHT_DEF 1.0f
+
+/* Keys: w=, h= (world units), solid=0 to let the player walk through */
+static void decor_spawn(Entity *e, const char *args) {
+    e->decor.width = kv_float(args, "w", DECOR_WIDTH_DEF);
+    e->decor.height = kv_float(args, "h", DECOR_HEIGHT_DEF);
+    e->decor.solidity = kv_int(args, "solid", 1) ? SPRITE_SOLID : SPRITE_GHOST;
+}
+
+static void decor_sprite(const Entity *e, Sprite *out) {
+    out->width = e->decor.width;
+    out->height = e->decor.height;
+    out->solidity = e->decor.solidity;
+}
+
 /* --- Table --- */
 
 static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
@@ -183,6 +201,10 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
     [ENTITY_PROP] = {
         .name = "prop", .render = RENDER_MESH,
         .build_mesh = prop_mesh,
+    },
+    [ENTITY_DECOR] = {
+        .name = "decor", .render = RENDER_SPRITE,
+        .spawn = decor_spawn, .sprite = decor_sprite,
     },
 };
 

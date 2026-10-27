@@ -12,6 +12,7 @@
  *                        decides, then entity_touch() ──> def->touch()
  *   entity_try_use() ──> def->use()     (E key, e.g. doors)
  *   entity_build_triangles() ──> def->pose() + template mesh (RENDER_MESH)
+ *   entity_build_sprites()   ──> def->sprite()               (RENDER_SPRITE)
  *
  * Adding a type = enum value + EntityDef row in entity_types.c.
  */
@@ -19,6 +20,7 @@
 #define ENTITY_H
 
 #include "mesh.h"
+#include "sprite.h"
 #include "math3d.h"
 #include <stdbool.h>
 
@@ -28,6 +30,7 @@ typedef enum {
     ENTITY_PICKUP_AMMO,
     ENTITY_DOOR,
     ENTITY_PROP,
+    ENTITY_DECOR,         /* static sprite: barrels, candles, bodies */
     ENTITY_TYPE_COUNT
 } EntityType;
 
@@ -36,7 +39,7 @@ typedef enum {
 typedef enum {
     RENDER_NONE,   /* invisible (triggers, spawn points) */
     RENDER_MESH,   /* template mesh, posed per tick into the dynamic BVH */
-    RENDER_SPRITE, /* camera-facing billboard */
+    RENDER_SPRITE, /* billboard facing each ray (sprite.h) */
 } RenderKind;
 
 typedef enum {
@@ -75,9 +78,14 @@ typedef struct {
             float swing_speed;
             Vec3 hinge;         /* hinge position (world space) */
         } door;
+        struct {
+            float width;
+            float height;
+            SpriteSolidity solidity;
+        } decor;
     };
 
-    int material_id;  /* material for this entity's triangles */
+    int material_id;  /* material for this entity's triangles or sprite */
 } Entity;
 
 /* Upright cylinder, e.g. a player's body: base at the feet, extending
@@ -107,6 +115,10 @@ typedef struct {
 
     /* Build the shared template mesh (RENDER_MESH only) */
     void (*build_mesh)(Mesh *m);
+
+    /* Size, frame and solidity this tick (RENDER_SPRITE only). Generic
+     * code fills base, material and owner beforehand. */
+    void (*sprite)(const Entity *e, Sprite *out);
 } EntityDef;
 
 typedef struct {
@@ -162,6 +174,13 @@ int entity_build_triangles(const EntityList *list, const EntityMeshes *em,
 
 /* Count total triangles needed for all active entities */
 int entity_count_triangles(const EntityList *list, const EntityMeshes *em);
+
+/* Count active RENDER_SPRITE entities */
+int entity_count_sprites(const EntityList *list);
+
+/* Write one Sprite per active RENDER_SPRITE entity into out (up to max).
+ * Returns number written. */
+int entity_build_sprites(const EntityList *list, Sprite *out, int max);
 
 /* Which entity a ray hit, or ENTITY_INDEX_NONE for world geometry/miss.
  * Entity triangles carry owner = index + 1, so zero-initialized

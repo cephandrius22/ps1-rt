@@ -2,8 +2,9 @@
  * scene.h — Scene container with two-level BVH, entities, and lights.
  *
  * The static BVH holds world geometry (built once). The dynamic BVH holds
- * transformed entity geometry (rebuilt each game tick). scene_intersect()
- * tests both and returns the closer hit.
+ * transformed entity geometry and the sprite list holds billboards, both
+ * rebuilt each game tick. scene_trace() tests all three and returns the
+ * closest hit; its mask decides whether ghost sprites (corpses) count.
  */
 #ifndef SCENE_H
 #define SCENE_H
@@ -23,6 +24,11 @@ typedef struct Scene {
     int dynamic_tri_count;
     int dynamic_tri_cap;
     bool has_dynamic;
+
+    /* Billboards (rebuilt per tick), tested by linear scan */
+    Sprite *sprites;
+    int sprite_count;
+    int sprite_cap;
 
     /* Entity and template mesh storage */
     EntityList entities;
@@ -47,10 +53,19 @@ void scene_build_static(Scene *s, Triangle *tris, int count);
 /* Rebuild dynamic BVH from active entities (call each tick) */
 void scene_rebuild_dynamic(Scene *s);
 
-/* Intersect ray against both BVHs, return closer hit */
+typedef enum {
+    TRACE_VISIBLE, /* everything drawn: rendering, shadows */
+    TRACE_SOLID,   /* what blocks movement and bullets: skips ghost sprites */
+} TraceMask;
+
+/* Closest hit among static geometry, entity meshes and sprites */
+HitRecord scene_trace(const Scene *s, Ray ray, float t_min, float t_max, TraceMask mask);
+
+/* scene_trace() with TRACE_VISIBLE */
 HitRecord scene_intersect(const Scene *s, Ray ray, float t_min, float t_max);
 
-/* Shadow test: returns true if any geometry occludes the ray in [t_min, t_max] */
+/* Shadow test: true if static or entity-mesh geometry occludes the ray in
+ * [t_min, t_max]. Sprites don't cast shadows. */
 bool scene_occluded(const Scene *s, Ray ray, float t_min, float t_max);
 
 #endif

@@ -77,12 +77,8 @@ void texture_free(Texture *tex) {
     tex->pixels = NULL;
 }
 
-Vec3 texture_sample(const Texture *tex, float u, float v) {
-    if (!tex->pixels) {
-        return vec3(1, 0, 1); // magenta = missing
-    }
-
-    // Wrap UVs
+/* Nearest-neighbor texel for wrapped (u, v), PS1 style */
+static const uint8_t *texel(const Texture *tex, float u, float v) {
     u = u - (float)(int)u;
     v = v - (float)(int)v;
     if (u < 0) {
@@ -92,16 +88,23 @@ Vec3 texture_sample(const Texture *tex, float u, float v) {
         v += 1.0f;
     }
 
-    // Nearest-neighbor (PS1 style)
     int px = (int)(u * tex->width) % tex->width;
     int py = (int)(v * tex->height) % tex->height;
-    if (px < 0) {
-        px += tex->width;
-    }
-    if (py < 0) {
-        py += tex->height;
-    }
+    return tex->pixels + (py * tex->width + px) * 3;
+}
 
-    const uint8_t *p = tex->pixels + (py * tex->width + px) * 3;
+Vec3 texture_sample(const Texture *tex, float u, float v) {
+    if (!tex->pixels) {
+        return vec3(1, 0, 1); // magenta = missing
+    }
+    const uint8_t *p = texel(tex, u, v);
     return vec3(p[0] / 255.0f, p[1] / 255.0f, p[2] / 255.0f);
+}
+
+bool texture_opaque(const Texture *tex, float u, float v) {
+    if (!tex->pixels) {
+        return true;
+    }
+    const uint8_t *p = texel(tex, u, v);
+    return !(p[0] == TEXTURE_KEY_R && p[1] == TEXTURE_KEY_G && p[2] == TEXTURE_KEY_B);
 }

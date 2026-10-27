@@ -30,7 +30,7 @@ Player player_create(Vec3 pos) {
 static float ground_check(Vec3 head_pos, const Scene *scene) {
     Ray down = {vec3(head_pos.x, head_pos.y + STEP_HEIGHT + GROUND_PROBE_PAD, head_pos.z),
                 vec3(0, -1, 0)};
-    HitRecord rec = scene_intersect(scene, down, 0.0f, PLAYER_HEIGHT + STEP_HEIGHT + 1.0f);
+    HitRecord rec = scene_trace(scene, down, 0.0f, PLAYER_HEIGHT + STEP_HEIGHT + 1.0f, TRACE_SOLID);
     if (!rec.hit || rec.normal.y <= GROUND_MIN_NORMAL) {
         return GROUND_NONE;
     }
@@ -60,7 +60,7 @@ static Vec3 try_move_axis(Vec3 pos, Vec3 move, float foot_y, const Scene *scene)
 
     for (int i = 0; i < 3; i++) {
         Ray ray = {vec3(pos.x, probe_heights[i], pos.z), move_dir};
-        HitRecord rec = scene_intersect(scene, ray, 0.0f, check_dist);
+        HitRecord rec = scene_trace(scene, ray, 0.0f, check_dist, TRACE_SOLID);
         if (!rec.hit) {
             continue;
         }

@@ -159,6 +159,33 @@ TEST(test_scene_dynamic_rebuild) {
     scene_free(&s);
 }
 
+/* Decor sprites: solid ones block gameplay traces, ghosts are only seen */
+TEST(test_scene_sprite_trace_mask) {
+    Scene s;
+    scene_init(&s);
+    entity_add(&s.entities, entity_spawn(ENTITY_DECOR, vec3(0, 0, -3), "w=1 h=2 solid=1"));
+    entity_add(&s.entities, entity_spawn(ENTITY_DECOR, vec3(3, 0, -3), "w=1 h=2 solid=0"));
+    scene_rebuild_dynamic(&s);
+    ASSERT_EQ_INT(s.sprite_count, 2);
+
+    Ray at_solid = {vec3(0, 1, 0), vec3(0, 0, -1)};
+    Ray at_ghost = {vec3(3, 1, 0), vec3(0, 0, -1)};
+
+    HitRecord rec = scene_trace(&s, at_solid, 0.001f, 100.0f, TRACE_SOLID);
+    ASSERT(rec.hit);
+    ASSERT_EQ_INT(entity_hit(&rec), 0);
+
+    ASSERT(!scene_trace(&s, at_ghost, 0.001f, 100.0f, TRACE_SOLID).hit);
+    rec = scene_trace(&s, at_ghost, 0.001f, 100.0f, TRACE_VISIBLE);
+    ASSERT(rec.hit);
+    ASSERT_EQ_INT(entity_hit(&rec), 1);
+
+    /* Sprites cast no shadows */
+    ASSERT(!scene_occluded(&s, at_solid, 0.001f, 100.0f));
+
+    scene_free(&s);
+}
+
 int main(void) {
     TEST_SUITE("scene");
     RUN_TEST(test_scene_init_free);
@@ -167,5 +194,6 @@ int main(void) {
     RUN_TEST(test_scene_hit_identifies_entity);
     RUN_TEST(test_scene_occluded);
     RUN_TEST(test_scene_dynamic_rebuild);
+    RUN_TEST(test_scene_sprite_trace_mask);
     TEST_REPORT();
 }

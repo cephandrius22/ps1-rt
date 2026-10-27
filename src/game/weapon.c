@@ -62,7 +62,8 @@ static void fire(Weapon *w, Pose aim, const Scene *scene, EventQueue *ev) {
 
     /* One impact event per pellet that hits; damage rides in amount */
     for (int i = 0; i < def->pellets; i++) {
-        HitRecord hit = scene_intersect(scene, weapon_pellet_ray(aim, def, i), 0.0f, def->range);
+        HitRecord hit = scene_trace(scene, weapon_pellet_ray(aim, def, i), 0.0f, def->range,
+                                    TRACE_SOLID);
         if (i == 0) {
             w->last_hit = hit;
         }

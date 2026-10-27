@@ -333,6 +333,32 @@ TEST(test_player_ammo_pickup) {
     scene_free(&s);
 }
 
+/* Solid sprites block walking; ghost sprites don't */
+TEST(test_player_blocked_by_solid_sprite) {
+    Scene s;
+    Mesh m;
+    floor_scene(&s, &m);
+    entity_add(&s.entities, entity_spawn(ENTITY_DECOR, vec3(0, 0, -1.5f), "w=1 h=2 solid=1"));
+    entity_add(&s.entities, entity_spawn(ENTITY_DECOR, vec3(4, 0, -1.5f), "w=1 h=2 solid=0"));
+    scene_rebuild_dynamic(&s);
+
+    PlayerCmd fwd = {.forward = 1};
+    Player blocked = grounded_player();
+    Player free_walk = grounded_player();
+    free_walk.view.pos.x = 4;
+
+    for (int i = 0; i < 60; i++) {
+        player_update(&blocked, &fwd, 1.0f / 60.0f, &s, &ev);
+        player_update(&free_walk, &fwd, 1.0f / 60.0f, &s, &ev);
+    }
+
+    ASSERT(blocked.view.pos.z > -1.5f + PLAYER_RADIUS - 0.01f);
+    ASSERT(free_walk.view.pos.z < -3.0f);
+
+    mesh_free(&m);
+    scene_free(&s);
+}
+
 int main(void) {
     floor_scene(&floor_world, &floor_mesh);
 
@@ -360,5 +386,6 @@ int main(void) {
     RUN_TEST(test_player_health_pickup);
     RUN_TEST(test_player_damage_and_death);
     RUN_TEST(test_player_ammo_pickup);
+    RUN_TEST(test_player_blocked_by_solid_sprite);
     TEST_REPORT();
 }

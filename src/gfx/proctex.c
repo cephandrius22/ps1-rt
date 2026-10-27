@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdbool.h>
 
 /* --- Hash-based noise --- */
 
@@ -255,16 +256,70 @@ static void gen_pipe(Texture *tex) {
     }
 }
 
+/* --- Sprites (color-keyed) --- */
+
+static void tex_set_key(Texture *tex, int x, int y) {
+    tex_set(tex, x, y, TEXTURE_KEY_R, TEXTURE_KEY_G, TEXTURE_KEY_B);
+}
+
+#define BARREL_W      32
+#define BARREL_H      40
+#define BARREL_LEFT   5   /* body spans [LEFT, W - LEFT) */
+#define BARREL_TOP    3   /* rows above are empty */
+#define BARREL_OOZE   6   /* glowing sludge rows below the top */
+#define BARREL_BAND_1 14
+#define BARREL_BAND_2 28
+
+/* Rusted drum of glowing sludge. Rows run top (y=0) to bottom.
+ *
+ *     ~~~~~~~~      <- green ooze
+ *    |  rust  |
+ *    |========|     <- bands
+ *    |        |
+ */
+static void gen_barrel(Texture *tex) {
+    tex_alloc(tex, BARREL_W, BARREL_H);
+    float half = (BARREL_W - 2 * BARREL_LEFT) * 0.5f;
+    float center = BARREL_W * 0.5f;
+
+    for (int y = 0; y < BARREL_H; y++) {
+        for (int x = 0; x < BARREL_W; x++) {
+            bool inside = x >= BARREL_LEFT && x < BARREL_W - BARREL_LEFT && y >= BARREL_TOP;
+            if (!inside) {
+                tex_set_key(tex, x, y);
+                continue;
+            }
+
+            /* Cylinder shading: bright down the middle, dark at the edges */
+            float across = (x + 0.5f - center) / half;
+            float shade = 0.35f + 0.65f * sqrtf(fmaxf(0.0f, 1.0f - across * across));
+            float n = noise01(x * 5 + 11, y * 5 + 13);
+
+            if (y < BARREL_TOP + BARREL_OOZE) {
+                float glow = 0.6f + 0.4f * n;
+                tex_set(tex, x, y, clamp8(40 * glow), clamp8(230 * glow), clamp8(60 * glow));
+                continue;
+            }
+
+            bool band = y == BARREL_BAND_1 || y == BARREL_BAND_1 + 1 ||
+                        y == BARREL_BAND_2 || y == BARREL_BAND_2 + 1;
+            float base = band ? 0.30f : 0.45f + 0.2f * n;
+            float v = base * shade * 255.0f;
+            tex_set(tex, x, y, clamp8(v * 1.2f), clamp8(v * 0.75f), clamp8(v * 0.45f));
+        }
+    }
+}
+
 /* --- Public API --- */
 
 static const char *proctex_names[PTEX_COUNT] = {
     "concrete", "brick", "metal_panel", "metal_grate",
-    "rust", "floor_tile", "pipe"
+    "rust", "floor_tile", "pipe", "barrel"
 };
 
 static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
     gen_concrete, gen_brick, gen_metal_panel, gen_metal_grate,
-    gen_rust, gen_floor_tile, gen_pipe
+    gen_rust, gen_floor_tile, gen_pipe, gen_barrel
 };
 
 int proctex_find(const char *name) {

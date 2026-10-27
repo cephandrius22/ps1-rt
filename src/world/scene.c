@@ -16,6 +16,10 @@ void scene_init(Scene *s) {
     s->dynamic_tri_cap = 0;
     s->has_dynamic = false;
 
+    s->sprites = NULL;
+    s->sprite_count = 0;
+    s->sprite_cap = 0;
+
     entity_list_init(&s->entities);
     entity_meshes_init(&s->entity_meshes);
     light_list_init(&s->lights);
@@ -33,6 +37,11 @@ void scene_free(Scene *s) {
     s->dynamic_tris = NULL;
     s->dynamic_tri_count = 0;
     s->dynamic_tri_cap = 0;
+
+    free(s->sprites);
+    s->sprites = NULL;
+    s->sprite_count = 0;
+    s->sprite_cap = 0;
 
     entity_list_free(&s->entities);
     entity_meshes_free(&s->entity_meshes);
@@ -54,7 +63,24 @@ void scene_build_static(Scene *s, Triangle *tris, int count) {
     bvh_build(&s->static_bvh, tris, count);
 }
 
+/* Refill the sprite list from RENDER_SPRITE entities */
+static void rebuild_sprites(Scene *s) {
+    int needed = entity_count_sprites(&s->entities);
+    if (needed > s->sprite_cap) {
+        Sprite *buf = realloc(s->sprites, (size_t)needed * sizeof(Sprite));
+        if (!buf) {
+            s->sprite_count = 0;
+            return;
+        }
+        s->sprites = buf;
+        s->sprite_cap = needed;
+    }
+    s->sprite_count = entity_build_sprites(&s->entities, s->sprites, s->sprite_cap);
+}
+
 void scene_rebuild_dynamic(Scene *s) {
+    rebuild_sprites(s);
+
     /* Free previous dynamic BVH */
     if (s->has_dynamic) {
         bvh_free(&s->dynamic_bvh);
@@ -90,7 +116,40 @@ void scene_rebuild_dynamic(Scene *s) {
     }
 }
 
-HitRecord scene_intersect(const Scene *s, Ray ray, float t_min, float t_max) {
+/* Texture behind a material, or NULL (untextured / out of range) */
+static const Texture *material_texture(const Scene *s, int material_id) {
+    if (material_id < 0 || material_id >= s->material_count) {
+        return NULL;
+    }
+    int tex = s->materials[material_id].texture_id;
+    if (tex < 0 || tex >= s->texture_count) {
+        return NULL;
+    }
+    return &s->textures[tex];
+}
+
+/* Closest sprite hit nearer than t_max; ghosts skipped for TRACE_SOLID */
+static bool trace_sprites(const Scene *s, Ray ray, float t_min, float t_max,
+                          TraceMask mask, HitRecord *best) {
+    bool hit = false;
+    for (int i = 0; i < s->sprite_count; i++) {
+        const Sprite *sp = &s->sprites[i];
+        if (mask == TRACE_SOLID && sp->solidity == SPRITE_GHOST) {
+            continue;
+        }
+
+        HitRecord rec;
+        const Texture *tex = material_texture(s, sp->material_id);
+        if (sprite_intersect(sp, tex, ray, t_min, t_max, &rec)) {
+            *best = rec;
+            t_max = rec.t;
+            hit = true;
+        }
+    }
+    return hit;
+}
+
+HitRecord scene_trace(const Scene *s, Ray ray, float t_min, float t_max, TraceMask mask) {
     HitRecord best = bvh_intersect(&s->static_bvh, ray, t_min, t_max);
 
     if (s->has_dynamic) {
@@ -101,7 +160,12 @@ HitRecord scene_intersect(const Scene *s, Ray ray, float t_min, float t_max) {
         }
     }
 
+    trace_sprites(s, ray, t_min, best.hit ? best.t : t_max, mask, &best);
     return best;
+}
+
+HitRecord scene_intersect(const Scene *s, Ray ray, float t_min, float t_max) {
+    return scene_trace(s, ray, t_min, t_max, TRACE_VISIBLE);
 }
 
 bool scene_occluded(const Scene *s, Ray ray, float t_min, float t_max) {
@@ -117,5 +181,7 @@ bool scene_occluded(const Scene *s, Ray ray, float t_min, float t_max) {
         }
     }
 
+    /* Sprites cast no shadows: a billboard re-faces every ray, so its
+     * own shadow ray could clip it (and Doom sprites never did) */
     return false;
 }
