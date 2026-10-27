@@ -310,16 +310,123 @@ static void gen_barrel(Texture *tex) {
     }
 }
 
+#define GHOUL_W 32
+#define GHOUL_H 48
+
+typedef struct {
+    uint8_t r, g, b;
+} Rgb;
+
+static const Rgb GHOUL_SKIN  = {120, 132, 108}; /* sickly grey-green */
+static const Rgb GHOUL_DARK  = {48, 52, 44};    /* shadowed legs, ribs */
+static const Rgb GHOUL_LIMB  = {92, 100, 82};   /* arms, a shade below skin */
+static const Rgb GHOUL_CLAW  = {210, 200, 170}; /* bone-white fingertips */
+static const Rgb GHOUL_EYE   = {255, 220, 60};  /* glowing yellow */
+static const Rgb GHOUL_MOUTH = {40, 6, 6};
+static const Rgb GHOUL_BLOOD = {150, 12, 10};
+
+/* Paint into frame `f` of a sheet; out-of-frame pixels are clipped.
+ * Skin gets per-pixel noise so flat shapes read as flesh. */
+static void sheet_px(Texture *tex, int f, int x, int y, Rgb c, float noise) {
+    if (x < 0 || x >= GHOUL_W || y < 0 || y >= GHOUL_H) {
+        return;
+    }
+    float k = 1.0f - noise * noise01(f * 97 + x * 7, y * 13);
+    tex_set(tex, f * GHOUL_W + x, y, clamp8(c.r * k), clamp8(c.g * k), clamp8(c.b * k));
+}
+
+static void sheet_rect(Texture *tex, int f, int x0, int y0, int x1, int y1, Rgb c, float noise) {
+    for (int y = y0; y < y1; y++) {
+        for (int x = x0; x < x1; x++) {
+            sheet_px(tex, f, x, y, c, noise);
+        }
+    }
+}
+
+static void sheet_ellipse(Texture *tex, int f, float cx, float cy, float rx, float ry,
+                          Rgb c, float noise) {
+    for (int y = (int)(cy - ry); y <= (int)(cy + ry); y++) {
+        for (int x = (int)(cx - rx); x <= (int)(cx + rx); x++) {
+            float dx = (x + 0.5f - cx) / rx;
+            float dy = (y + 0.5f - cy) / ry;
+            if (dx * dx + dy * dy <= 1.0f) {
+                sheet_px(tex, f, x, y, c, noise);
+            }
+        }
+    }
+}
+
+/* Head with glowing eyes and mouth; tilt shifts it sideways (pain) */
+static void ghoul_head(Texture *tex, int f, int tilt, bool mouth_open) {
+    int cx = 16 + tilt;
+    sheet_ellipse(tex, f, (float)cx, 8, 5, 6, GHOUL_SKIN, 0.3f);
+    sheet_rect(tex, f, cx - 3, 6, cx - 1, 8, GHOUL_EYE, 0);
+    sheet_rect(tex, f, cx + 1, 6, cx + 3, 8, GHOUL_EYE, 0);
+    sheet_rect(tex, f, cx - 2, 11, cx + 2, mouth_open ? 14 : 12, GHOUL_MOUTH, 0);
+}
+
+/* Gaunt torso, arms and legs. arm_lift raises the arms (attack);
+ * stride spreads the legs (walk). */
+static void ghoul_body(Texture *tex, int f, int arm_lift, int stride) {
+    sheet_rect(tex, f, 11, 14, 21, 30, GHOUL_SKIN, 0.35f);          /* torso */
+    sheet_rect(tex, f, 13, 18, 19, 19, GHOUL_DARK, 0);              /* ribs */
+    sheet_rect(tex, f, 13, 21, 19, 22, GHOUL_DARK, 0);
+    sheet_rect(tex, f, 7, 15 - arm_lift, 10, 30 - arm_lift, GHOUL_LIMB, 0.3f);  /* arms */
+    sheet_rect(tex, f, 22, 15 - arm_lift, 25, 30 - arm_lift, GHOUL_LIMB, 0.3f);
+
+    /* Claws at the hand end: top when raised, bottom when hanging */
+    int claw_y = arm_lift > 0 ? 13 - arm_lift : 30;
+    sheet_rect(tex, f, 7, claw_y, 10, claw_y + 2, GHOUL_CLAW, 0.2f);
+    sheet_rect(tex, f, 22, claw_y, 25, claw_y + 2, GHOUL_CLAW, 0.2f);
+    sheet_rect(tex, f, 12 - stride, 30, 15 - stride, 48, GHOUL_DARK, 0.3f);    /* legs */
+    sheet_rect(tex, f, 17 + stride, 30, 20 + stride, 48, GHOUL_DARK, 0.3f);
+}
+
+/* Five-frame sheet, rows top (y=0) to bottom:
+ *
+ *   STAND   WALK    ATTACK   PAIN    DEAD
+ *    o       o      \o/      o/
+ *   /|\     /|\      |      /|\
+ *   / \    /   \    / \     / \     ___o_
+ */
+static void gen_ghoul(Texture *tex) {
+    tex_alloc(tex, GHOUL_W * GHOUL_FRAME_COUNT, GHOUL_H);
+    for (int y = 0; y < GHOUL_H; y++) {
+        for (int x = 0; x < tex->width; x++) {
+            tex_set_key(tex, x, y);
+        }
+    }
+
+    ghoul_body(tex, GHOUL_FRAME_STAND, 0, 0);
+    ghoul_head(tex, GHOUL_FRAME_STAND, 0, false);
+
+    ghoul_body(tex, GHOUL_FRAME_WALK, 0, 3);
+    ghoul_head(tex, GHOUL_FRAME_WALK, 0, false);
+
+    ghoul_body(tex, GHOUL_FRAME_ATTACK, 10, 1);
+    ghoul_head(tex, GHOUL_FRAME_ATTACK, 0, true);
+
+    ghoul_body(tex, GHOUL_FRAME_PAIN, 0, 0);
+    ghoul_head(tex, GHOUL_FRAME_PAIN, 3, true);
+    sheet_ellipse(tex, GHOUL_FRAME_PAIN, 15, 20, 3, 3, GHOUL_BLOOD, 0.3f);
+
+    /* Corpse: a heap on the floor in a pool of blood */
+    sheet_ellipse(tex, GHOUL_FRAME_DEAD, 16, 46, 15, 2, GHOUL_BLOOD, 0.3f);
+    sheet_ellipse(tex, GHOUL_FRAME_DEAD, 15, 43, 11, 3, GHOUL_SKIN, 0.4f);
+    sheet_ellipse(tex, GHOUL_FRAME_DEAD, 26, 42, 3, 3, GHOUL_SKIN, 0.3f);
+    sheet_rect(tex, GHOUL_FRAME_DEAD, 8, 44, 18, 45, GHOUL_DARK, 0);
+}
+
 /* --- Public API --- */
 
 static const char *proctex_names[PTEX_COUNT] = {
     "concrete", "brick", "metal_panel", "metal_grate",
-    "rust", "floor_tile", "pipe", "barrel"
+    "rust", "floor_tile", "pipe", "barrel", "ghoul"
 };
 
 static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
     gen_concrete, gen_brick, gen_metal_panel, gen_metal_grate,
-    gen_rust, gen_floor_tile, gen_pipe, gen_barrel
+    gen_rust, gen_floor_tile, gen_pipe, gen_barrel, gen_ghoul
 };
 
 int proctex_find(const char *name) {

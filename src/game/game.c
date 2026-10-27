@@ -1,5 +1,6 @@
 #include "game.h"
 #include "level.h"
+#include "ai.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -69,10 +70,33 @@ int game_ammo(const Game *g) {
     return g->player.inv.ammo[type];
 }
 
+/* Turn this tick's bullet impacts into damage on whatever they hit */
+static void resolve_impacts(Game *g, int first_event) {
+    int end = g->events.count;
+    for (int i = first_event; i < end; i++) {
+        GameEvent hit = g->events.items[i];
+        if (hit.type != EV_WEAPON_IMPACT || hit.entity == ENTITY_INDEX_NONE) {
+            continue;
+        }
+
+        DamageResult res = entity_damage(&g->scene.entities, hit.entity, hit.amount);
+        if (res == DAMAGE_IGNORED) {
+            continue;
+        }
+        const Entity *e = &g->scene.entities.items[hit.entity];
+        GameEventType type = res == DAMAGE_KILLED ? EV_ENEMY_DIED : EV_ENEMY_PAIN;
+        events_push(&g->events, (GameEvent){.type = type, .pos = e->position,
+                                            .entity = hit.entity, .amount = hit.amount});
+    }
+}
+
 static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     player_update(&g->player, cmd, dt, &g->scene, &g->events);
+
+    int first_event = g->events.count;
     weapon_update(&g->weapon, cmd, game_view(g), &g->scene, dt,
                   &g->player.inv, &g->events);
+    resolve_impacts(g, first_event);
 
     if (!player_alive(&g->player)) {
         set_mode(g, GAME_DEAD);
@@ -100,6 +124,8 @@ void game_tick(Game *g, const PlayerCmd *cmd) {
     entity_update(&g->scene.entities, dt, g->time);
     light_update(&g->scene.lights, g->time);
     scene_rebuild_dynamic(&g->scene);
+
+    ai_update(&g->scene, &g->player, dt, &g->events);
 
     switch (g->mode) {
     case GAME_PLAYING:

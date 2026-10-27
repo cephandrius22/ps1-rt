@@ -5,6 +5,7 @@
  */
 #include "entity.h"
 #include "kv.h"
+#include "proctex.h" /* GhoulFrame: sprite sheet layout */
 #include <math.h>
 #include <string.h>
 
@@ -179,6 +180,64 @@ static void decor_sprite(const Entity *e, Sprite *out) {
     out->solidity = e->decor.solidity;
 }
 
+/* --- Ghoul: melee enemy sprite. Behavior (sight, chase, attack) is in
+ * game/ai.c; here are its body, health and how it looks per state. --- */
+
+#define GHOUL_HEALTH      60.0f
+#define GHOUL_WIDTH       1.0f
+#define GHOUL_HEIGHT      1.7f
+#define GHOUL_WALK_FPS    4.0f  /* stand/walk frame swaps per second */
+
+static void ghoul_spawn(Entity *e, const char *args) {
+    e->health = kv_float(args, "health", GHOUL_HEALTH);
+    enemy_set_state(e, ENEMY_IDLE);
+    e->enemy.cooldown = 0;
+}
+
+static DamageResult ghoul_damage(Entity *e, float amount) {
+    if (e->enemy.state == ENEMY_DEAD) {
+        return DAMAGE_IGNORED;
+    }
+
+    e->health -= amount;
+    if (e->health > 0) {
+        enemy_set_state(e, ENEMY_PAIN);
+        return DAMAGE_HURT;
+    }
+    e->health = 0;
+    enemy_set_state(e, ENEMY_DEAD);
+    return DAMAGE_KILLED;
+}
+
+/* Frame from state; chasing alternates stand/walk. Corpses are ghosts. */
+static void ghoul_sprite(const Entity *e, Sprite *out) {
+    out->width = GHOUL_WIDTH;
+    out->height = GHOUL_HEIGHT;
+    out->frame_count = GHOUL_FRAME_COUNT;
+    out->solidity = SPRITE_SOLID;
+
+    switch (e->enemy.state) {
+    case ENEMY_IDLE:
+        out->frame = GHOUL_FRAME_STAND;
+        break;
+    case ENEMY_CHASE: {
+        int step = (int)(e->enemy.state_time * GHOUL_WALK_FPS) % 2;
+        out->frame = step ? GHOUL_FRAME_WALK : GHOUL_FRAME_STAND;
+        break;
+    }
+    case ENEMY_ATTACK:
+        out->frame = GHOUL_FRAME_ATTACK;
+        break;
+    case ENEMY_PAIN:
+        out->frame = GHOUL_FRAME_PAIN;
+        break;
+    case ENEMY_DEAD:
+        out->frame = GHOUL_FRAME_DEAD;
+        out->solidity = SPRITE_GHOST;
+        break;
+    }
+}
+
 /* --- Table --- */
 
 static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
@@ -205,6 +264,10 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
     [ENTITY_DECOR] = {
         .name = "decor", .render = RENDER_SPRITE,
         .spawn = decor_spawn, .sprite = decor_sprite,
+    },
+    [ENTITY_GHOUL] = {
+        .name = "ghoul", .render = RENDER_SPRITE,
+        .spawn = ghoul_spawn, .damage = ghoul_damage, .sprite = ghoul_sprite,
     },
 };
 

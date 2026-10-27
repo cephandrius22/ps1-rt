@@ -9,8 +9,8 @@
  * physics and AI behave the same on every machine. game_update() turns
  * a variable frame time into 0..N fixed ticks:
  *
- *   frame dt ──> accumulator ──> game_tick() × N ──> entities, lights,
- *   PlayerCmd ──> pending cmd ──┘                     player, weapon
+ *   frame dt ──> accumulator ──> game_tick() × N ──> entities, lights, AI,
+ *   PlayerCmd ──> pending cmd ──┘                     player, weapon → damage
  *                                       └──> events (drained once per frame)
  *
  * Modes:

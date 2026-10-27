@@ -148,6 +148,39 @@ TEST(test_game_recoil_kicks_view) {
     game_free(&g);
 }
 
+/* Shots at a ghoul hurt it, then kill it (pistol: 25 per hit) */
+TEST(test_game_shooting_kills_ghoul) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    Pose view = g.player.view;
+
+    /* Ghoul 3 units ahead, centered on the line of sight */
+    Vec3 ahead = pose_to_world_dir(view, vec3(0, 0, -1));
+    Vec3 base = vec3_add(view.pos, vec3_mul(ahead, 3.0f));
+    base.y = view.pos.y - 1.0f;
+    int idx = entity_add(&g.scene.entities, entity_spawn(ENTITY_GHOUL, base, "health=40"));
+    g.player.on_ground = true; /* hold still: no floor under the spawn */
+
+    PlayerCmd fire = {.buttons = BTN_ATTACK};
+    PlayerCmd idle = {0};
+    game_update(&g, &fire, GAME_TICK_DT);
+    ASSERT(g.scene.entities.items[idx].enemy.state == ENEMY_PAIN);
+
+    /* Wait out the cooldown (briefly: the spawn has no floor), fire again */
+    int cooldown_ticks = (int)(weapon_def(WEAPON_PISTOL)->cooldown * GAME_TICK_HZ) + 1;
+    for (int i = 0; i < cooldown_ticks; i++) {
+        game_update(&g, &idle, GAME_TICK_DT);
+    }
+    game_update(&g, &fire, GAME_TICK_DT);
+    ASSERT(g.scene.entities.items[idx].enemy.state == ENEMY_DEAD);
+
+    bool died = false;
+    for (int i = 0; i < g.events.count; i++) {
+        died |= g.events.items[i].type == EV_ENEMY_DIED && g.events.items[i].entity == idx;
+    }
+    ASSERT(died);
+    game_free(&g);
+}
+
 int main(void) {
     TEST_SUITE("game");
     RUN_TEST(test_game_init_spawns_player);
@@ -159,5 +192,6 @@ int main(void) {
     RUN_TEST(test_game_update_impulse_once);
     RUN_TEST(test_game_death_and_respawn);
     RUN_TEST(test_game_recoil_kicks_view);
+    RUN_TEST(test_game_shooting_kills_ghoul);
     TEST_REPORT();
 }

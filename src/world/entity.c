@@ -184,6 +184,18 @@ UseResult entity_try_use(EntityList *list, Vec3 pos, Vec3 forward, float range,
     return entity_def(e->type)->use(e);
 }
 
+DamageResult entity_damage(EntityList *list, int i, float amount) {
+    if (i < 0 || i >= list->count) {
+        return DAMAGE_IGNORED;
+    }
+    Entity *e = &list->items[i];
+    const EntityDef *def = entity_def(e->type);
+    if (!e->active || !def->damage) {
+        return DAMAGE_IGNORED;
+    }
+    return def->damage(e, amount);
+}
+
 /* --- Triangle generation --- */
 
 /* Rotate around Y, then translate */

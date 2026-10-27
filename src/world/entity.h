@@ -11,6 +11,7 @@
  *   entity_overlap() ──> touchable entities inside a body; the toucher
  *                        decides, then entity_touch() ──> def->touch()
  *   entity_try_use() ──> def->use()     (E key, e.g. doors)
+ *   entity_damage()  ──> def->damage()  (bullets, e.g. enemies)
  *   entity_build_triangles() ──> def->pose() + template mesh (RENDER_MESH)
  *   entity_build_sprites()   ──> def->sprite()               (RENDER_SPRITE)
  *
@@ -31,6 +32,7 @@ typedef enum {
     ENTITY_DOOR,
     ENTITY_PROP,
     ENTITY_DECOR,         /* static sprite: barrels, candles, bodies */
+    ENTITY_GHOUL,         /* melee enemy; AI lives in game/ai.c */
     ENTITY_TYPE_COUNT
 } EntityType;
 
@@ -56,6 +58,22 @@ typedef enum {
 } TouchEffect;
 
 typedef enum {
+    DAMAGE_IGNORED, /* not damageable, or already dead */
+    DAMAGE_HURT,
+    DAMAGE_KILLED,
+} DamageResult;
+
+/* Enemy behavior state. World code stores it and picks sprite frames
+ * from it; game/ai.c decides the transitions. */
+typedef enum {
+    ENEMY_IDLE,    /* waiting until it sees the player */
+    ENEMY_CHASE,
+    ENEMY_ATTACK,  /* winding up a strike */
+    ENEMY_PAIN,    /* flinching after a hit */
+    ENEMY_DEAD,
+} EnemyState;
+
+typedef enum {
     USE_NOTHING,
     USE_OPENED,
     USE_CLOSED,
@@ -66,6 +84,7 @@ typedef struct {
     Vec3 position;
     float rotation_y;
     bool active;
+    float health;     /* for damageable types; 0 = dead */
 
     /* Type-specific data */
     union {
@@ -83,6 +102,11 @@ typedef struct {
             float height;
             SpriteSolidity solidity;
         } decor;
+        struct {
+            EnemyState state;
+            float state_time; /* seconds in the current state */
+            float cooldown;   /* seconds until it may attack again */
+        } enemy;
     };
 
     int material_id;  /* material for this entity's triangles or sprite */
@@ -109,6 +133,7 @@ typedef struct {
     void (*update)(Entity *e, float dt, float time);
     TouchResult (*touch)(Entity *e);
     UseResult (*use)(Entity *e);
+    DamageResult (*damage)(Entity *e, float amount);
 
     /* World placement of the template mesh this frame (bob, hinge swing) */
     void (*pose)(const Entity *e, Vec3 *pos, float *rot_y);
@@ -166,6 +191,14 @@ TouchResult entity_touch(EntityList *list, int i);
  * Writes its index to used (if non-NULL). */
 UseResult entity_try_use(EntityList *list, Vec3 pos, Vec3 forward, float range,
                          int *used);
+
+/* Damage entity i via its hook (e.g. an enemy flinches or dies) */
+DamageResult entity_damage(EntityList *list, int i, float amount);
+
+static inline void enemy_set_state(Entity *e, EnemyState state) {
+    e->enemy.state = state;
+    e->enemy.state_time = 0;
+}
 
 /* Write posed triangles for all active RENDER_MESH entities into out.
  * Returns number written. Caller must provide sufficient space. */

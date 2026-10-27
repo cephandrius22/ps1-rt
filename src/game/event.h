@@ -29,6 +29,10 @@ typedef enum {
     EV_DOOR_CLOSED,   /* pos = user, entity = door */
     EV_PLAYER_HURT,   /* pos = player eye, amount = damage taken */
     EV_PLAYER_DIED,   /* pos = player eye, amount = final blow */
+    EV_ENEMY_ALERT,   /* pos = enemy feet, entity = enemy; spotted the player */
+    EV_ENEMY_ATTACK,  /* pos = enemy feet, entity = enemy; strike wind-up */
+    EV_ENEMY_PAIN,    /* pos = enemy feet, entity = enemy, amount = damage */
+    EV_ENEMY_DIED,    /* pos = enemy feet, entity = enemy */
 } GameEventType;
 
 typedef struct {
