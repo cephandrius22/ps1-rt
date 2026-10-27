@@ -14,7 +14,10 @@ Run `./rt` to see it in action — WASD to move, mouse to look around, Escape to
 - **PS1 look** — vertex jitter, 4x4 Bayer dithering, 15-bit color, 320x240 upscaled 3x
 - **Level files** — rooms, boxes, quads, OBJ models, entities and lights in a text format (`levels/*.level`)
 - **Procedural textures** — concrete, brick, metal, grate, rust, tile, pipe; generated in code
-- **Gameplay core** — fixed 60 Hz simulation, first-person movement with collision, hitscan weapons, pickups, doors, procedural sound
+- **Sprites** — Doom-style billboards with color-keyed holes and frame sheets (ghoul enemy, toxic barrels)
+- **Gameplay** — fixed 60 Hz simulation, first-person movement with collision, hitscan weapon with ammo and recoil, health and ammo pickups, doors, an enemy that hunts you, death/respawn, exit pad with kill count
+- **HUD** — health and ammo in bitmap digits, red death tint
+- **Procedural sound** — weapon, footsteps, pickups, doors, growls, pain and death cries, ambient drone
 
 ## Building
 
@@ -41,10 +44,10 @@ src/
   core/       math3d (inline math, Pose), threadpool, kv parser
   gfx/        camera, mesh + OBJ loader, BVH, TGA textures, procedural
               textures, PS1 effects
-  world/      scene (two-level BVH), entities, lights, .level loader
+  world/      scene (two-level BVH + sprites), entities, lights, .level loader
   game/       Game state + fixed-timestep loop, PlayerCmd, events,
-              player controller, weapons
-  render/     per-pixel shading, multithreaded frame render, overlay
+              player controller, weapons, inventory, enemy AI
+  render/     per-pixel shading, multithreaded frame render, HUD overlay
   platform/   SDL input → PlayerCmd, audio mixer
 
 tests/        one standalone binary per module (test_framework.h)
@@ -54,12 +57,12 @@ levels/       .level scene files
 ### Rendering Pipeline
 
 1. For each pixel, generate a world-space ray from the camera
-2. Intersect the static and dynamic BVHs for the closest triangle
+2. Intersect the static and dynamic BVHs and the sprite list for the closest hit
 3. Look up surface color (procedural texture, material color, or checkerboard)
 4. Light it: ambient + sun + point lights (shadow rays, max 4 per pixel) + flashlight
 5. Blend with distance fog; draw light billboards
 6. Apply PS1 dithering and 15-bit color quantization
-7. Write to the 320x240 framebuffer; SDL2 upscales to the window
+7. Write to the 320x240 framebuffer, draw the HUD overlay; SDL2 upscales to the window
 
 ### PS1 Effects
 
@@ -77,6 +80,7 @@ levels/       .level scene files
 | Left click| Shoot            |
 | E         | Use (doors)      |
 | F         | Flashlight       |
+| Click / E | Restart level when dead or at the exit |
 | Escape    | Quit             |
 
 ## Levels and Models

@@ -5,8 +5,11 @@
  * drains them. Producers never call consumers directly, so adding a
  * reaction to an event never touches gameplay code.
  *
- *   player / weapon ──push──> EventQueue ──drain──> main → audio
- *                                                  (later: hud, fx)
+ *   player / weapon / ai / game ──push──> EventQueue ──drain──> main → audio
+ *                                                             (later: fx)
+ *
+ * game.c also reads this tick's events back (bullet impacts → damage,
+ * exit touched → level end).
  *
  * Cleared at the start of each game_update(), so one frame's events
  * from all of its ticks reach presentation. Overflow drops the newest.
