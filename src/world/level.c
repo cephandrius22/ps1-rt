@@ -3,6 +3,7 @@
 #include "ps1_effects.h"
 #include "kv.h"
 #include "matlib.h"
+#include "mapfile.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -226,26 +227,6 @@ static void parse_obj(const char *line, LevelParser *p) {
     mesh_free(&obj_mesh);
 }
 
-#define DEFAULT_MAT_PREFIX "@" /* untextured defaults: "@health", "@exit" */
-
-/* Material for an entity: mat=<name> if given, else the type's default
- * (a material named after its texture, or "@type" when untextured) */
-static int entity_material(LevelParser *p, const EntityDef *def, const char *line) {
-    char name[MATLIB_NAME_MAX];
-    if (kv_string(line, "mat", name, sizeof(name))) {
-        return find_mat(p, name);
-    }
-
-    const char *tex = def->default_texture ? def->default_texture : "none";
-    if (proctex_find(tex) >= 0) {
-        return matlib_texture(&p->mats, tex, def->default_color);
-    }
-
-    snprintf(name, sizeof(name), DEFAULT_MAT_PREFIX "%s", def->name);
-    int idx = matlib_find(&p->mats, name);
-    return idx != MATLIB_NONE ? idx : matlib_add(&p->mats, name, "none", def->default_color);
-}
-
 static void parse_entity(const char *line, LevelParser *p) {
     char type_str[32];
     float x, y, z;
@@ -261,41 +242,57 @@ static void parse_entity(const char *line, LevelParser *p) {
     }
 
     Entity e = entity_spawn(type, vec3(x, y, z), line);
-    e.material_id = entity_material(p, entity_def(type), line);
+    e.material_id = matlib_entity(&p->mats, entity_def(type), line);
     entity_add(&p->scene->entities, e);
 }
 
 static void parse_light(const char *line, Scene *scene) {
     float x, y, z, r, g, b, intensity, radius;
-
     if (sscanf(line, "light %f %f %f %f %f %f %f %f",
                &x, &y, &z, &r, &g, &b, &intensity, &radius) < 8) {
         return;
     }
 
-    PointLight pl = {
-        .position = vec3(x, y, z),
-        .color = vec3(r, g, b),
-        .intensity = intensity,
-        .radius = radius,
-        .cast_shadows = kv_int(line, "shadows", 0) != 0,
-        .flicker_speed = kv_float(line, "flicker_speed", 0),
-        .flicker_amount = kv_float(line, "flicker_amount", 0),
-        .anchor = vec3(
-            kv_float(line, "anchor_x", x),
-            kv_float(line, "anchor_y", y),
-            kv_float(line, "anchor_z", z)),
-        .cord_length = kv_float(line, "cord", 0),
-        .swing_speed = kv_float(line, "swing_speed", 0),
-        .swing_angle = kv_float(line, "swing_angle", 0),
-    };
+    Vec3 pos = vec3(x, y, z);
+    PointLight pl = light_from_keys(pos, vec3(r, g, b), intensity, radius, line);
 
+    /* .level files may place the swing anchor explicitly */
+    pl.anchor = vec3(kv_float(line, "anchor_x", pl.anchor.x),
+                     kv_float(line, "anchor_y", pl.anchor.y),
+                     kv_float(line, "anchor_z", pl.anchor.z));
     light_add(&scene->lights, pl);
 }
 
 /* --- Public API --- */
 
+void level_finish(Scene *scene, MatLib *mats, Mesh *world, const char *name) {
+    matlib_finish(mats);
+
+    /* PS1 vertex jitter on world geometry, before the BVH sees it */
+    for (int i = 0; i < world->count; i++) {
+        world->tris[i] = ps1_jitter_triangle(&world->tris[i]);
+    }
+
+    printf("Level '%s': %d triangles, %d materials, %d textures, %d entities, %d lights\n",
+           name, world->count, scene->material_count, scene->texture_count,
+           scene->entities.count, scene->lights.count);
+
+    scene_build_static(scene, world->tris, world->count);
+    printf("Static BVH: %d nodes\n", scene->static_bvh.node_count);
+    mesh_free(world);
+}
+
+static bool has_extension(const char *path, const char *ext) {
+    size_t n = strlen(path);
+    size_t e = strlen(ext);
+    return n >= e && strcmp(path + n - e, ext) == 0;
+}
+
 int level_load(Scene *scene, const char *filename, LevelInfo *info) {
+    if (has_extension(filename, ".map")) {
+        return mapfile_load(scene, filename, info);
+    }
+
     FILE *f = fopen(filename, "r");
     if (!f) {
         fprintf(stderr, "level: cannot open '%s'\n", filename);
@@ -355,21 +352,6 @@ int level_load(Scene *scene, const char *filename, LevelInfo *info) {
 
     fclose(f);
 
-    matlib_finish(&parser.mats);
-
-    /* Apply PS1 vertex jitter to world geometry */
-    for (int i = 0; i < parser.world_mesh.count; i++) {
-        parser.world_mesh.tris[i] = ps1_jitter_triangle(&parser.world_mesh.tris[i]);
-    }
-
-    /* Build static BVH */
-    printf("Level '%s': %d triangles, %d materials, %d textures, %d entities, %d lights\n",
-           filename, parser.world_mesh.count, scene->material_count,
-           scene->texture_count, scene->entities.count, scene->lights.count);
-
-    scene_build_static(scene, parser.world_mesh.tris, parser.world_mesh.count);
-    printf("Static BVH: %d nodes\n", scene->static_bvh.node_count);
-
-    mesh_free(&parser.world_mesh);
+    level_finish(scene, &parser.mats, &parser.world_mesh, filename);
     return 0;
 }

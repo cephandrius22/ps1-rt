@@ -16,9 +16,16 @@ typedef struct {
     float spawn_yaw; /* degrees */
 } LevelInfo;
 
-/* Load a .level file into the scene. Generates procedural textures,
+/* Load a level into the scene: TrenchBroom .map (by extension, see
+ * mapfile.h) or the .level text format. Generates procedural textures,
  * builds materials, geometry, entities, lights, and static BVH.
  * Returns 0 on success, -1 on error. */
 int level_load(Scene *scene, const char *filename, LevelInfo *info);
+
+struct MatLib;
+
+/* Shared last step of every loader: hand textures to the scene, jitter
+ * world triangles, build the static BVH, free the world mesh */
+void level_finish(Scene *scene, struct MatLib *mats, Mesh *world, const char *name);
 
 #endif

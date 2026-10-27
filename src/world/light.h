@@ -40,6 +40,12 @@ void light_list_init(LightList *list);
 void light_list_free(LightList *list);
 int  light_add(LightList *list, PointLight light);
 
+/* Light at pos with shared optional keys from a level line or map entity:
+ * shadows, flicker_speed, flicker_amount, swing_speed, swing_angle, cord.
+ * The swing anchor defaults to `cord` straight above pos. */
+PointLight light_from_keys(Vec3 pos, Vec3 color, float intensity, float radius,
+                           const char *args);
+
 /* Update animated lights (swing, etc.). Call once per game tick. */
 void light_update(LightList *list, float time);
 

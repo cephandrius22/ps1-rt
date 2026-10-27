@@ -256,6 +256,36 @@ static void exit_mesh(Mesh *m) {
                   vec3(EXIT_HALF_SIZE, EXIT_THICKNESS, EXIT_HALF_SIZE));
 }
 
+/* --- Level keys per type (defaults shared with the spawn hooks) --- */
+
+static const EntityKey health_keys[] = {
+    {"amount", KEY_FLOAT, HEALTH_AMOUNT_DEF, "Health restored"},
+    {.type = KEY_END},
+};
+
+static const EntityKey ammo_keys[] = {
+    {"amount", KEY_FLOAT, AMMO_AMOUNT_DEF, "Bullets given"},
+    {.type = KEY_END},
+};
+
+static const EntityKey door_keys[] = {
+    {"hinge_x", KEY_FLOAT, 0, ".level only: hinge X (defaults to the door position)"},
+    {"hinge_z", KEY_FLOAT, 0, ".level only: hinge Z (defaults to the door position)"},
+    {.type = KEY_END},
+};
+
+static const EntityKey decor_keys[] = {
+    {"w", KEY_LENGTH, DECOR_WIDTH_DEF, "Sprite width"},
+    {"h", KEY_LENGTH, DECOR_HEIGHT_DEF, "Sprite height"},
+    {"solid", KEY_BOOL, 1, "1 = blocks movement and bullets"},
+    {.type = KEY_END},
+};
+
+static const EntityKey ghoul_keys[] = {
+    {"health", KEY_FLOAT, GHOUL_HEALTH, "Hit points (pistol does 25)"},
+    {.type = KEY_END},
+};
+
 /* --- Table --- */
 
 static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
@@ -263,39 +293,46 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
     [ENTITY_PICKUP_HEALTH] = {
         .name = "health", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_HEALTH,
         .default_texture = "none", .default_color = {0.9f, 0.2f, 0.2f},
+        .desc = "Health pickup", .keys = health_keys,
         .spawn = health_spawn, .update = pickup_update, .touch = pickup_touch,
         .pose = pickup_pose, .build_mesh = pickup_mesh,
     },
     [ENTITY_PICKUP_AMMO] = {
         .name = "ammo", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_AMMO,
         .default_texture = "none", .default_color = {0.9f, 0.8f, 0.2f},
+        .desc = "Bullet pickup", .keys = ammo_keys,
         .spawn = ammo_spawn, .update = pickup_update, .touch = pickup_touch,
         .pose = pickup_pose, .build_mesh = pickup_mesh,
     },
     [ENTITY_DOOR] = {
         .name = "door", .render = RENDER_MESH,
         .default_texture = "rust", .default_color = {0.4f, 0.2f, 0.1f},
+        .desc = "Swinging door; E toggles. Place at the hinge.", .keys = door_keys,
         .spawn = door_spawn, .update = door_update, .use = door_use,
         .pose = door_pose, .build_mesh = door_mesh,
     },
     [ENTITY_PROP] = {
         .name = "prop", .render = RENDER_MESH,
         .default_texture = "none", .default_color = {0.5f, 0.5f, 0.5f},
+        .desc = "Static cube",
         .build_mesh = prop_mesh,
     },
     [ENTITY_DECOR] = {
         .name = "decor", .render = RENDER_SPRITE,
         .default_texture = "barrel", .default_color = {1, 1, 1},
+        .desc = "Decoration sprite (barrel by default; set mat=)", .keys = decor_keys,
         .spawn = decor_spawn, .sprite = decor_sprite,
     },
     [ENTITY_GHOUL] = {
         .name = "ghoul", .render = RENDER_SPRITE,
         .default_texture = "ghoul", .default_color = {1, 1, 1},
+        .desc = "Melee enemy", .keys = ghoul_keys,
         .spawn = ghoul_spawn, .damage = ghoul_damage, .sprite = ghoul_sprite,
     },
     [ENTITY_EXIT] = {
         .name = "exit", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_EXIT,
         .default_texture = "none", .default_color = {0.9f, 0.1f, 0.05f},
+        .desc = "Exit pad: touching it ends the level",
         .touch = exit_touch, .build_mesh = exit_mesh,
     },
 };
@@ -305,6 +342,18 @@ const EntityDef *entity_def(EntityType type) {
         return &entity_defs[ENTITY_NONE];
     }
     return &entity_defs[type];
+}
+
+const EntityKey *entity_key(const EntityDef *def, const char *name) {
+    if (!def->keys) {
+        return NULL;
+    }
+    for (const EntityKey *k = def->keys; k->type != KEY_END; k++) {
+        if (strcmp(k->name, name) == 0) {
+            return k;
+        }
+    }
+    return NULL;
 }
 
 EntityType entity_type_by_name(const char *name) {

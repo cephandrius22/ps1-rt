@@ -124,6 +124,25 @@ typedef struct {
     float height;
 } Cylinder;
 
+/* How a level key's value is read. Lengths are meters in .level files
+ * and map units in .map files (the .map loader converts). */
+typedef enum {
+    KEY_FLOAT,
+    KEY_INT,
+    KEY_BOOL,    /* 0 or 1 */
+    KEY_LENGTH,
+    KEY_END,     /* terminates an EntityDef.keys list */
+} KeyType;
+
+/* One type-specific key a level may set, e.g. ghoul "health". Used by
+ * the .map loader (unit conversion) and the TrenchBroom FGD export. */
+typedef struct {
+    const char *name;
+    KeyType type;
+    float def;          /* value when the key is absent */
+    const char *desc;
+} EntityKey;
+
 /* Per-type behavior. Any hook may be NULL (= type doesn't do that). */
 typedef struct {
     const char *name;       /* level-file keyword, e.g. "health" */
@@ -134,6 +153,9 @@ typedef struct {
      * (or "none") plus color, so designers can just place a "ghoul" */
     const char *default_texture;
     Vec3 default_color;
+
+    const char *desc;          /* one line, shown in the editor */
+    const EntityKey *keys;     /* type-specific keys, KEY_END-terminated; may be NULL */
 
     /* Fill type-specific fields from level key=values, e.g. "amount=25" */
     void (*spawn)(Entity *e, const char *args);
@@ -172,6 +194,9 @@ typedef struct {
 
 /* Type table lookup */
 const EntityDef *entity_def(EntityType type);
+
+/* Key metadata for a type, or NULL if the type doesn't declare it */
+const EntityKey *entity_key(const EntityDef *def, const char *name);
 EntityType entity_type_by_name(const char *name); /* ENTITY_NONE if unknown */
 
 /* Create an entity of a type at pos, letting the type read its args.

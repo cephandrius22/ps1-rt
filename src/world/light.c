@@ -1,4 +1,5 @@
 #include "light.h"
+#include "kv.h"
 #include <stdlib.h>
 #include <math.h>
 
@@ -74,4 +75,22 @@ float light_attenuation(const PointLight *light, float distance) {
     float window = 1.0f - d * d;
     window = window * window; /* smooth fade at edge */
     return window / (1.0f + distance * 0.5f);
+}
+
+PointLight light_from_keys(Vec3 pos, Vec3 color, float intensity, float radius,
+                           const char *args) {
+    float cord = kv_float(args, "cord", 0);
+    return (PointLight){
+        .position = pos,
+        .color = color,
+        .intensity = intensity,
+        .radius = radius,
+        .cast_shadows = kv_int(args, "shadows", 0) != 0,
+        .flicker_speed = kv_float(args, "flicker_speed", 0),
+        .flicker_amount = kv_float(args, "flicker_amount", 0),
+        .anchor = vec3_add(pos, vec3(0, cord, 0)),
+        .cord_length = cord,
+        .swing_speed = kv_float(args, "swing_speed", 0),
+        .swing_angle = kv_float(args, "swing_angle", 0),
+    };
 }

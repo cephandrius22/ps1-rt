@@ -1,4 +1,5 @@
 #include "matlib.h"
+#include "kv.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,6 +67,47 @@ int matlib_texture(MatLib *lib, const char *texture, Vec3 color) {
         return idx;
     }
     return matlib_add(lib, texture, texture, color);
+}
+
+#define DEFAULT_MAT_PREFIX "@" /* untextured defaults: "@health", "@exit" */
+#define UNTEXTURED_SIZE    64
+
+int matlib_entity(MatLib *lib, const EntityDef *def, const char *args) {
+    char name[MATLIB_NAME_MAX];
+    if (kv_string(args, "mat", name, sizeof(name))) {
+        int idx = matlib_find(lib, name);
+        if (idx == MATLIB_NONE) {
+            fprintf(stderr, "level: unknown material '%s', using 0\n", name);
+            return 0;
+        }
+        return idx;
+    }
+
+    const char *tex = def->default_texture ? def->default_texture : "none";
+    if (proctex_find(tex) >= 0) {
+        return matlib_texture(lib, tex, def->default_color);
+    }
+
+    snprintf(name, sizeof(name), DEFAULT_MAT_PREFIX "%s", def->name);
+    int idx = matlib_find(lib, name);
+    return idx != MATLIB_NONE ? idx : matlib_add(lib, name, "none", def->default_color);
+}
+
+void matlib_texture_size(const MatLib *lib, int material, int *w, int *h) {
+    *w = UNTEXTURED_SIZE;
+    *h = UNTEXTURED_SIZE;
+    if (material < 0 || material >= lib->count) {
+        return;
+    }
+
+    int tex = lib->scene->materials[material].texture_id;
+    for (int i = 0; i < PTEX_COUNT; i++) {
+        if (tex >= 0 && lib->proc_scene_index[i] == tex) {
+            *w = lib->proc[i].width;
+            *h = lib->proc[i].height;
+            return;
+        }
+    }
 }
 
 void matlib_finish(MatLib *lib) {
