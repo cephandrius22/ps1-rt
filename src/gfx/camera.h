@@ -20,8 +20,11 @@ typedef struct {
     float fov;
 } Camera;
 
+/* fov is the vertical field of view in radians */
 Camera camera_create(Vec3 pos, float yaw, float pitch, float fov);
 Camera camera_from_pose(Pose pose, float fov);
+
+/* World ray through the center of pixel (px, py); (0, 0) is top-left */
 Ray camera_ray(const Camera *cam, int px, int py);
 
 #endif

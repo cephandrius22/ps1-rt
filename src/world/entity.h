@@ -172,10 +172,13 @@ EntityType entity_type_by_name(const char *name); /* ENTITY_NONE if unknown */
 /* Create an entity of a type at pos, letting the type read its args */
 Entity entity_spawn(EntityType type, Vec3 pos, const char *args);
 
+/* Growable entity array. entity_add returns the new (stable) index, or
+ * -1 if out of memory. Entities are never removed, only deactivated. */
 void entity_list_init(EntityList *list);
 void entity_list_free(EntityList *list);
 int  entity_add(EntityList *list, Entity e);
 
+/* Build every RENDER_MESH type's template via its build_mesh hook */
 void entity_meshes_init(EntityMeshes *em);
 void entity_meshes_free(EntityMeshes *em);
 
@@ -202,6 +205,7 @@ UseResult entity_try_use(EntityList *list, Vec3 pos, Vec3 forward, float range,
 /* Damage entity i via its hook (e.g. an enemy flinches or dies) */
 DamageResult entity_damage(EntityList *list, int i, float amount);
 
+/* Change state and restart its timer (animations and AI timeouts key off it) */
 static inline void enemy_set_state(Entity *e, EnemyState state) {
     e->enemy.state = state;
     e->enemy.state_time = 0;

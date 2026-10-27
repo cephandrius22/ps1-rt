@@ -23,9 +23,12 @@ typedef struct {
     uint32_t pixels[SCREEN_W * SCREEN_H];
 } Framebuffer;
 
+/* Pixels are ARGB 0xAARRGGBB; framebuffer_set ignores out-of-bounds */
 void framebuffer_clear(Framebuffer *fb, uint32_t color);
 void framebuffer_set(Framebuffer *fb, int x, int y, uint32_t color);
 uint32_t color_rgb(uint8_t r, uint8_t g, uint8_t b);
+
+/* Background for rays that hit nothing: dim vertical gradient */
 Vec3 sky_color(Vec3 dir);
 
 /* Full scene render with point lights and shadow rays */

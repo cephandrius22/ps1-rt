@@ -45,8 +45,10 @@ typedef struct {
     HitRecord last_hit;     /* center pellet of last shot */
 } Weapon;
 
+/* Stats row for a type (weapon_types.c); out-of-range falls back to pistol */
 const WeaponDef *weapon_def(WeaponType type);
 
+/* Ready to fire: no cooldown, no recoil */
 Weapon weapon_create(WeaponType type);
 
 /* Ray for pellet i of a shot (0 = center). Exposed for tests and fx. */

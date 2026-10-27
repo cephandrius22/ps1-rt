@@ -35,6 +35,7 @@ typedef struct {
     int capacity;
 } LightList;
 
+/* Growable light array; light_add returns the index, or -1 if out of memory */
 void light_list_init(LightList *list);
 void light_list_free(LightList *list);
 int  light_add(LightList *list, PointLight light);

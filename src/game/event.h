@@ -51,6 +51,7 @@ typedef struct {
     int count;
 } EventQueue;
 
+/* Empty the queue; push appends (dropped silently when full) */
 void events_clear(EventQueue *q);
 void events_push(EventQueue *q, GameEvent ev);
 

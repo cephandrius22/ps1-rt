@@ -1,3 +1,18 @@
+/*
+ * main.c — Wiring: the only file that sees every layer.
+ *
+ * Per frame:
+ *
+ *   input_poll() ──PlayerCmd──> game_update() ──events──> play_event_sounds()
+ *                                    │
+ *                     game_view() ──> camera ──> render_scene_lit_mt()
+ *                     Game fields ──> OverlayState ──> overlay_draw()
+ *                                                        ──> SDL present
+ *
+ * Holds no game rules: it only translates between game/, render/ and
+ * platform/ (event → sound, game mode → overlay mode). SDL window and
+ * present code also live here until Phase 6 moves them to platform/.
+ */
 #include <SDL.h>
 #include <stdio.h>
 #include <stdlib.h>

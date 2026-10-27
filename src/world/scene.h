@@ -44,6 +44,8 @@ typedef struct Scene {
     int texture_count;
 } Scene;
 
+/* Empty scene (entity mesh templates built); scene_free releases
+ * everything, including materials and textures the level loader added */
 void scene_init(Scene *s);
 void scene_free(Scene *s);
 

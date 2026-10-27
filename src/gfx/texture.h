@@ -22,8 +22,12 @@ typedef struct {
     int texture_id; // -1 = no texture
 } Material;
 
+/* Load an uncompressed 24/32-bit TGA (alpha dropped). 0 on success, -1 on error. */
 int texture_load_tga(Texture *tex, const char *filename);
 void texture_free(Texture *tex);
+
+/* Nearest texel at (u, v), wrapped to [0, 1); v = 0 is the top row.
+ * RGB in 0..1; missing pixels return magenta. */
 Vec3 texture_sample(const Texture *tex, float u, float v);
 
 /* Sprites use magenta as "no pixel here" (color key, no alpha channel) */

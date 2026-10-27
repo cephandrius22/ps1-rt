@@ -35,6 +35,7 @@ typedef struct {
     float weapon_kick;    /* current recoil, radians (viewmodel, later) */
 } OverlayState;
 
+/* Draw over a finished frame: mode effect (tint/dim) first, then HUD */
 void overlay_draw(Framebuffer *fb, const OverlayState *state);
 
 #endif

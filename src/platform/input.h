@@ -16,9 +16,11 @@ typedef enum {
     INPUT_QUIT,
 } InputStatus;
 
+/* Capture the mouse (relative mode) */
 void input_init(void);
 
-/* Drain pending events and build this tick's command. */
+/* Drain pending events and build this frame's command; game_update()
+ * spreads it over however many ticks the frame runs. */
 InputStatus input_poll(PlayerCmd *cmd);
 
 #endif

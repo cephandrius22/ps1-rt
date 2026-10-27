@@ -29,6 +29,8 @@ typedef struct {
     bool hit;
 } HitRecord;
 
+/* Moller-Trumbore. Fills rec and returns true on a hit in [t_min, t_max];
+ * rec is untouched on a miss. Hits both faces. */
 bool ray_triangle_intersect(Ray ray, const Triangle *tri, float t_min, float t_max, HitRecord *rec);
 
 typedef struct {
@@ -37,10 +39,16 @@ typedef struct {
     int capacity;
 } Mesh;
 
+/* Growable triangle array: init empty, add, free */
 void mesh_init(Mesh *m);
 void mesh_add_tri(Mesh *m, Triangle tri);
 void mesh_free(Mesh *m);
+
+/* Brute-force closest hit over every triangle (no BVH; tests/small meshes) */
 HitRecord mesh_intersect(const Mesh *m, Ray ray, float t_min, float t_max);
+
+/* Append an OBJ file's faces to m (polygons fan-triangulated).
+ * Returns 0 on success, -1 if the file can't be read. */
 int mesh_load_obj(Mesh *m, const char *filename);
 
 #endif

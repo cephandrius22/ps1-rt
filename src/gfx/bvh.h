@@ -30,9 +30,14 @@ typedef struct {
     int tri_count;
 } BVH;
 
+/* Build over a private copy of tris (caller keeps ownership of its array) */
 void bvh_build(BVH *bvh, const Triangle *tris, int count);
 void bvh_free(BVH *bvh);
+
+/* Closest hit in [t_min, t_max]; .hit = false if none. Empty BVH = miss. */
 HitRecord bvh_intersect(const BVH *bvh, Ray ray, float t_min, float t_max);
+
+/* Slab test: does the ray cross box within [t_min, t_max]? */
 bool aabb_hit(AABB box, Ray ray, float t_min, float t_max);
 
 #endif

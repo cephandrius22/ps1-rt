@@ -37,6 +37,8 @@ typedef struct {
     Inventory inv;        /* ammo pools */
 } Player;
 
+/* New player at full health with starting ammo. pos is the eye, not
+ * the feet: feet = pos.y - PLAYER_HEIGHT - PLAYER_EYE_OFFSET. */
 Player player_create(Vec3 pos);
 /* One tick: look, move with collision, footsteps, touch and use entities */
 void player_update(Player *p, const PlayerCmd *cmd, float dt, struct Scene *scene,

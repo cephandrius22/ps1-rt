@@ -1,22 +1,29 @@
 # PS1-Style Real-Time CPU Raytracer
 
-A real-time software raytracer written in C that produces PlayStation 1-era graphics. Renders at 320x240 with PS1-authentic effects including vertex jitter, ordered dithering, 15-bit color quantization, and distance fog.
+A moody first-person shooter in the spirit of Doom and Quake, drawn by a
+real-time software raytracer written in C. Renders at 320x240 with
+PS1-era effects: vertex jitter, ordered dithering, 15-bit color and fog.
 
-## Screenshots
+## Playing
 
-Run `./rt` to see it in action — WASD to move, mouse to look around, Escape to quit.
+Run `./rt`. You start in an underground processing plant (`levels/e1m1.level`)
+with a pistol and 50 rounds. Ghouls lurk in the dark; they wake when they
+see you and come for you. Find the red exit pad at the end of the back
+passage. Health and ammo pickups are scattered around; the flashlight (F)
+helps more than you'd like. Die, or reach the exit, and click to play
+again. See `ROADMAP.md` for where it's heading.
 
 ## Features
 
 - **CPU raytracer** — no GPU shaders, all rendering happens on the CPU, multithreaded by scanline
-- **Two-level BVH** — SAH-built static world + per-tick dynamic entity BVH
+- **Two-level BVH** — SAH-built static world + per-tick dynamic entity BVH; sprites tested analytically
 - **Lighting** — point lights with shadows, flicker and swing, a player flashlight, distance fog
 - **PS1 look** — vertex jitter, 4x4 Bayer dithering, 15-bit color, 320x240 upscaled 3x
 - **Level files** — rooms, boxes, quads, OBJ models, entities and lights in a text format (`levels/*.level`)
 - **Procedural textures** — concrete, brick, metal, grate, rust, tile, pipe; generated in code
 - **Sprites** — Doom-style billboards with color-keyed holes and frame sheets (ghoul enemy, toxic barrels)
 - **Gameplay** — fixed 60 Hz simulation, first-person movement with collision, hitscan weapon with ammo and recoil, health and ammo pickups, doors, an enemy that hunts you, death/respawn, exit pad with kill count
-- **HUD** — health and ammo in bitmap digits, red death tint
+- **HUD** — health and ammo in bitmap digits, red death tint, kill count at the exit
 - **Procedural sound** — weapon, footsteps, pickups, doors, growls, pain and death cries, ambient drone
 
 ## Building
@@ -34,6 +41,7 @@ make        # Build the raytracer (objects go to build/)
 
 make test   # Build and run all test suites
 make clean  # Remove build artifacts
+./rt levels/other.level  # Run a specific level
 ```
 
 ## Architecture
@@ -86,8 +94,10 @@ levels/       .level scene files
 ## Levels and Models
 
 Levels are text files in `levels/`; run one with `./rt levels/yourmap.level`.
-The format is documented in `CLAUDE.md`. OBJ models are placed with the
-`obj` directive; put `.obj` files in `assets/models/`.
+They declare materials, geometry (`room`, `box`, `quad`, `obj`), lights and
+entities: `health`, `ammo`, `door`, `prop`, `decor` (sprite), `ghoul`
+(enemy) and `exit`. The full format and entity keys are in `CLAUDE.md`.
+OBJ models go in `assets/models/`.
 
 ## License
 

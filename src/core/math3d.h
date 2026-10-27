@@ -62,6 +62,7 @@ static inline float vec3_length(Vec3 a) {
     return sqrtf(vec3_dot(a, a));
 }
 
+/* Unit vector; a near-zero vector returns (0, 0, 0) instead of NaN */
 static inline Vec3 vec3_normalize(Vec3 a) {
     float len = vec3_length(a);
     if (len < 1e-8f) {
@@ -84,12 +85,14 @@ static inline float clampf(float v, float lo, float hi) {
     return v;
 }
 
+/* Mat4 is row-major, m[row][col], applied as M * v (column vectors) */
 static inline Mat4 mat4_identity(void) {
     Mat4 m = {{{0}}};
     m.m[0][0] = m.m[1][1] = m.m[2][2] = m.m[3][3] = 1.0f;
     return m;
 }
 
+/* Transform v with homogeneous w: 1 = point (translates), 0 = direction */
 static inline Vec3 mat4_mul_vec3(Mat4 m, Vec3 v, float w) {
     return (Vec3){
         m.m[0][0] * v.x + m.m[0][1] * v.y + m.m[0][2] * v.z + m.m[0][3] * w,
@@ -110,6 +113,8 @@ static inline Mat4 mat4_mul(Mat4 a, Mat4 b) {
     return r;
 }
 
+/* Rotations in radians, right-handed: +yaw turns left (-Z toward -X),
+ * +pitch tilts up */
 static inline Mat4 mat4_rotation_y(float angle) {
     Mat4 m = mat4_identity();
     float c = cosf(angle), s = sinf(angle);

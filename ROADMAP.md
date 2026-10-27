@@ -14,7 +14,8 @@ playable soonest. Each phase ends in something you can play.
   props, decor sprites, ghoul enemy, exit pad
 - Health, death, respawn, level end; HUD
 - Point lights, shadows, flicker, swinging bulbs, flashlight, fog
-- 8-voice mixer, procedural sounds, footsteps, ambient loop
+- 8-voice mixer, procedural sounds (weapon, footsteps, creature voices),
+  ambient loop
 - Level file format, procedural textures
 - Multithreaded rendering
 
@@ -25,9 +26,9 @@ Removed lock-ins that Phase 1+ would otherwise build on.
 ```
   main.c          wires platform + game + render, owns the loop
      |
-  game/ render/   game state, player, weapon, events | shading, overlay
-     |
-  world/          scene, entity, light, level loader
+  game/ render/   game state, player, weapon, ai, inventory, events
+     |            | shading, overlay
+  world/          scene, entity, sprite, light, level loader
      |
   gfx/            camera, mesh, bvh, texture, proctex, ps1 effects
      |
@@ -85,15 +86,19 @@ Carried forward:
   gravity, steps or pathing); only sight wakes them.
 - Phase 5: exit replays the level instead of loading the next; entity
   `mat=` is a material index (fragile), should accept a name.
+- Phase 7: sprites are a linear scan per ray (~1.6 ms/frame for the six
+  in e1m1).
 - Playtest: sounds and fight balance are untested by ear/hand.
 
 ## Phase 2: Combat feel
 
-- Shotgun (a `WeaponDef` row: pellets + spread), one projectile weapon
+- Viewmodel: weapon sprite drawn by the overlay, with bob and recoil
+- Shotgun (a `WeaponDef` row: pellets + spread + shells ammo type), one
+  projectile weapon
 - Muzzle flash as short-lived light
-- Weapon bob, screen shake, damage flash
+- Screen shake, damage flash
 - Blood/gibs as billboard particles
-- Second enemy type: melee + ranged
+- Second enemy type: ranged (the ghoul is melee)
 
 ## Phase 3: Level logic
 
@@ -101,6 +106,7 @@ Carried forward:
 - `trigger` directive: on enter → open door, spawn monsters, play sound
 - Sound alerting: gunfire wakes nearby enemies
 - Waypoint graph via `node` directive for enemy pathing
+- Enemy gravity and step climbing (they keep their spawn height today)
 
 ## Phase 4: Atmosphere
 
@@ -119,7 +125,8 @@ Carried forward:
 
 ## Phase 5: Content
 
-- Episode of 3–4 levels with transitions
+- Episode of 3–4 levels; exit loads the next level (it replays today)
+- `mat=<name>` on entities instead of a material index
 - Secrets, intermission screen (kills, secrets, time)
 - Hot-reload level files
 - TGA textures from level materials (loader exists, not reachable from
@@ -135,7 +142,8 @@ Carried forward:
 
 - Refit dynamic BVH instead of rebuilding
 - Tile-based rendering
-- Analytic sprite intersection (no triangles)
+- Cull sprites per frame (bounding check or put them in the dynamic BVH)
+  instead of scanning all of them per ray
 - Interpolate rendering between fixed ticks
 
 ## Design notes
