@@ -91,9 +91,9 @@ TEST(test_sounds_have_nonzero_samples) {
 }
 
 TEST(test_sound_id_count) {
-    ASSERT(SND_COUNT == 7);
+    ASSERT(SND_COUNT == 14);
     ASSERT(SND_WEAPON_FIRE == 0);
-    ASSERT(SND_AMBIENT == SND_COUNT - 1);
+    ASSERT(SND_ENEMY_DEATH == SND_COUNT - 1);
 }
 
 /* --- AudioSystem struct tests (no SDL init) --- */

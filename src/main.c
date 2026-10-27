@@ -22,17 +22,17 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
         switch (ev->type) {
         case EV_WEAPON_FIRED:  audio_play(audio, SND_WEAPON_FIRE, 0.8f);  break;
         case EV_WEAPON_IMPACT: audio_play(audio, SND_WEAPON_IMPACT, 0.5f); break;
-        case EV_WEAPON_EMPTY:  break; /* dry-fire click arrives with audio step */
+        case EV_WEAPON_EMPTY:  audio_play(audio, SND_DRY_FIRE, 0.6f);     break;
         case EV_FOOTSTEP:      audio_play(audio, SND_FOOTSTEP, 0.4f);     break;
         case EV_PICKUP:        audio_play(audio, SND_PICKUP, 0.6f);       break;
         case EV_DOOR_OPENED:   audio_play(audio, SND_DOOR_OPEN, 0.7f);    break;
         case EV_DOOR_CLOSED:   audio_play(audio, SND_DOOR_CLOSE, 0.7f);   break;
-        case EV_PLAYER_HURT:   break; /* sounds arrive with enemy audio */
-        case EV_PLAYER_DIED:   break;
-        case EV_ENEMY_ALERT:   break;
-        case EV_ENEMY_ATTACK:  break;
-        case EV_ENEMY_PAIN:    break;
-        case EV_ENEMY_DIED:    break;
+        case EV_PLAYER_HURT:   audio_play(audio, SND_PLAYER_PAIN, 0.7f);  break;
+        case EV_PLAYER_DIED:   audio_play(audio, SND_PLAYER_DEATH, 0.8f); break;
+        case EV_ENEMY_ALERT:   audio_play(audio, SND_ENEMY_ALERT, 0.7f);  break;
+        case EV_ENEMY_ATTACK:  audio_play(audio, SND_ENEMY_ATTACK, 0.7f); break;
+        case EV_ENEMY_PAIN:    audio_play(audio, SND_ENEMY_PAIN, 0.6f);   break;
+        case EV_ENEMY_DIED:    audio_play(audio, SND_ENEMY_DEATH, 0.8f);  break;
         }
     }
 }

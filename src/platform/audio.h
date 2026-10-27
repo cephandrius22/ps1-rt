@@ -20,6 +20,13 @@ typedef enum {
     SND_DOOR_OPEN,
     SND_DOOR_CLOSE,
     SND_AMBIENT,
+    SND_DRY_FIRE,       /* empty weapon click */
+    SND_PLAYER_PAIN,
+    SND_PLAYER_DEATH,
+    SND_ENEMY_ALERT,    /* growl on spotting the player */
+    SND_ENEMY_ATTACK,
+    SND_ENEMY_PAIN,
+    SND_ENEMY_DEATH,
     SND_COUNT
 } SoundID;
 

@@ -136,6 +136,59 @@ static void gen_ambient(Sound *s) {
     }
 }
 
+static void gen_dry_fire(Sound *s) {
+    *s = make_sound(AUDIO_SAMPLE_RATE, 0.05f);
+    if (!s->samples) {
+        return;
+    }
+    for (int i = 0; i < s->length; i++) {
+        float t = (float)i / s->sample_rate;
+        float click = sinf(t * 2400.0f * 6.28f) * expf(-t * 120.0f);
+        s->samples[i] = (int16_t)(click * 9000.0f);
+    }
+}
+
+/* Rough vocal: a buzzy tone sliding from f0 to f1 Hz, roughened by
+ * vibrato ("rasp") and noise. One generator covers grunts, growls,
+ * shrieks and death gurgles with different settings. */
+typedef struct {
+    float duration; /* seconds */
+    float f0, f1;   /* start/end pitch, Hz */
+    float rasp;     /* vibrato depth, 0..1 */
+    float noise;    /* breath/noise mix, 0..1 */
+    float gain;     /* peak amplitude, 0..1 */
+} VocalTone;
+
+#define VOCAL_ATTACK   0.01f  /* seconds of fade-in to avoid a click */
+#define VOCAL_RASP_HZ  31.0f  /* vibrato rate: fast enough to sound rough */
+#define PCM_MAX        32000.0f
+
+static void gen_vocal(Sound *s, VocalTone v) {
+    *s = make_sound(AUDIO_SAMPLE_RATE, v.duration);
+    if (!s->samples) {
+        return;
+    }
+
+    float phase = 0;
+    for (int i = 0; i < s->length; i++) {
+        float t = (float)i / s->sample_rate;
+        float k = t / v.duration;
+
+        /* Slide pitch, wobble it, and accumulate phase so the slide is smooth */
+        float freq = v.f0 + (v.f1 - v.f0) * k;
+        freq *= 1.0f + v.rasp * sinf(t * VOCAL_RASP_HZ * 6.28f);
+        phase += freq * 6.28f / s->sample_rate;
+
+        /* Buzzy: fundamental plus two harmonics */
+        float tone = sinf(phase) + 0.5f * sinf(2 * phase) + 0.33f * sinf(3 * phase);
+        float noise = ((float)(rand() % 20000) - 10000) / 10000.0f;
+        float val = tone * (1 - v.noise) * 0.55f + noise * v.noise;
+
+        float env = fminf(t / VOCAL_ATTACK, 1.0f) * (1.0f - k) * (1.0f - k);
+        s->samples[i] = (int16_t)(val * env * v.gain * PCM_MAX);
+    }
+}
+
 void audio_generate_sounds(Sound sounds[SND_COUNT]) {
     gen_weapon_fire(&sounds[SND_WEAPON_FIRE]);
     gen_weapon_impact(&sounds[SND_WEAPON_IMPACT]);
@@ -144,6 +197,15 @@ void audio_generate_sounds(Sound sounds[SND_COUNT]) {
     gen_door_open(&sounds[SND_DOOR_OPEN]);
     gen_door_close(&sounds[SND_DOOR_CLOSE]);
     gen_ambient(&sounds[SND_AMBIENT]);
+    gen_dry_fire(&sounds[SND_DRY_FIRE]);
+
+    /*                                         dur    f0     f1    rasp  noise gain */
+    gen_vocal(&sounds[SND_PLAYER_PAIN],  (VocalTone){0.25f, 160.0f, 110.0f, 0.05f, 0.25f, 0.6f});
+    gen_vocal(&sounds[SND_PLAYER_DEATH], (VocalTone){0.90f, 150.0f, 45.0f,  0.10f, 0.30f, 0.7f});
+    gen_vocal(&sounds[SND_ENEMY_ALERT],  (VocalTone){0.60f, 75.0f,  60.0f,  0.25f, 0.35f, 0.7f});
+    gen_vocal(&sounds[SND_ENEMY_ATTACK], (VocalTone){0.30f, 210.0f, 120.0f, 0.20f, 0.50f, 0.7f});
+    gen_vocal(&sounds[SND_ENEMY_PAIN],   (VocalTone){0.20f, 320.0f, 230.0f, 0.10f, 0.30f, 0.6f});
+    gen_vocal(&sounds[SND_ENEMY_DEATH],  (VocalTone){0.90f, 130.0f, 35.0f,  0.30f, 0.45f, 0.8f});
 }
 
 void sound_free(Sound *s) {
