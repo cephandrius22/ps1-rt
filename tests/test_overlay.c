@@ -39,9 +39,28 @@ TEST(test_overlay_dead_tints_red) {
     ASSERT(g < r && b < r);
 }
 
+TEST(test_overlay_level_end_shows_kills) {
+    framebuffer_clear(&fb, BG);
+    OverlayState s = {.mode = OVERLAY_LEVEL_END, .health = 50, .ammo = 9,
+                      .kills = 3, .kills_total = 4};
+    overlay_draw(&fb, &s);
+
+    /* Frame dimmed; something bright drawn in the middle band */
+    uint32_t corner = fb.pixels[10 * SCREEN_W + 10];
+    ASSERT(((corner >> 16) & 0xFF) < 0x80);
+    int bright = 0;
+    for (int y = SCREEN_H / 2 - 20; y < SCREEN_H / 2 + 20; y++) {
+        for (int x = 0; x < SCREEN_W; x++) {
+            bright += ((fb.pixels[y * SCREEN_W + x] >> 16) & 0xFF) > 0xC0;
+        }
+    }
+    ASSERT(bright > 0);
+}
+
 int main(void) {
     TEST_SUITE("overlay");
     RUN_TEST(test_overlay_draws_hud_corners);
     RUN_TEST(test_overlay_dead_tints_red);
+    RUN_TEST(test_overlay_level_end_shows_kills);
     TEST_REPORT();
 }

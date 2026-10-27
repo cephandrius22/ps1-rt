@@ -9,6 +9,14 @@
 #define DEAD_EYE_HEIGHT  0.3f /* death cam: eye this far above the feet */
 #define DEAD_EYE_SPEED   2.0f /* how fast the view sinks, units/second */
 
+static int count_enemies(const EntityList *list) {
+    int n = 0;
+    for (int i = 0; i < list->count; i++) {
+        n += enemy_def(list->items[i].type) != NULL;
+    }
+    return n;
+}
+
 GameLoadResult game_init(Game *g, const char *level_path) {
     *g = (Game){.mode = GAME_PLAYING};
     snprintf(g->level_path, sizeof(g->level_path), "%s", level_path);
@@ -27,6 +35,7 @@ GameLoadResult game_init(Game *g, const char *level_path) {
     g->player = player_create(eye);
     g->player.view.yaw = info.spawn_yaw * DEG_TO_RAD;
     g->weapon = weapon_create(WEAPON_PISTOL);
+    g->kills_total = count_enemies(&g->scene.entities);
 
     return GAME_LOAD_OK;
 }
@@ -85,15 +94,32 @@ static void resolve_impacts(Game *g, int first_event) {
         }
         const Entity *e = &g->scene.entities.items[hit.entity];
         GameEventType type = res == DAMAGE_KILLED ? EV_ENEMY_DIED : EV_ENEMY_PAIN;
+        g->kills += res == DAMAGE_KILLED;
         events_push(&g->events, (GameEvent){.type = type, .pos = e->position,
                                             .entity = hit.entity, .amount = hit.amount});
     }
 }
 
+static bool has_event_since(const EventQueue *q, int first, GameEventType type) {
+    for (int i = first; i < q->count; i++) {
+        if (q->items[i].type == type) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
-    player_update(&g->player, cmd, dt, &g->scene, &g->events);
+    ai_update(&g->scene, &g->player, dt, &g->events);
 
     int first_event = g->events.count;
+    player_update(&g->player, cmd, dt, &g->scene, &g->events);
+    if (has_event_since(&g->events, first_event, EV_LEVEL_EXIT)) {
+        set_mode(g, GAME_LEVEL_END);
+        return;
+    }
+
+    first_event = g->events.count;
     weapon_update(&g->weapon, cmd, game_view(g), &g->scene, dt,
                   &g->player.inv, &g->events);
     resolve_impacts(g, first_event);
@@ -103,16 +129,22 @@ static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     }
 }
 
-/* Sink the view to the floor; respawn on attack/use once the delay passed */
+/* After the delay, attack/use reloads the level (respawn or replay) */
+static void continue_on_input(Game *g, const PlayerCmd *cmd) {
+    bool pressed = cmd_has(cmd, BTN_ATTACK) || cmd_has(cmd, BTN_USE);
+    if (g->mode_time >= GAME_CONTINUE_DELAY && pressed) {
+        restart_level(g);
+    }
+}
+
+/* Enemies keep prowling; the view sinks to the floor */
 static void tick_dead(Game *g, const PlayerCmd *cmd, float dt) {
+    ai_update(&g->scene, &g->player, dt, &g->events);
+
     Player *p = &g->player;
     float floor_eye = p->foot_y + DEAD_EYE_HEIGHT;
     p->view.pos.y = fmaxf(p->view.pos.y - DEAD_EYE_SPEED * dt, floor_eye);
-
-    bool wants_respawn = cmd_has(cmd, BTN_ATTACK) || cmd_has(cmd, BTN_USE);
-    if (g->mode_time >= GAME_RESPAWN_DELAY && wants_respawn) {
-        restart_level(g);
-    }
+    continue_on_input(g, cmd);
 }
 
 void game_tick(Game *g, const PlayerCmd *cmd) {
@@ -125,14 +157,15 @@ void game_tick(Game *g, const PlayerCmd *cmd) {
     light_update(&g->scene.lights, g->time);
     scene_rebuild_dynamic(&g->scene);
 
-    ai_update(&g->scene, &g->player, dt, &g->events);
-
     switch (g->mode) {
     case GAME_PLAYING:
         tick_playing(g, cmd, dt);
         break;
     case GAME_DEAD:
         tick_dead(g, cmd, dt);
+        break;
+    case GAME_LEVEL_END:
+        continue_on_input(g, cmd);
         break;
     }
 }

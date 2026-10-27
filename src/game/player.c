@@ -140,9 +140,9 @@ static void track_footsteps(Player *p, Vec3 new_pos, EventQueue *ev) {
 
 /* --- Interaction --- */
 
-/* Apply what touching e means to the player. Returns false to leave
- * the entity untouched (e.g. health pickup at full health stays put). */
-static bool apply_touch_effect(Player *p, const Entity *e) {
+/* Apply what touching entity i means to the player. Returns false to
+ * leave it untouched (e.g. health pickup at full health stays put). */
+static bool apply_touch_effect(Player *p, const Entity *e, int i, EventQueue *ev) {
     switch (entity_def(e->type)->touch_effect) {
     case TOUCH_EFFECT_HEALTH:
         if (p->health >= PLAYER_MAX_HEALTH) {
@@ -152,6 +152,9 @@ static bool apply_touch_effect(Player *p, const Entity *e) {
         return true;
     case TOUCH_EFFECT_AMMO:
         return inventory_add(&p->inv, AMMO_BULLETS, (int)e->pickup.amount) > 0;
+    case TOUCH_EFFECT_EXIT:
+        events_push(ev, (GameEvent){.type = EV_LEVEL_EXIT, .pos = p->view.pos, .entity = i});
+        return false;
     case TOUCH_EFFECT_NONE:
         return true;
     }
@@ -168,7 +171,7 @@ static void touch_entities(Player *p, Scene *scene, EventQueue *ev) {
     int n = entity_overlap(&scene->entities, body, found, PLAYER_TOUCH_MAX);
     for (int i = 0; i < n; i++) {
         const Entity *e = &scene->entities.items[found[i]];
-        if (!apply_touch_effect(p, e)) {
+        if (!apply_touch_effect(p, e, found[i], ev)) {
             continue;
         }
         if (entity_touch(&scene->entities, found[i]) != TOUCH_CONSUMED) {

@@ -15,8 +15,12 @@
  *
  * Modes:
  *
- *   PLAYING ──player dies──> DEAD ──attack/use after delay──> reload level
- *                                                             (PLAYING)
+ *   PLAYING ──player dies──────> DEAD ──────┐ attack/use after
+ *      │                                    ├─ GAME_CONTINUE_DELAY ──>
+ *      └──touches exit pad──> LEVEL_END ────┘ reload level (PLAYING)
+ *
+ * The world (lights, entities) keeps animating in every mode; enemies
+ * freeze at LEVEL_END.
  */
 #ifndef GAME_H
 #define GAME_H
@@ -31,11 +35,12 @@
 #define GAME_TICK_DT             (1.0f / GAME_TICK_HZ)
 #define GAME_MAX_TICKS_PER_FRAME 5 /* beyond this, drop time (no death spiral) */
 #define GAME_LEVEL_PATH_MAX      256
-#define GAME_RESPAWN_DELAY       1.0f /* seconds dead before respawn allowed */
+#define GAME_CONTINUE_DELAY      1.0f /* seconds in DEAD/LEVEL_END before input continues */
 
 typedef enum {
     GAME_PLAYING,
-    GAME_DEAD,     /* world keeps running; player input only respawns */
+    GAME_DEAD,      /* player input only respawns */
+    GAME_LEVEL_END, /* exit reached; shows kills, input restarts */
 } GameMode;
 
 typedef enum {
@@ -53,6 +58,8 @@ typedef struct {
     EventQueue events;   /* produced since the last game_update() began */
     float time;          /* seconds of simulated game time */
     float tick_accum;    /* frame time not yet simulated */
+    int kills;           /* enemies killed this level */
+    int kills_total;     /* enemies placed in the level */
     PlayerCmd pending;   /* input waiting for the next tick */
 } Game;
 

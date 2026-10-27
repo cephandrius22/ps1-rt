@@ -33,6 +33,7 @@ typedef enum {
     ENTITY_PROP,
     ENTITY_DECOR,         /* static sprite: barrels, candles, bodies */
     ENTITY_GHOUL,         /* melee enemy; AI lives in game/ai.c */
+    ENTITY_EXIT,          /* floor pad; touching it ends the level */
     ENTITY_TYPE_COUNT
 } EntityType;
 
@@ -55,6 +56,7 @@ typedef enum {
     TOUCH_EFFECT_NONE,
     TOUCH_EFFECT_HEALTH, /* amount = pickup.amount */
     TOUCH_EFFECT_AMMO,   /* amount = pickup.amount (bullets, for now) */
+    TOUCH_EFFECT_EXIT,   /* end the level */
 } TouchEffect;
 
 typedef enum {
@@ -178,6 +180,10 @@ void entity_meshes_free(EntityMeshes *em);
 
 /* Advance all active entities one tick */
 void entity_update(EntityList *list, float dt, float time);
+
+/* Entities whose origin sits up to this far below the body still count:
+ * a floor pad's origin is under the surface the toucher stands on */
+#define TOUCH_FOOT_SLACK 0.1f
 
 /* Find active touchable entities whose position lies inside body. Writes
  * their indices into out (up to max). Returns how many. No side effects:

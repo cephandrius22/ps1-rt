@@ -33,8 +33,19 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
         case EV_ENEMY_ATTACK:  audio_play(audio, SND_ENEMY_ATTACK, 0.7f); break;
         case EV_ENEMY_PAIN:    audio_play(audio, SND_ENEMY_PAIN, 0.6f);   break;
         case EV_ENEMY_DIED:    audio_play(audio, SND_ENEMY_DEATH, 0.8f);  break;
+        case EV_LEVEL_EXIT:    audio_play(audio, SND_DOOR_OPEN, 0.8f);    break;
         }
     }
+}
+
+/* Game mode → what the overlay should show */
+static OverlayMode overlay_mode(GameMode mode) {
+    switch (mode) {
+    case GAME_PLAYING:   return OVERLAY_PLAYING;
+    case GAME_DEAD:      return OVERLAY_DEAD;
+    case GAME_LEVEL_END: return OVERLAY_LEVEL_END;
+    }
+    return OVERLAY_PLAYING;
 }
 
 int main(int argc, char *argv[]) {
@@ -121,9 +132,11 @@ int main(int argc, char *argv[]) {
         render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool,
                             game.player.flashlight_on);
         OverlayState overlay = {
-            .mode = game.mode == GAME_DEAD ? OVERLAY_DEAD : OVERLAY_PLAYING,
+            .mode = overlay_mode(game.mode),
             .health = (int)ceilf(game.player.health),
             .ammo = game_ammo(&game),
+            .kills = game.kills,
+            .kills_total = game.kills_total,
             .weapon_kick = game.weapon.kick,
         };
         overlay_draw(&fb, &overlay);

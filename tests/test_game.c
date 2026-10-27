@@ -178,6 +178,28 @@ TEST(test_game_shooting_kills_ghoul) {
         died |= g.events.items[i].type == EV_ENEMY_DIED && g.events.items[i].entity == idx;
     }
     ASSERT(died);
+    ASSERT_EQ_INT(g.kills, 1);
+    game_free(&g);
+}
+
+/* Stepping on the exit pad ends the level; input after the delay replays */
+TEST(test_game_exit_ends_level) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    ASSERT_EQ_INT(g.kills_total, 0);
+    Vec3 feet = vec3(g.player.view.pos.x, g.player.foot_y, g.player.view.pos.z);
+    entity_add(&g.scene.entities, entity_spawn(ENTITY_EXIT, feet, ""));
+
+    PlayerCmd idle = {0};
+    PlayerCmd use = {.buttons = BTN_USE};
+    game_tick(&g, &idle);
+    ASSERT(g.mode == GAME_LEVEL_END);
+
+    run_ticks(&use, 10); /* too soon */
+    ASSERT(g.mode == GAME_LEVEL_END);
+
+    run_ticks(&idle, GAME_TICK_HZ * 2);
+    game_tick(&g, &use);
+    ASSERT(g.mode == GAME_PLAYING);
     game_free(&g);
 }
 
@@ -193,5 +215,6 @@ int main(void) {
     RUN_TEST(test_game_death_and_respawn);
     RUN_TEST(test_game_recoil_kicks_view);
     RUN_TEST(test_game_shooting_kills_ghoul);
+    RUN_TEST(test_game_exit_ends_level);
     TEST_REPORT();
 }

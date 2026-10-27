@@ -238,6 +238,24 @@ static void ghoul_sprite(const Entity *e, Sprite *out) {
     }
 }
 
+/* --- Exit: glowing floor pad; stays put when touched --- */
+
+#define EXIT_HALF_SIZE 0.6f
+#define EXIT_THICKNESS 0.05f
+
+_Static_assert(EXIT_THICKNESS < TOUCH_FOOT_SLACK,
+               "player standing on the pad must still touch its origin");
+
+static TouchResult exit_touch(Entity *e) {
+    (void)e;
+    return TOUCH_IGNORED;
+}
+
+static void exit_mesh(Mesh *m) {
+    make_box_mesh(m, vec3(-EXIT_HALF_SIZE, 0, -EXIT_HALF_SIZE),
+                  vec3(EXIT_HALF_SIZE, EXIT_THICKNESS, EXIT_HALF_SIZE));
+}
+
 /* --- Table --- */
 
 static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
@@ -268,6 +286,10 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
     [ENTITY_GHOUL] = {
         .name = "ghoul", .render = RENDER_SPRITE,
         .spawn = ghoul_spawn, .damage = ghoul_damage, .sprite = ghoul_sprite,
+    },
+    [ENTITY_EXIT] = {
+        .name = "exit", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_EXIT,
+        .touch = exit_touch, .build_mesh = exit_mesh,
     },
 };
 

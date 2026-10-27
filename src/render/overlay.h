@@ -10,6 +10,7 @@
  *
  *   ┌──────────────────────────────┐
  *   │                              │
+ *   │            3/4               │  kills/total (level end only)
  *   │                              │
  *   │ + 100                    50  │  health (left), ammo (right)
  *   └──────────────────────────────┘
@@ -21,13 +22,16 @@
 
 typedef enum {
     OVERLAY_PLAYING,
-    OVERLAY_DEAD,   /* red-tinted frame */
+    OVERLAY_DEAD,       /* red-tinted frame */
+    OVERLAY_LEVEL_END,  /* darkened frame, kill count centered */
 } OverlayMode;
 
 typedef struct {
     OverlayMode mode;
     int health;
     int ammo;
+    int kills;
+    int kills_total;
     float weapon_kick;    /* current recoil, radians (viewmodel, later) */
 } OverlayState;
 

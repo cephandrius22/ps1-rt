@@ -16,6 +16,7 @@ material ammo_mat    none         0.9 0.8 0.2
 material door_mat    rust         0.4 0.2 0.1
 material barrel_mat  barrel       1.0 1.0 1.0
 material ghoul_mat   ghoul        1.0 1.0 1.0
+material exit_mat    none         0.9 0.1 0.05
 
 # =====================
 # Main Hall
@@ -83,6 +84,8 @@ entity ghoul 0.5 0 -10 mat=11
 entity ghoul -2 0 -17.5 mat=11
 entity ghoul 12 0 -6.5 mat=11
 entity ghoul -11 0 -6 mat=11
+# Exit pad at the end of the back passage, under a red glow
+entity exit 0 0 -19 mat=12
 
 # =====================
 # Lights — sparse, sickly yellow, eerie
@@ -105,6 +108,9 @@ light -1 2.5 -17 0.8 0.9 0.5 1.5 10.0 shadows=1 flicker_speed=12.0 flicker_amoun
 
 # Storage room — single weak bulb, swinging slightly
 light 11 2.8 -8 1.0 0.85 0.45 1.8 12.0 shadows=1 flicker_speed=4.0 flicker_amount=0.35 anchor_x=11 anchor_y=3.3 anchor_z=-8 cord=0.5 swing_speed=0.8 swing_angle=0.15
+
+# Exit — low red glow over the pad
+light 0 1.2 -19 1.0 0.1 0.05 2.0 6.0 flicker_speed=1.0 flicker_amount=0.2
 
 # Side corridor — almost nothing, just a faint glow
 light -11 2.2 -8 0.9 0.8 0.4 1.2 8.0 shadows=1 flicker_speed=3.0 flicker_amount=0.5

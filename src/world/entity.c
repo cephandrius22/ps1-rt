@@ -98,7 +98,7 @@ void entity_update(EntityList *list, float dt, float time) {
 }
 
 static bool cylinder_contains(Cylinder c, Vec3 p) {
-    if (p.y < c.base.y || p.y > c.base.y + c.height) {
+    if (p.y < c.base.y - TOUCH_FOOT_SLACK || p.y > c.base.y + c.height) {
         return false;
     }
     float dx = p.x - c.base.x;
