@@ -31,6 +31,7 @@
 #include "audio.h"
 #include "filewatch.h"
 #include "editor_export.h"
+#include "screenfx.h"
 #include "levelcheck.h"
 #include "mapfile.h"
 
@@ -45,6 +46,29 @@
 #define FULL_TURN_DEG   360.0f
 
 /* Presentation side of the event queue: map game events to sounds */
+#define HURT_FLASH_PER_HP 0.03f  /* flash strength per point of damage taken */
+#define HURT_SHAKE        0.012f /* camera jolt when hit, radians */
+#define HURT_COLOR        vec3(0.8f, 0.05f, 0.02f)
+
+/* Presentation side of the event queue: camera jolts and color flashes */
+static void play_event_effects(ScreenFx *fx, const EventQueue *events, const Game *g) {
+    for (int i = 0; i < events->count; i++) {
+        const GameEvent *ev = &events->items[i];
+        switch (ev->type) {
+        case EV_PLAYER_HURT:
+        case EV_PLAYER_DIED:
+            screenfx_flash(fx, HURT_COLOR, ev->amount * HURT_FLASH_PER_HP);
+            screenfx_shake(fx, HURT_SHAKE);
+            break;
+        case EV_WEAPON_FIRED:
+            screenfx_shake(fx, weapon_def(g->weapon.type)->shake);
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
     for (int i = 0; i < events->count; i++) {
         const GameEvent *ev = &events->items[i];
@@ -226,6 +250,7 @@ int main(int argc, char *argv[]) {
     Overlay hud;
     overlay_init(&hud);
     ViewAnim view_anim = {0};
+    ScreenFx fx = {0};
 
     /* Game owns the level, player and weapon (static: Scene is large) */
     static Game game;
@@ -284,9 +309,17 @@ int main(int argc, char *argv[]) {
         hot_reload(&game, &level_watch, &since_poll, dt);
         game_update(&game, &cmd, dt);
         play_event_sounds(&audio, &game.events);
+        play_event_effects(&fx, &game.events, &game);
+        screenfx_update(&fx, dt);
 
         /* Render with point lights and shadow rays (multithreaded) */
-        Camera cam = camera_from_pose(game_view(&game), VIEW_FOV);
+        /* Shake moves only what we see, never where shots go */
+        Pose view = game_view(&game);
+        float shake_yaw, shake_pitch;
+        screenfx_camera_offset(&fx, game.time, &shake_yaw, &shake_pitch);
+        view.yaw += shake_yaw;
+        view.pitch += shake_pitch;
+        Camera cam = camera_from_pose(view, VIEW_FOV);
         render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool,
                             game.player.flashlight_on);
         OverlayState overlay = {
@@ -296,6 +329,8 @@ int main(int argc, char *argv[]) {
             .kills = game.kills,
             .kills_total = game.kills_total,
             .weapon_kick = game.weapon.kick,
+            .flash = fx.flash,
+            .flash_color = fx.flash_color,
         };
         fill_viewmodel(&overlay.viewmodel, &view_anim, &game, dt);
         if (show_debug) {

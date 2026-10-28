@@ -104,6 +104,16 @@ TEST(test_overlay_viewmodel) {
     ASSERT(count_changed(0, 0, SCREEN_W, SCREEN_H - 20) == 0);
 }
 
+TEST(test_overlay_flash_tints) {
+    framebuffer_clear(&fb, BG);
+    OverlayState s = {.mode = OVERLAY_PLAYING, .flash = 1.0f, .flash_color = {1, 0, 0}};
+    overlay_draw(&ov, &fb, &s);
+
+    uint32_t p = fb.pixels[(SCREEN_H / 2) * SCREEN_W + SCREEN_W / 2];
+    ASSERT(((p >> 16) & 0xFF) > 0x80);  /* pushed toward red */
+    ASSERT(((p >> 8) & 0xFF) < 0x80);
+}
+
 int main(void) {
     overlay_init(&ov);
     TEST_SUITE("overlay");
@@ -112,6 +122,7 @@ int main(void) {
     RUN_TEST(test_overlay_level_end_shows_kills);
     RUN_TEST(test_overlay_debug_text_top_left);
     RUN_TEST(test_overlay_viewmodel);
+    RUN_TEST(test_overlay_flash_tints);
     overlay_free(&ov);
     TEST_REPORT();
 }

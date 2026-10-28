@@ -42,6 +42,7 @@ static const unsigned char colon_rows[GLYPH_H] = {0, 2, 0, 2, 0};
 #define HUD_DIGITS_MAX  3
 #define HUD_TITLE       0xFFD8D0B8u /* bone white */
 #define DEAD_TINT_KEEP  0.35f       /* fraction of green/blue kept when dead */
+#define FLASH_MAX_ALPHA 0.55f       /* strongest flash still shows the scene */
 #define END_DIM         0.3f        /* brightness kept behind the level-end text */
 #define DEBUG_SCALE     1           /* debug text: 3x5 pixels per glyph */
 #define VIEW_SCALE      2           /* viewmodel texel → 2x2 screen pixels */
@@ -172,6 +173,23 @@ static void draw_debug(Framebuffer *fb, const OverlayState *state) {
     }
 }
 
+/* Blend every pixel toward color by alpha (damage flash) */
+static void tint_flash(Framebuffer *fb, Vec3 color, float alpha) {
+    float cr = color.x * 255.0f;
+    float cg = color.y * 255.0f;
+    float cb = color.z * 255.0f;
+    for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
+        uint32_t p = fb->pixels[i];
+        float r = (float)((p >> 16) & 0xFF);
+        float g = (float)((p >> 8) & 0xFF);
+        float b = (float)(p & 0xFF);
+        uint32_t nr = (uint32_t)(r + (cr - r) * alpha);
+        uint32_t ng = (uint32_t)(g + (cg - g) * alpha);
+        uint32_t nb = (uint32_t)(b + (cb - b) * alpha);
+        fb->pixels[i] = 0xFF000000u | (nr << 16) | (ng << 8) | nb;
+    }
+}
+
 static void dim(Framebuffer *fb, float keep) {
     for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
         uint32_t p = fb->pixels[i];
@@ -266,6 +284,9 @@ static void draw_viewmodel(Overlay *o, Framebuffer *fb, const ViewmodelState *vm
 
 void overlay_draw(Overlay *o, Framebuffer *fb, const OverlayState *state) {
     draw_viewmodel(o, fb, &state->viewmodel);
+    if (state->flash > 0) {
+        tint_flash(fb, state->flash_color, state->flash * FLASH_MAX_ALPHA);
+    }
 
     switch (state->mode) {
     case OVERLAY_PLAYING:

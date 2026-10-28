@@ -7,8 +7,8 @@
  *
  *   Game ──main.c──> OverlayState ──> overlay_draw(Overlay) ──> Framebuffer
  *
- * Draw order: viewmodel, mode effect (death tint / level-end dim), debug
- * text, HUD numbers.
+ * Draw order: viewmodel, flash tint, mode effect (death tint / level-end
+ * dim), debug text, HUD numbers.
  *
  * HUD layout (320x240):
  *
@@ -64,6 +64,8 @@ typedef struct {
     int ammo;
     int kills;
     int kills_total;
+    float flash;          /* 0..1: blend the frame toward flash_color (hits) */
+    Vec3 flash_color;
     float weapon_kick;    /* current recoil, radians (viewmodel, later) */
     int debug_count;      /* 0 = debug overlay hidden */
     DebugLine debug[OVERLAY_DEBUG_LINES];

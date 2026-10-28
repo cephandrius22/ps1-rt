@@ -57,6 +57,8 @@ typedef struct {
     float flash_intensity;
     float flash_radius;  /* meters */
     float flash_time;    /* seconds; fades over this */
+
+    float shake;         /* camera jolt per shot, radians (presentation) */
 } WeaponDef;
 
 typedef struct {

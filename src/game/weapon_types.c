@@ -22,6 +22,7 @@ static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
         .flash_intensity = 2.0f,
         .flash_radius = 6.0f,
         .flash_time = 0.06f,
+        .shake = 0.004f,
     },
     [WEAPON_SHOTGUN] = {
         .name        = "shotgun",
@@ -40,6 +41,7 @@ static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
         .flash_intensity = 2.8f,
         .flash_radius = 9.0f,
         .flash_time = 0.09f,
+        .shake = 0.02f,
     },
 };
 
