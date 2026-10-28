@@ -38,23 +38,10 @@ where it's heading.
 
 ## Building
 
-### Requirements
+### macOS / Linux
 
-- C compiler (cc/gcc/clang)
-- SDL2 (`brew install sdl2` on macOS)
-
-On Windows, build from an [MSYS2](https://www.msys2.org/) UCRT64 shell:
-
-```sh
-pacman -S make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-SDL2
-make && ./rt.exe
-```
-
-The Makefile detects Windows: it builds `rt.exe` with gcc, keeps the
-console open for level warnings, and `make editor` copies the TrenchBroom
-config into `%APPDATA%\TrenchBroom\games`.
-
-### Build & Run
+Needs a C compiler and SDL2 (`brew install sdl2` on macOS,
+`libsdl2-dev` on Debian/Ubuntu).
 
 ```sh
 make        # Build the raytracer (objects go to build/)
@@ -65,6 +52,52 @@ make clean  # Remove build artifacts
 make editor # Set up TrenchBroom (see Levels)
 ./rt levels/other.map    # Run a specific level (.map or .level)
 ```
+
+### Windows
+
+Windows builds use [MSYS2](https://www.msys2.org/), which provides gcc,
+make, a bash shell and SDL2. The Makefile detects Windows by itself.
+
+1. Install MSYS2 (default location `C:\msys64`).
+2. From the Start menu open **MSYS2 UCRT64**. The prompt should say
+   `UCRT64`; the plain "MSYS2 MSYS" shell builds against the wrong runtime.
+3. Update the package database. If the window closes, reopen UCRT64 and
+   run it again until nothing is left to update:
+   ```sh
+   pacman -Syu
+   ```
+4. Install the tools:
+   ```sh
+   pacman -S git make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-SDL2
+   ```
+5. Get the code and build. Your Windows drives are under `/c/`, `/d/`, …:
+   ```sh
+   cd /c/Users/<you>/dev
+   git clone https://github.com/cephandrius22/ps1-rt.git
+   cd ps1-rt
+   make
+   ./rt.exe
+   make test
+   ```
+
+Inside the UCRT64 shell `rt.exe` finds its DLLs on its own. To start it
+from Explorer or `cmd`, copy them next to it once:
+
+```sh
+cp /ucrt64/bin/SDL2.dll /ucrt64/bin/libwinpthread-1.dll .
+```
+
+Run it from the repository folder either way: levels load by paths
+relative to it. Level warnings (`check:`, `budget:`) print to
+the console window.
+
+For TrenchBroom, `make editor` copies the game config into
+`%APPDATA%\TrenchBroom\games\RT` and prints the Game Path to enter in
+TrenchBroom's preferences. Windows gets a copy rather than a link, so run
+`make editor` again after pulling changes to entity types or the config.
+
+The Windows build is cross-compiled during development but has had
+little play-testing on Windows itself; please report anything odd.
 
 ## Architecture
 
@@ -127,7 +160,8 @@ Levels are designed in [TrenchBroom](https://trenchbroom.github.io/), the
 Quake level editor:
 
 1. `make editor` exports the game's textures and entity definitions and
-   links the "RT" game config into TrenchBroom.
+   links the "RT" game config into TrenchBroom (copies it on Windows; on
+   Linux add `TB_GAMES=~/.TrenchBroom/games`).
 2. In TrenchBroom: Preferences → RT → Game Path = `<this repo>/editor/game`.
 3. New Map → RT. Build with brushes (32 units = 1 m); place an
    `info_player_start`, lights, enemies (`ghoul`, `spitter`), pickups
