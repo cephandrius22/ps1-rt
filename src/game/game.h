@@ -36,6 +36,8 @@
 #define GAME_MAX_TICKS_PER_FRAME 5 /* beyond this, drop time (no death spiral) */
 #define GAME_LEVEL_PATH_MAX      256
 #define GAME_CONTINUE_DELAY      1.0f /* seconds in DEAD/LEVEL_END before input continues */
+#define GAME_MESSAGE_MAX         64
+#define GAME_MESSAGE_TIME        3.0f /* seconds a notice stays on screen */
 
 typedef enum {
     GAME_PLAYING,
@@ -61,6 +63,8 @@ typedef struct {
     int kills;           /* enemies killed this level */
     int kills_total;     /* enemies placed in the level */
     PlayerCmd pending;   /* input waiting for the next tick */
+    char message[GAME_MESSAGE_MAX]; /* latest notice, e.g. "You need the red keycard" */
+    float message_time;  /* seconds it has left on screen */
 } Game;
 
 /* Load a level and place the player at its spawn point */
@@ -85,5 +89,9 @@ Pose game_view(const Game *g);
 
 /* Ammo left for the current weapon (for the HUD) */
 int game_ammo(const Game *g);
+
+/* The notice to show now, or NULL. Written from this tick's events, so
+ * gameplay modules push events and never format text. */
+const char *game_message(const Game *g);
 
 #endif

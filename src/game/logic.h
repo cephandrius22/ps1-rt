@@ -1,5 +1,5 @@
 /*
- * logic.h — Level logic: doors (and, next, keys, buttons, triggers).
+ * logic.h — Level logic: doors, keycards (and, next, buttons, triggers).
  *
  * World entities store a door's shape and MoverState; this module decides
  * when it moves, like ai.c does for enemies:
@@ -24,7 +24,9 @@
  * unlocked doors they reach. Call before the dynamic BVH rebuild. */
 void logic_update(Scene *s, const Player *p, float dt, EventQueue *ev);
 
-/* The player pressed use: open (or close) the door in front */
+/* The player pressed use: open (or close) the door in front. A keyed
+ * door needs the player's keycard (else EV_DOOR_LOCKED); a named door
+ * ignores use, it waits for its trigger. */
 void logic_use(Scene *s, const Player *p, EventQueue *ev);
 
 #endif

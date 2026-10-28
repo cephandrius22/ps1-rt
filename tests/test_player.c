@@ -243,6 +243,28 @@ TEST(test_player_collects_floor_pickup) {
     scene_free(&s);
 }
 
+/* A keycard goes into the inventory once; a second of the same color stays */
+TEST(test_player_keycard_pickup) {
+    Scene s;
+    Mesh m;
+    floor_scene(&s, &m);
+    entity_add(&s.entities, entity_spawn(ENTITY_KEYCARD, vec3(0, 0, -0.5f), "color=blue"));
+    entity_add(&s.entities, entity_spawn(ENTITY_KEYCARD, vec3(0, 0, 0.5f), "color=blue"));
+
+    Player p = grounded_player();
+    PlayerCmd cmd = {0};
+    EventQueue q = {0};
+    player_update(&p, &cmd, 1.0f / 60.0f, &s, &q);
+
+    ASSERT(inventory_has_keycard(&p.inv, KEYCARD_BLUE));
+    ASSERT_EQ_INT(q.count, 1);
+    ASSERT(!s.entities.items[0].active);
+    ASSERT(s.entities.items[1].active);
+
+    mesh_free(&m);
+    scene_free(&s);
+}
+
 /* A pickup well above the player's head is out of reach */
 TEST(test_player_ignores_pickup_overhead) {
     Scene s;
@@ -458,6 +480,7 @@ int main(void) {
     RUN_TEST(test_player_footstep_events);
     RUN_TEST(test_player_airborne_no_footsteps);
     RUN_TEST(test_player_collects_floor_pickup);
+    RUN_TEST(test_player_keycard_pickup);
     RUN_TEST(test_player_ignores_pickup_overhead);
     mesh_free(&floor_mesh);
     scene_free(&floor_world);

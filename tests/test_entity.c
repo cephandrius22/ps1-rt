@@ -1,4 +1,5 @@
 #include "test_framework.h"
+#include "proctex.h"
 #include <string.h>
 #include "entity.h"
 #include <stdlib.h>
@@ -199,6 +200,16 @@ TEST(test_entity_spawn_reads_args) {
     ASSERT(strcmp(named.targetname, "lever") == 0);
 }
 
+/* Keycard color picks the sprite frame; it never blocks anything */
+TEST(test_entity_keycard_sprite) {
+    Entity blue = entity_spawn(ENTITY_KEYCARD, vec3(0, 0, 0), "color=blue");
+    Sprite sp = {.frame_count = 1};
+    entity_def(ENTITY_KEYCARD)->sprite(&blue, &sp);
+    ASSERT_EQ_INT(sp.frame, KEYCARD_FRAME_BLUE);
+    ASSERT_EQ_INT(sp.solidity, SPRITE_GHOST);
+    ASSERT(sp.base.y > 0); /* floats above the floor */
+}
+
 TEST(test_entity_hookless_type_is_inert) {
     EntityList list;
     entity_list_init(&list);
@@ -229,6 +240,7 @@ int main(void) {
     RUN_TEST(test_entity_inactive_skipped);
     RUN_TEST(test_entity_type_by_name);
     RUN_TEST(test_entity_spawn_reads_args);
+    RUN_TEST(test_entity_keycard_sprite);
     RUN_TEST(test_entity_hookless_type_is_inert);
     TEST_REPORT();
 }

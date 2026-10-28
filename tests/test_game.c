@@ -1,4 +1,5 @@
 #include "test_framework.h"
+#include <string.h>
 #include "game.h"
 #include <math.h>
 #include <stdio.h>
@@ -225,6 +226,23 @@ TEST(test_game_reload_keeps_pose) {
     game_free(&g);
 }
 
+/* A keyed door used without the card: buzz event and a notice naming it */
+TEST(test_game_locked_door_message) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    Entity *door = &g.scene.entities.items[2];
+    snprintf(door->mover.key, sizeof(door->mover.key), "blue");
+    g.player.view.pos = vec3(0, PLAYER_HEIGHT + PLAYER_EYE_OFFSET, -3.5f);
+    g.player.view.yaw = 0; /* facing -Z, the door */
+
+    ASSERT(game_message(&g) == NULL);
+    PlayerCmd use = {.buttons = BTN_USE};
+    game_tick(&g, &use);
+    ASSERT(game_message(&g) != NULL);
+    ASSERT(strstr(game_message(&g), "blue") != NULL);
+    ASSERT_EQ_INT(door->mover.state, MOVER_CLOSED);
+    game_free(&g);
+}
+
 /* Number keys select only owned weapons; the wheel skips unowned ones */
 TEST(test_game_weapon_select) {
     ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
@@ -324,6 +342,7 @@ int main(void) {
     RUN_TEST(test_game_shooting_kills_ghoul);
     RUN_TEST(test_game_exit_ends_level);
     RUN_TEST(test_game_reload_keeps_pose);
+    RUN_TEST(test_game_locked_door_message);
     RUN_TEST(test_game_weapon_select);
     RUN_TEST(test_game_weapon_slot_impulse_once);
     RUN_TEST(test_game_weapon_pickup_switches);

@@ -70,3 +70,34 @@ void inventory_give_weapon(Inventory *inv, int weapon) {
 bool inventory_has_weapon(const Inventory *inv, int weapon) {
     return (inv->weapons & (1u << weapon)) != 0;
 }
+
+static const char *keycard_names[KEYCARD_COUNT] = {"red", "blue", "yellow"};
+
+Keycard keycard_by_name(const char *name) {
+    for (int k = 0; k < KEYCARD_COUNT; k++) {
+        if (strcmp(keycard_names[k], name) == 0) {
+            return (Keycard)k;
+        }
+    }
+    return KEYCARD_NONE;
+}
+
+const char *keycard_name(Keycard card) {
+    if (card <= KEYCARD_NONE || card >= KEYCARD_COUNT) {
+        return "";
+    }
+    return keycard_names[card];
+}
+
+void inventory_give_keycard(Inventory *inv, Keycard card) {
+    if (card > KEYCARD_NONE && card < KEYCARD_COUNT) {
+        inv->keycards |= (uint8_t)(1u << card);
+    }
+}
+
+bool inventory_has_keycard(const Inventory *inv, Keycard card) {
+    if (card <= KEYCARD_NONE || card >= KEYCARD_COUNT) {
+        return false;
+    }
+    return (inv->keycards & (1u << card)) != 0;
+}

@@ -25,6 +25,7 @@ typedef enum {
     PTEX_VIEW_SHOTGUN,
     PTEX_VIEW_LAUNCHER,
     PTEX_PROJECTILES, /* sprite sheet: ProjectileFrame frames of 16x16 */
+    PTEX_KEYCARDS,    /* sprite sheet: KeycardFrame frames of 16x16 */
     PTEX_COUNT
 } ProceduralTextureID;
 
@@ -56,6 +57,16 @@ typedef enum {
 } ProjectileFrame;
 
 #define PROJ_FRAME_SIZE 16
+
+/* Keycard sheet frame order (= the colors levels name: red, blue, yellow) */
+typedef enum {
+    KEYCARD_FRAME_RED,
+    KEYCARD_FRAME_BLUE,
+    KEYCARD_FRAME_YELLOW,
+    KEYCARD_FRAME_COUNT
+} KeycardFrame;
+
+#define KEYCARD_FRAME_SIZE 16
 
 #define VIEW_FRAME_W 64
 #define VIEW_FRAME_H 48

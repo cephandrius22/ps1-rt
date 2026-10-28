@@ -104,6 +104,25 @@ TEST(test_overlay_viewmodel) {
     ASSERT(count_changed(0, 0, SCREEN_W, SCREEN_H - 20) == 0);
 }
 
+/* Message: centered text near the top; keycards: colored icons bottom right */
+TEST(test_overlay_message_and_keycards) {
+    framebuffer_clear(&fb, BG);
+    OverlayState s = {.mode = OVERLAY_PLAYING, .message = "You need the red keycard",
+                      .keycard_count = 1, .keycard_colors = {{1, 0, 0}}};
+    overlay_draw(&ov, &fb, &s);
+
+    ASSERT(count_changed(SCREEN_W / 3, 20, SCREEN_W * 2 / 3, 45) > 0);
+    ASSERT(count_changed(0, 20, 20, 45) == 0); /* centered, not left-aligned */
+
+    bool red = false;
+    for (int y = SCREEN_H - 40; y < SCREEN_H && !red; y++) {
+        for (int x = SCREEN_W - 30; x < SCREEN_W; x++) {
+            red |= fb.pixels[y * SCREEN_W + x] == 0xFFFF0000u;
+        }
+    }
+    ASSERT(red);
+}
+
 TEST(test_overlay_flash_tints) {
     framebuffer_clear(&fb, BG);
     OverlayState s = {.mode = OVERLAY_PLAYING, .flash = 1.0f, .flash_color = {1, 0, 0}};
@@ -122,6 +141,7 @@ int main(void) {
     RUN_TEST(test_overlay_level_end_shows_kills);
     RUN_TEST(test_overlay_debug_text_top_left);
     RUN_TEST(test_overlay_viewmodel);
+    RUN_TEST(test_overlay_message_and_keycards);
     RUN_TEST(test_overlay_flash_tints);
     overlay_free(&ov);
     TEST_REPORT();

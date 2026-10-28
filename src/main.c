@@ -166,6 +166,7 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events, cons
         case EV_WEAPON_PICKUP: break; /* EV_PICKUP already plays the pickup sound */
         case EV_DOOR_OPENED:   audio_play(audio, SND_DOOR_OPEN, 0.7f);    break;
         case EV_DOOR_CLOSED:   audio_play(audio, SND_DOOR_CLOSE, 0.7f);   break;
+        case EV_DOOR_LOCKED:   audio_play(audio, SND_DOOR_LOCKED, 0.7f);  break;
         case EV_PLAYER_HURT:   audio_play(audio, SND_PLAYER_PAIN, 0.7f);  break;
         case EV_PLAYER_DIED:   audio_play(audio, SND_PLAYER_DEATH, 0.8f); break;
         case EV_ENEMY_ALERT:   audio_play(audio, sounds_of(g, ev->entity)->alert, 0.7f);  break;
@@ -173,6 +174,21 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events, cons
         case EV_ENEMY_PAIN:    audio_play(audio, sounds_of(g, ev->entity)->pain, 0.6f);   break;
         case EV_ENEMY_DIED:    audio_play(audio, sounds_of(g, ev->entity)->death, 0.8f);  break;
         case EV_LEVEL_EXIT:    audio_play(audio, SND_DOOR_OPEN, 0.8f);    break;
+        }
+    }
+}
+
+/* HUD colors per keycard, matching the keycard sprites */
+static const Vec3 keycard_colors[KEYCARD_COUNT] = {
+    [KEYCARD_RED]    = {0.82f, 0.16f, 0.12f},
+    [KEYCARD_BLUE]   = {0.16f, 0.35f, 0.86f},
+    [KEYCARD_YELLOW] = {0.90f, 0.78f, 0.16f},
+};
+
+static void fill_keycards(OverlayState *o, const Inventory *inv) {
+    for (int k = 0; k < KEYCARD_COUNT && o->keycard_count < OVERLAY_KEYCARDS; k++) {
+        if (inventory_has_keycard(inv, (Keycard)k)) {
+            o->keycard_colors[o->keycard_count++] = keycard_colors[k];
         }
     }
 }
@@ -422,6 +438,8 @@ int main(int argc, char *argv[]) {
             .flash = fx.flash,
             .flash_color = fx.flash_color,
         };
+        overlay.message = game_message(&game);
+        fill_keycards(&overlay, &game.player.inv);
         fill_viewmodel(&overlay.viewmodel, &view_anim, &game, dt);
         if (show_debug) {
             fill_debug(&overlay, &game, work_ms, fps);

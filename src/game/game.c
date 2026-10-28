@@ -129,6 +129,29 @@ static void resolve_impacts(Game *g, int first_event) {
     }
 }
 
+const char *game_message(const Game *g) {
+    return g->message_time > 0 ? g->message : NULL;
+}
+
+static void set_message(Game *g, const char *fmt, const char *arg) {
+    snprintf(g->message, sizeof(g->message), fmt, arg);
+    g->message_time = GAME_MESSAGE_TIME;
+}
+
+/* Turn this tick's events into the on-screen notice */
+static void post_messages(Game *g, int first_event) {
+    for (int i = first_event; i < g->events.count; i++) {
+        const GameEvent *ev = &g->events.items[i];
+        const Entity *e = ev->entity >= 0 ? &g->scene.entities.items[ev->entity] : NULL;
+
+        if (ev->type == EV_DOOR_LOCKED) {
+            set_message(g, "You need the %s keycard", e->mover.key);
+        } else if (ev->type == EV_PICKUP && e->type == ENTITY_KEYCARD) {
+            set_message(g, "Picked up the %s keycard", e->pickup.item);
+        }
+    }
+}
+
 /* Kills are counted from death events, whatever caused them */
 static void count_kills(Game *g, int first_event) {
     for (int i = first_event; i < g->events.count; i++) {
@@ -283,6 +306,7 @@ void game_tick(Game *g, const PlayerCmd *cmd) {
     const float dt = GAME_TICK_DT;
     g->time += dt;
     g->mode_time += dt;
+    g->message_time = fmaxf(g->message_time - dt, 0.0f);
 
     /* World first, so the player collides with this tick's entity poses */
     entity_update(&g->scene.entities, dt, g->time);
@@ -306,6 +330,7 @@ void game_tick(Game *g, const PlayerCmd *cmd) {
     /* A level reload empties the queue; nothing from before it counts */
     if (first_event <= g->events.count) {
         count_kills(g, first_event);
+        post_messages(g, first_event);
     }
 }
 

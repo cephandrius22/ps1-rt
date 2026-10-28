@@ -48,6 +48,7 @@ typedef enum {
     ENTITY_SPITTER,       /* ranged enemy (spits projectiles) */
     ENTITY_EXIT,          /* floor pad; touching it ends the level */
     ENTITY_PROJECTILE,    /* rockets, spit: spawned at runtime, moved by game/projectile.c */
+    ENTITY_KEYCARD,       /* red/blue/yellow card; opens func_doors with key= */
     ENTITY_TYPE_COUNT
 } EntityType;
 
@@ -72,6 +73,7 @@ typedef enum {
     TOUCH_EFFECT_AMMO,   /* pickup.item = ammo name, amount = pickup.amount */
     TOUCH_EFFECT_WEAPON, /* pickup.item = weapon name, amount = ammo with it */
     TOUCH_EFFECT_EXIT,   /* end the level */
+    TOUCH_EFFECT_KEYCARD, /* pickup.item = color name */
 } TouchEffect;
 
 typedef enum {

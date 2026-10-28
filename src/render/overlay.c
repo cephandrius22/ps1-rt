@@ -1,4 +1,5 @@
 #include "overlay.h"
+#include "font.h"
 #include "ps1_effects.h"
 #include <stddef.h>
 #include <math.h>
@@ -48,6 +49,11 @@ static const unsigned char colon_rows[GLYPH_H] = {0, 2, 0, 2, 0};
 #define VIEW_SCALE      2           /* viewmodel texel → 2x2 screen pixels */
 #define DEBUG_MARGIN    3
 #define DEBUG_LINE_GAP  2           /* pixels between debug lines */
+#define MESSAGE_Y       28          /* top of the notice line */
+#define MESSAGE_COLOR   0xFFD8D0B8u /* bone white */
+#define KEYCARD_W       5           /* HUD keycard icon, pixels */
+#define KEYCARD_H       8
+#define KEYCARD_GAP     3
 #define DEBUG_OK_COLOR   0xFF8CD278u /* green */
 #define DEBUG_WARN_COLOR 0xFFE6C850u /* yellow */
 #define DEBUG_OVER_COLOR 0xFFE65046u /* red */
@@ -212,6 +218,36 @@ static void draw_kill_count(Framebuffer *fb, int kills, int total) {
     draw_number(fb, total, x + glyph_advance(TITLE_SCALE), y, TITLE_SCALE, HUD_TITLE);
 }
 
+/* Centered notice with a 1 px drop shadow so it reads on bright walls */
+static void draw_message(Framebuffer *fb, const char *text) {
+    int x = (SCREEN_W - font_width(text, 1)) / 2;
+    font_draw(fb, text, x + 1, MESSAGE_Y + 1, 1, HUD_SHADOW);
+    font_draw(fb, text, x, MESSAGE_Y, 1, MESSAGE_COLOR);
+}
+
+static uint32_t to_pixel(Vec3 c) {
+    uint32_t r = (uint32_t)(fminf(fmaxf(c.x, 0), 1) * 255.0f);
+    uint32_t g = (uint32_t)(fminf(fmaxf(c.y, 0), 1) * 255.0f);
+    uint32_t b = (uint32_t)(fminf(fmaxf(c.z, 0), 1) * 255.0f);
+    return 0xFF000000u | (r << 16) | (g << 8) | b;
+}
+
+/* Small upright cards in a row, right-aligned above the ammo count */
+static void draw_keycards(Framebuffer *fb, const OverlayState *state, int above_y) {
+    int y = above_y - KEYCARD_GAP - KEYCARD_H;
+    int x = SCREEN_W - HUD_MARGIN - KEYCARD_W;
+    for (int i = state->keycard_count - 1; i >= 0; i--) {
+        uint32_t color = to_pixel(state->keycard_colors[i]);
+        for (int dy = -1; dy <= KEYCARD_H; dy++) {
+            for (int dx = -1; dx <= KEYCARD_W; dx++) {
+                bool edge = dx < 0 || dy < 0 || dx == KEYCARD_W || dy == KEYCARD_H;
+                put_pixel(fb, x + dx, y + dy, edge ? HUD_SHADOW : color);
+            }
+        }
+        x -= KEYCARD_W + KEYCARD_GAP;
+    }
+}
+
 void overlay_init(Overlay *o) {
     for (int i = 0; i < PTEX_COUNT; i++) {
         o->generated[i] = false;
@@ -300,6 +336,10 @@ void overlay_draw(Overlay *o, Framebuffer *fb, const OverlayState *state) {
         break;
     }
 
+    if (state->message) {
+        draw_message(fb, state->message);
+    }
+
     int y = SCREEN_H - HUD_MARGIN - GLYPH_H * HUD_SCALE;
 
     /* Health: cross icon + number, bottom left */
@@ -310,6 +350,7 @@ void overlay_draw(Overlay *o, Framebuffer *fb, const OverlayState *state) {
     /* Ammo: number, bottom right */
     int ammo_x = SCREEN_W - HUD_MARGIN - number_width(state->ammo, HUD_SCALE);
     draw_number(fb, state->ammo, ammo_x, y, HUD_SCALE, HUD_AMMO);
+    draw_keycards(fb, state, y);
 
     draw_debug(fb, state);
 }

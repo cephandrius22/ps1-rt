@@ -35,6 +35,7 @@ typedef enum {
     SND_SPITTER_PAIN,
     SND_SPITTER_DEATH,
     SND_SPIT_SPLAT,
+    SND_DOOR_LOCKED,    /* low buzz: door needs a keycard */
     SND_COUNT
 } SoundID;
 

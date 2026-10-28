@@ -555,18 +555,34 @@ static void gen_projectiles(Texture *tex) {
     sheet_ellipse(&sh, PROJ_FRAME_SPIT, c, c, 3, 3, SPIT_INNER, 0.1f);
 }
 
+/* Keycards: a colored card with a dark magnetic stripe and a pale chip */
+static const Rgb KEYCARD_COLORS[KEYCARD_FRAME_COUNT] = {
+    {210, 40, 30}, {40, 90, 220}, {230, 200, 40},
+};
+static const Rgb KEYCARD_STRIPE = {25, 20, 20};
+static const Rgb KEYCARD_CHIP   = {230, 225, 200};
+
+static void gen_keycards(Texture *tex) {
+    Sheet sh = sheet_alloc(tex, KEYCARD_FRAME_SIZE, KEYCARD_FRAME_SIZE, KEYCARD_FRAME_COUNT);
+    for (int f = 0; f < KEYCARD_FRAME_COUNT; f++) {
+        sheet_rect(&sh, f, 3, 2, 13, 14, KEYCARD_COLORS[f], 0.15f);
+        sheet_rect(&sh, f, 3, 5, 13, 7, KEYCARD_STRIPE, 0);
+        sheet_rect(&sh, f, 5, 9, 9, 12, KEYCARD_CHIP, 0.1f);
+    }
+}
+
 /* --- Public API --- */
 
 static const char *proctex_names[PTEX_COUNT] = {
     "concrete", "brick", "metal_panel", "metal_grate",
     "rust", "floor_tile", "pipe", "barrel", "ghoul", "spitter",
-    "view_pistol", "view_shotgun", "view_launcher", "projectiles"
+    "view_pistol", "view_shotgun", "view_launcher", "projectiles", "keycards"
 };
 
 static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
     gen_concrete, gen_brick, gen_metal_panel, gen_metal_grate,
     gen_rust, gen_floor_tile, gen_pipe, gen_barrel, gen_ghoul, gen_spitter,
-    gen_view_pistol, gen_view_shotgun, gen_view_launcher, gen_projectiles
+    gen_view_pistol, gen_view_shotgun, gen_view_launcher, gen_projectiles, gen_keycards
 };
 
 const char *proctex_name(ProceduralTextureID id) {

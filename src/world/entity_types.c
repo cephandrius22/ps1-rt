@@ -317,6 +317,35 @@ static void projectile_sprite(const Entity *e, Sprite *out) {
     out->solidity = SPRITE_GHOST;
 }
 
+/* --- Keycard: a small floating card sprite, bobbing like a pickup.
+ * The color names are the level's contract with game/inventory.c; here
+ * they only pick the sheet frame. --- */
+
+#define KEYCARD_COLOR_DEF "red"
+#define KEYCARD_SIZE      0.35f
+#define KEYCARD_FLOAT     0.4f  /* sprite bottom above the origin */
+
+static const char *keycard_frames[KEYCARD_FRAME_COUNT] = {"red", "blue", "yellow"};
+
+static void keycard_spawn(Entity *e, const char *args) {
+    pickup_item(e, args, "color", KEYCARD_COLOR_DEF);
+}
+
+static void keycard_sprite(const Entity *e, Sprite *out) {
+    out->width = KEYCARD_SIZE;
+    out->height = KEYCARD_SIZE;
+    out->frame_count = KEYCARD_FRAME_COUNT;
+    out->solidity = SPRITE_GHOST;
+    for (int f = 0; f < KEYCARD_FRAME_COUNT; f++) {
+        if (strcmp(e->pickup.item, keycard_frames[f]) == 0) {
+            out->frame = f;
+        }
+    }
+
+    float bob = sinf(e->rotation_y / PICKUP_SPIN_SPEED * PICKUP_BOB_SPEED) * PICKUP_BOB_HEIGHT;
+    out->base.y += KEYCARD_FLOAT + bob;
+}
+
 /* --- Level keys per type (defaults shared with the spawn hooks) --- */
 
 static const EntityKey health_keys[] = {
@@ -343,6 +372,11 @@ static const EntityKey door_keys[] = {
     {"lip", KEY_LENGTH, DOOR_LIP_DEF, "Left showing when open", NULL},
     {"key", KEY_STRING, 0, "Keycard needed: red, blue, yellow (empty = none)", ""},
     {"targetname", KEY_STRING, 0, "Name; a named door opens only when triggered", ""},
+    {.type = KEY_END},
+};
+
+static const EntityKey keycard_keys[] = {
+    {"color", KEY_STRING, 0, "Card color: red, blue, yellow", KEYCARD_COLOR_DEF},
     {.type = KEY_END},
 };
 
@@ -423,6 +457,13 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
         .default_texture = "projectiles", .default_color = {1, 1, 1},
         .desc = "Rocket or spit (spawned by weapons and enemies)",
         .sprite = projectile_sprite,
+    },
+    [ENTITY_KEYCARD] = {
+        .name = "keycard", .render = RENDER_SPRITE, .touch_effect = TOUCH_EFFECT_KEYCARD,
+        .default_texture = "keycards", .default_color = {1, 1, 1},
+        .desc = "Keycard: opens doors with a matching key", .keys = keycard_keys,
+        .spawn = keycard_spawn, .update = pickup_update, .touch = pickup_touch,
+        .sprite = keycard_sprite,
     },
     [ENTITY_EXIT] = {
         .name = "exit", .render = RENDER_MESH, .mesh_solidity = SPRITE_GHOST, .touch_effect = TOUCH_EFFECT_EXIT,

@@ -8,15 +8,16 @@
  *   Game ──main.c──> OverlayState ──> overlay_draw(Overlay) ──> Framebuffer
  *
  * Draw order: viewmodel, flash tint, mode effect (death tint / level-end
- * dim), debug text, HUD numbers.
+ * dim), message, debug text, HUD.
  *
  * HUD layout (320x240):
  *
  *   ┌──────────────────────────────┐
  *   │ 7.1 MS 140 FPS               │  debug lines (F3), top left
  *   │ TRI 252/30000                │
+ *   │   YOU NEED THE RED KEYCARD   │  message (5x7 font, font.h)
  *   │            3/4               │  kills/total (level end only)
- *   │                              │
+ *   │                      ▮ ▮     │  keycards held
  *   │ + 100                    50  │  health (left), ammo (right)
  *   └──────────────────────────────┘
  */
@@ -41,6 +42,7 @@ typedef enum {
 } DebugSeverity;
 
 #define OVERLAY_DEBUG_LINES 5
+#define OVERLAY_KEYCARDS    4
 #define OVERLAY_DEBUG_CHARS 48
 
 typedef struct {
@@ -67,6 +69,9 @@ typedef struct {
     float flash;          /* 0..1: blend the frame toward flash_color (hits) */
     Vec3 flash_color;
     float weapon_kick;    /* current recoil, radians (viewmodel, later) */
+    const char *message;  /* notice centered near the top; NULL = none */
+    int keycard_count;    /* keycard icons, drawn in this order */
+    Vec3 keycard_colors[OVERLAY_KEYCARDS];
     int debug_count;      /* 0 = debug overlay hidden */
     DebugLine debug[OVERLAY_DEBUG_LINES];
 } OverlayState;

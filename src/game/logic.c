@@ -146,6 +146,18 @@ void logic_update(Scene *s, const Player *p, float dt, EventQueue *ev) {
 
 /* --- Use --- */
 
+/* Keyed doors open only for a holder of the card; named ones only
+ * for their trigger */
+static bool may_open(const Entity *door, const Player *p) {
+    if (door->targetname[0] != '\0') {
+        return false;
+    }
+    if (door->mover.key[0] == '\0') {
+        return true;
+    }
+    return inventory_has_keycard(&p->inv, keycard_by_name(door->mover.key));
+}
+
 void logic_use(Scene *s, const Player *p, EventQueue *ev) {
     Vec3 forward = vec3(-sinf(p->view.yaw), 0, -cosf(p->view.yaw));
     int i = entity_find_usable(&s->entities, p->view.pos, forward, USE_RANGE);
@@ -154,7 +166,13 @@ void logic_use(Scene *s, const Player *p, EventQueue *ev) {
     }
 
     Entity *e = &s->entities.items[i];
-    if (!is_door(e) || door_locked(e)) {
+    if (!is_door(e)) {
+        return;
+    }
+    if (!may_open(e, p)) {
+        if (e->mover.key[0] != '\0') {
+            push_door(ev, EV_DOOR_LOCKED, i, e);
+        }
         return;
     }
 

@@ -139,6 +139,14 @@ static bool apply_touch_effect(Player *p, const Entity *e, int i, EventQueue *ev
     case TOUCH_EFFECT_EXIT:
         events_push(ev, (GameEvent){.type = EV_LEVEL_EXIT, .pos = p->view.pos, .entity = i});
         return false;
+    case TOUCH_EFFECT_KEYCARD: {
+        Keycard card = keycard_by_name(e->pickup.item);
+        if (inventory_has_keycard(&p->inv, card)) {
+            return false;
+        }
+        inventory_give_keycard(&p->inv, card);
+        return true;
+    }
     case TOUCH_EFFECT_NONE:
         return true;
     }

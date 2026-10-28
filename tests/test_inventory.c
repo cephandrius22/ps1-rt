@@ -1,4 +1,5 @@
 #include "test_framework.h"
+#include <string.h>
 #include "inventory.h"
 
 TEST(test_inventory_start) {
@@ -46,6 +47,19 @@ TEST(test_inventory_weapons) {
     ASSERT(inventory_has_weapon(&inv, 1));
 }
 
+TEST(test_inventory_keycards) {
+    Inventory inv = inventory_create();
+    ASSERT_EQ_INT(keycard_by_name("blue"), KEYCARD_BLUE);
+    ASSERT_EQ_INT(keycard_by_name("green"), KEYCARD_NONE);
+    ASSERT(strcmp(keycard_name(KEYCARD_YELLOW), "yellow") == 0);
+
+    ASSERT(!inventory_has_keycard(&inv, KEYCARD_RED));
+    inventory_give_keycard(&inv, KEYCARD_RED);
+    ASSERT(inventory_has_keycard(&inv, KEYCARD_RED));
+    ASSERT(!inventory_has_keycard(&inv, KEYCARD_BLUE));
+    ASSERT(!inventory_has_keycard(&inv, KEYCARD_NONE));
+}
+
 TEST(test_inventory_full) {
     Inventory inv = {0};
     ASSERT(!inventory_full(&inv, AMMO_SHELLS));
@@ -62,6 +76,7 @@ int main(void) {
     RUN_TEST(test_inventory_none_is_unlimited);
     RUN_TEST(test_inventory_ammo_names);
     RUN_TEST(test_inventory_weapons);
+    RUN_TEST(test_inventory_keycards);
     RUN_TEST(test_inventory_full);
     TEST_REPORT();
 }

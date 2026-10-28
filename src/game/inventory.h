@@ -27,9 +27,19 @@ typedef enum {
 
 #define INVENTORY_START_WEAPON 0 /* the pistol */
 
+/* Keycards open doors with a matching key= (level names: red, blue, yellow) */
+typedef enum {
+    KEYCARD_NONE = -1,
+    KEYCARD_RED,
+    KEYCARD_BLUE,
+    KEYCARD_YELLOW,
+    KEYCARD_COUNT
+} Keycard;
+
 typedef struct {
     int ammo[AMMO_TYPE_COUNT];
-    uint32_t weapons; /* owned: bit n = WeaponType n */
+    uint32_t weapons;  /* owned: bit n = WeaponType n */
+    uint8_t keycards;  /* held: bit n = Keycard n */
 } Inventory;
 
 /* Starting loadout */
@@ -48,6 +58,13 @@ bool inventory_full(const Inventory *inv, AmmoType type);
 
 /* Level-file name → type: "bullets", "shells", "rockets"; AMMO_NONE if unknown */
 AmmoType inventory_ammo_by_name(const char *name);
+
+/* Level-file color → Keycard; KEYCARD_NONE if unknown. And back. */
+Keycard keycard_by_name(const char *name);
+const char *keycard_name(Keycard card);
+
+void inventory_give_keycard(Inventory *inv, Keycard card);
+bool inventory_has_keycard(const Inventory *inv, Keycard card);
 
 /* weapon is a WeaponType value (plain int to avoid including weapon.h) */
 void inventory_give_weapon(Inventory *inv, int weapon);

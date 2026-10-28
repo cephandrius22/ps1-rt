@@ -90,6 +90,20 @@ TEST(test_logic_locked_doors_ignore_use) {
     free_world();
 }
 
+TEST(test_logic_keycard_opens_keyed_door) {
+    int d = build_world("key=red");
+    Player p = player_at(vec3(0, 0, -1));
+
+    logic_use(&s, &p, &ev);
+    ASSERT_EQ_INT(door(d)->mover.state, MOVER_CLOSED);
+    ASSERT(has_event(EV_DOOR_LOCKED));
+
+    inventory_give_keycard(&p.inv, KEYCARD_RED);
+    logic_use(&s, &p, &ev);
+    ASSERT_EQ_INT(door(d)->mover.state, MOVER_OPENING);
+    free_world();
+}
+
 /* Doom: a closing door that meets a body goes back up */
 TEST(test_logic_door_reverses_on_player) {
     int d = build_world("wait=0");
@@ -152,6 +166,7 @@ int main(void) {
     TEST_SUITE("logic");
     RUN_TEST(test_logic_use_opens_then_closes);
     RUN_TEST(test_logic_locked_doors_ignore_use);
+    RUN_TEST(test_logic_keycard_opens_keyed_door);
     RUN_TEST(test_logic_door_reverses_on_player);
     RUN_TEST(test_logic_monsters_open_plain_doors);
     RUN_TEST(test_logic_closed_door_muffles);
