@@ -26,6 +26,9 @@ typedef struct {
     Vec3 dir;
 } Ray;
 
+/* π. M_PI isn't standard C: MinGW in strict modes and MSVC leave it out */
+#define MATH_PI 3.14159265358979323846
+
 static inline Vec3 vec3(float x, float y, float z) {
     return (Vec3){x, y, z};
 }

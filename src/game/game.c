@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define DEG_TO_RAD       ((float)M_PI / 180.0f)
+#define DEG_TO_RAD       ((float)MATH_PI / 180.0f)
 #define DEAD_EYE_HEIGHT  0.3f /* death cam: eye this far above the feet */
 #define DEAD_EYE_SPEED   2.0f /* how fast the view sinks, units/second */
 

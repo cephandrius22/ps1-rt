@@ -4,6 +4,7 @@
 #include <string.h>
 
 #define LEVEL_TMP "build/tests/check_tmp.level"
+#define REPORT_TMP "build/tests/check_report.txt" /* not tmpfile(): it can fail on Windows */
 #define OUT_MAX   4096
 
 static const BodySize player = {0.3f, 1.6f};
@@ -22,12 +23,13 @@ static int check_level(const char *extra) {
     LevelInfo info;
     level_load(&s, LEVEL_TMP, &info);
 
-    FILE *out = tmpfile();
+    FILE *out = fopen(REPORT_TMP, "w+");
     int warnings = level_check(&s, &info, player, out);
     rewind(out);
     size_t n = fread(report, 1, OUT_MAX - 1, out);
     report[n] = '\0';
     fclose(out);
+    remove(REPORT_TMP);
 
     scene_free(&s);
     remove(LEVEL_TMP);

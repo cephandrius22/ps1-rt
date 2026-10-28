@@ -21,6 +21,12 @@ make editor      # export textures + FGD, link TrenchBroom game config
 
 Requires: SDL2 (`sdl2-config`), C compiler, pthreads, `-lm`.
 
+Windows builds from an MSYS2 UCRT64 shell (gcc, make, SDL2 via pacman; winpthreads supplies pthreads). Platform differences are kept in two places only:
+- **Makefile:** one `ifeq ($(OS),Windows_NT)` block sets `CC`, `EXE`, `TB_GAMES`, `REPO_DIR`, SDL libs (drops `-mwindows` so the console stays); `make editor` copies the config instead of symlinking. `SDL_CONFIG` can point at another `sdl2-config` (cross builds).
+- **Code:** a `/* --- Platform: ... --- */` block per file, one whole function per platform (`threadpool.c` CPU count, `filewatch.c` stat mtime). Never `#ifdef` inside other functions; use `MATH_PI` (math3d.h), not `M_PI`. Tests avoid POSIX-only calls (`utime()`, `remove()`, files under `build/tests/`).
+- **Cross-check from macOS** (compiles, can't run): `brew install mingw-w64`, unpack the official `SDL2-devel-<ver>-mingw.tar.gz`, then
+  `make OS=Windows_NT CC=x86_64-w64-mingw32-gcc AR=x86_64-w64-mingw32-ar BUILD=build-win SDL_CONFIG=<sdl>/x86_64-w64-mingw32/bin/sdl2-config rt.exe` (add `build-win/tests/test_<name>.exe` targets for tests). GCC there warns about things clang doesn't; keep it at zero warnings.
+
 ## Architecture
 
 ### Layers

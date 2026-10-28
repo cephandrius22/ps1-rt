@@ -43,6 +43,17 @@ where it's heading.
 - C compiler (cc/gcc/clang)
 - SDL2 (`brew install sdl2` on macOS)
 
+On Windows, build from an [MSYS2](https://www.msys2.org/) UCRT64 shell:
+
+```sh
+pacman -S make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-SDL2
+make && ./rt.exe
+```
+
+The Makefile detects Windows: it builds `rt.exe` with gcc, keeps the
+console open for level warnings, and `make editor` copies the TrenchBroom
+config into `%APPDATA%\TrenchBroom\games`.
+
 ### Build & Run
 
 ```sh

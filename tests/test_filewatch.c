@@ -1,8 +1,8 @@
 #include "test_framework.h"
 #include "filewatch.h"
 #include <stdio.h>
-#include <sys/time.h>
-#include <unistd.h>
+#include <sys/types.h>
+#include <utime.h>  /* POSIX and MinGW both have utime() */
 
 #define WATCHED "build/tests/filewatch_tmp.txt"
 
@@ -12,10 +12,11 @@ static void write_file(const char *text) {
     fclose(f);
 }
 
-/* Force a distinct mtime (seconds since epoch) regardless of FS resolution */
+/* Force a distinct mtime (seconds since epoch) regardless of FS
+ * resolution; whole seconds also suit Windows' second-only stat */
 static void set_mtime(long sec) {
-    struct timeval t[2] = {{sec, 0}, {sec, 0}};
-    utimes(WATCHED, t);
+    struct utimbuf t = {.actime = sec, .modtime = sec};
+    utime(WATCHED, &t);
 }
 
 TEST(test_filewatch_reports_settled_change) {
@@ -46,7 +47,7 @@ TEST(test_filewatch_waits_while_still_writing) {
 }
 
 TEST(test_filewatch_missing_file) {
-    unlink(WATCHED);
+    remove(WATCHED);
     FileWatch w;
     filewatch_init(&w, WATCHED);
     ASSERT(filewatch_poll(&w) == FILE_UNCHANGED);
@@ -57,6 +58,6 @@ int main(void) {
     RUN_TEST(test_filewatch_reports_settled_change);
     RUN_TEST(test_filewatch_waits_while_still_writing);
     RUN_TEST(test_filewatch_missing_file);
-    unlink(WATCHED);
+    remove(WATCHED);
     TEST_REPORT();
 }

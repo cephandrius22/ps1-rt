@@ -124,7 +124,7 @@ TEST(test_mat4_mul_vec3_identity) {
 
 TEST(test_mat4_rotation_y) {
     // 90 degree rotation around Y: (1,0,0) -> (0,0,-1)
-    Mat4 m = mat4_rotation_y(M_PI / 2.0f);
+    Mat4 m = mat4_rotation_y(MATH_PI / 2.0f);
     Vec3 r = mat4_mul_vec3(m, vec3(1, 0, 0), 0.0f);
     ASSERT_NEAR(r.x, 0.0f, 1e-5f);
     ASSERT_NEAR(r.y, 0.0f, 1e-5f);
@@ -133,7 +133,7 @@ TEST(test_mat4_rotation_y) {
 
 TEST(test_mat4_rotation_x) {
     // 90 degree rotation around X: (0,1,0) -> (0,0,1)
-    Mat4 m = mat4_rotation_x(M_PI / 2.0f);
+    Mat4 m = mat4_rotation_x(MATH_PI / 2.0f);
     Vec3 r = mat4_mul_vec3(m, vec3(0, 1, 0), 0.0f);
     ASSERT_NEAR(r.x, 0.0f, 1e-5f);
     ASSERT_NEAR(r.y, 0.0f, 1e-5f);

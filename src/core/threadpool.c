@@ -1,6 +1,26 @@
 #include "threadpool.h"
 #include <stdlib.h>
+
+/* --- Platform: logical CPU count --- */
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+static int online_cpus(void) {
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+    return (int)info.dwNumberOfProcessors;
+}
+#else
 #include <unistd.h>
+
+static int online_cpus(void) {
+    return (int)sysconf(_SC_NPROCESSORS_ONLN);
+}
+#endif
+
+/* --- Pool --- */
 
 static void *worker_thread(void *arg) {
     WorkerInfo *info = arg;
@@ -117,7 +137,7 @@ void threadpool_destroy(ThreadPool *pool) {
 }
 
 int threadpool_cpu_count(void) {
-    int count = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    int count = online_cpus();
     if (count < 1) {
         count = 1;
     }

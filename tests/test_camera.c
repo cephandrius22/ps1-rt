@@ -50,7 +50,7 @@ TEST(test_camera_ray_corners_diverge) {
 
 TEST(test_camera_ray_yaw_rotates) {
     Camera cam0 = camera_create(vec3(0, 0, 0), 0.0f, 0.0f, 1.2f);
-    Camera cam90 = camera_create(vec3(0, 0, 0), M_PI / 2.0f, 0.0f, 1.2f);
+    Camera cam90 = camera_create(vec3(0, 0, 0), MATH_PI / 2.0f, 0.0f, 1.2f);
 
     Ray r0 = camera_ray(&cam0, SCREEN_W / 2, SCREEN_H / 2);
     Ray r90 = camera_ray(&cam90, SCREEN_W / 2, SCREEN_H / 2);

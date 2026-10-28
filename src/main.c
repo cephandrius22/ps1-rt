@@ -43,7 +43,7 @@
 #define FRAME_BUDGET_MS 16.7f /* 60 fps */
 #define WARN_FRACTION   0.8f  /* debug values turn yellow at 80% of their limit */
 #define MS_SMOOTHING    0.1f  /* weight of the newest frame in debug averages */
-#define DEG_PER_RAD     (180.0f / (float)M_PI)
+#define DEG_PER_RAD     (180.0f / (float)MATH_PI)
 #define FULL_TURN_DEG   360.0f
 
 /* Presentation side of the event queue: map game events to sounds */

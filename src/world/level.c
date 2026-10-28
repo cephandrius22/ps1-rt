@@ -201,7 +201,7 @@ static void parse_obj(const char *line, LevelParser *p) {
     }
 
     /* Transform and add to world mesh */
-    float rad = rot_y * (float)M_PI / 180.0f;
+    float rad = rot_y * (float)MATH_PI / 180.0f;
     float cs = cosf(rad), sn = sinf(rad);
 
     for (int i = 0; i < obj_mesh.count; i++) {

@@ -1,6 +1,8 @@
 # Build artifacts
 build/
+/build-*/
 /rt
+/rt.exe
 compile_flags.txt
 
 # macOS

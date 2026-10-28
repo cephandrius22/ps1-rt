@@ -15,7 +15,7 @@
 #define POLY_VERTS_MAX   64
 #define PLANE_EPS        0.01   /* map units: points this close count as on-plane */
 #define BRUSH_EXTENT     65536.0 /* half-size of the initial face polygon */
-#define DEG_TO_RAD       (3.14159265358979 / 180.0)
+#define DEG_TO_RAD       (MATH_PI / 180.0)
 
 #define DEFAULT_LIGHT_INTENSITY 2.0f
 #define DEFAULT_LIGHT_RADIUS    320.0f  /* map units (10 m) */
