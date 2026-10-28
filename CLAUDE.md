@@ -39,9 +39,9 @@ on the include path, so headers are included by bare name (`"scene.h"`).
 
 ```
   main.c          wires platform + game + render, owns the loop
-  game/  render/  game, player, weapon, ai, projectile, damage, inventory, cmd, events
-                  | shading, overlay, particles, screenfx
-  world/          scene, entity, sprite, light, level loader
+  game/  render/  game, player, movement, weapon, ai, logic, projectile, damage,
+                  inventory, cmd, events | shading, overlay, font, particles, screenfx
+  world/          scene, entity, sprite, light, nav grid, level loader
   gfx/            camera, mesh, bvh, texture, proctex, ps1_effects
   core/           math3d (Vec3, Ray, Pose), threadpool, kv
   platform/       SDL input + audio, file watch; talks to game via PlayerCmd only
@@ -57,8 +57,8 @@ on the include path, so headers are included by bare name (`"scene.h"`).
 
 `main.c` per frame: `input_poll()` → hot reload check (`filewatch_poll()` → `game_reload()`) → `game_update()` → events to presentation (`play_event_sounds()`, `play_event_effects()` shake/flash, `spawn_event_particles()`) → camera = `game_view()` + shake → `render_scene_lit_mt()` (color + depth) → `particles_draw()` → `overlay_draw()` (viewmodel, flash, HUD, F3 lines) → SDL present
 
-`game_update()` runs 0..`GAME_MAX_TICKS_PER_FRAME` fixed ticks at `GAME_TICK_HZ` (60). Each `game_tick()`: entities → lights → rebuild dynamic BVH + sprites → then by `GameMode`:
-- `GAME_PLAYING`: AI → player (exit pad → `GAME_LEVEL_END`; new weapon pickups → switch) → weapon select → weapon (muzzle flash light, rocket launch request) → `resolve_impacts()` → `projectile_update()` → player dead → `GAME_DEAD`. Kills are counted from `EV_ENEMY_DIED` events.
+`game_update()` runs 0..`GAME_MAX_TICKS_PER_FRAME` fixed ticks at `GAME_TICK_HZ` (60). Each `game_tick()`: entities → `logic_update()` (doors, buttons, triggers) → lights → rebuild dynamic BVH + sprites → then by `GameMode`:
+- `GAME_PLAYING`: AI → use (`logic_use()`) → player (exit pad → `GAME_LEVEL_END`; new weapon pickups → switch) → weapon select → weapon (muzzle flash light, noise wakes enemies via `ai_hear()`, rocket launch request) → `resolve_impacts()` → `projectile_update()` → player dead → `GAME_DEAD`. Kills are counted from `EV_ENEMY_DIED` events; on-screen notices (`game_message()`) are written from this tick's events.
 - `GAME_DEAD`: AI and projectiles keep running, view sinks; attack/use after `GAME_CONTINUE_DELAY` reloads the level
 - `GAME_LEVEL_END`: frozen; attack/use after the delay reloads the level
 
@@ -74,30 +74,34 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `bvh` | SAH-based BVH build, stack-based iterative traversal |
 | `scene` | Static world BVH + dynamic entity BVH + sprite list (both rebuilt per tick); `scene_trace()` with `TraceMask`; `scene_spawn()` for runtime entities (reuses spent slots, `type_material`) |
 | `sprite` | Upright billboards facing each ray, color-keyed holes, frame sheets; `SPRITE_SOLID`/`SPRITE_GHOST` |
-| `entity` | Entity storage + type-agnostic dispatch (update, touch, use, mesh build) |
-| `entity_types` | `EntityDef` table: per-type name, `RenderKind`, `TouchEffect`, `mesh_solidity`, `runtime_only`, hooks (spawn/update/touch/use/damage/pose/build_mesh/sprite); shared enemy hooks (`enemy_damage`, `enemy_sprite`) |
-| `kv` | `key=value` lookup in a text line (level args): float, int, string |
+| `entity` | Entity storage + type-agnostic dispatch (update, touch, damage, mesh build); brush entities (`entity_spawn_brush()`, per-entity models, `entity_bounds()`); `entity_find_usable()` |
+| `entity_types` | `EntityDef` table: per-type name, `RenderKind`, `TouchEffect`, `mesh_solidity`, `runtime_only`, `brush`, `usable`, hooks (spawn/update/touch/damage/pose/build_mesh/sprite); shared enemy hooks (`enemy_damage`, `enemy_sprite`); movers (`func_door`, `func_button`), triggers, keycard |
+| `nav` | Walkable grid built at load from static geometry (0.5 m cells, up to 4 floors each, 8-way links over steps ≤ `NAV_STEP`); A* `nav_next_waypoint()`, sound `nav_flood()`/`nav_heard()`, closed/locked doors (`nav_set_door()`) |
+| `kv` | `key=value` lookup in a text line (level args): float, int, string (`"quoted"` values may hold spaces) |
 | `render` | Shading: directional sun + point lights + shadows + fog + light billboards; writes a depth buffer; `render_light_at()` (viewmodel light probe) |
-| `overlay` | Viewmodel (weapon sheet, bob/recoil/switch offsets, lit + dithered), damage flash, HUD, death tint, level-end kill count, F3 text. Caches viewmodel textures (`Overlay`); fed an `OverlayState` by `main.c` |
+| `overlay` | Viewmodel (weapon sheet, bob/recoil/switch offsets, lit + dithered), damage flash, HUD (health, ammo, keycard icons), message line, death tint, level-end kill count, F3 text. Caches viewmodel textures (`Overlay`); fed an `OverlayState` by `main.c` |
+| `font` | 5x7 pixel text (`font_draw()`, `font_width()`) for messages; HUD numbers and F3 lines keep overlay's 3x5 font |
 | `particles` | Blood, gibs, sparks, debris, spit: projected and splatted after the raytrace, depth-tested; presentation only |
 | `screenfx` | Screen shake (camera only, never aim) and full-screen color flash; decays with frame time |
-| `light` | Point lights: attenuation, flicker, swing; temporary lights with a lifetime and fade (`light_add_temporary()`), swap-removed |
+| `light` | Point lights: attenuation, flicker, swing; temporary lights with a lifetime and fade (`light_add_temporary()`), swap-removed; `targetname` + `off` (toggled by triggers) |
 | `texture` | Nearest-neighbor sampling; TGA load (levels can't reference TGA files yet) and save (editor export) |
-| `proctex` | Procedural textures: concrete, brick, metal_panel, metal_grate, rust, floor_tile, pipe; color-keyed sprite sheets (`Sheet` helpers): barrel, ghoul + spitter (`EnemyFrame`), projectiles (`ProjectileFrame`), viewmodels `view_*` (`ViewFrame`) |
-| `level` | `level_load()` dispatches by extension; `.level` text loader; `level_finish()` shared last step (jitter, textures, BVH) |
-| `mapfile` | TrenchBroom/Quake `.map` loader: brushes → triangles (plane clipping), Standard + Valve 220 UVs, entities |
+| `proctex` | Procedural textures: concrete, brick, metal_panel, metal_grate, rust, floor_tile, pipe; color-keyed sprite sheets (`Sheet` helpers): barrel, ghoul + spitter (`EnemyFrame`), projectiles (`ProjectileFrame`), keycards (`KeycardFrame`), viewmodels `view_*` (`ViewFrame`) |
+| `level` | `level_load()` dispatches by extension; `.level` text loader; `level_add_brush_entity()` and `level_finish()` (jitter, textures, BVH, nav grid) shared by both loaders |
+| `mapfile` | TrenchBroom/Quake `.map` loader: brushes → triangles (plane clipping), Standard + Valve 220 UVs, point and brush entities |
 | `matlib` | Named material registry shared by both loaders; generates procedural textures on first use; entity default materials |
-| `levelcheck` | Load-time warnings (spawn/exit, stuck or floating bodies) and budget line (`BUDGET_*`) |
+| `levelcheck` | Load-time warnings (spawn/exit, stuck bodies, no floor, exit unreachable on foot, target wiring, missing keycards) and budget line (`BUDGET_*`) |
 | `filewatch` | Polls a file's mtime; reports a change once it has settled (hot reload) |
 | `editor_export` | Writes TrenchBroom textures (TGA) and `rt.fgd` from the proctex generators and `EntityDef` table |
 | `ps1_effects` | Vertex jitter (1/128 grid, applied at level load), 4x4 Bayer dither + 15-bit quantize (per pixel). `ps1_affine_uv()` exists but shading doesn't use it |
-| `game` | `Game` struct: owns scene, player, weapon, events, mode, kills; fixed-timestep `game_update()`, `game_view()` (view + recoil), weapon selection, muzzle flash, rocket launch |
-| `player` | First-person movement with gravity, wall sliding, ground snap; health, `Inventory`; applies `TouchEffect`s |
-| `ai` | Enemy state machine (idle → chase → attack, pain, dead); `EnemyDef` table: melee or projectile attack, preferred range |
+| `game` | `Game` struct: owns scene, player, weapon, events, mode, kills, message; fixed-timestep `game_update()`, `game_view()` (view + recoil), weapon selection, muzzle flash, gunfire noise, rocket launch, notices from events |
+| `player` | First-person movement with gravity, steps, ground snap; health, `Inventory`; applies `TouchEffect`s |
+| `movement` | Shared walking bodies (`BodyShape`): `movement_slide()` (walls, X then Z), `movement_ground()` (steps, looks past steep faces) — player and enemies |
+| `ai` | Enemy state machine (idle → chase → attack, pain, dead); gravity; chase straight or along nav waypoints; `ai_hear()` wakes idle enemies; `EnemyDef` table: melee or projectile attack, preferred range |
+| `logic` | Doors (open/wait/close, never crush, monsters open plain ones, nav sync), keycard checks, buttons, triggers, `logic_fire()` (target → targetname: doors, hidden monsters, lights) |
 | `projectile` | Rockets and spit: flight, collision (scene + player cylinder, skipping the shooter), direct + splash damage with line of sight, glow and explosion lights; `ProjectileDef` table |
 | `damage` | `damage_entity()`: the one path for hurting an entity (pain/died events) |
-| `inventory` | Ammo pools by `AmmoType` (bullets, shells, rockets) with caps; owned weapons as a bitmask |
-| `weapon` | `WeaponDef` table (`weapon_types.c`): damage, cooldown, pellets, spread, kick, ammo, view texture, flash, shake, projectile; switch phases (lower → swap → raise); dry fire |
+| `inventory` | Ammo pools by `AmmoType` (bullets, shells, rockets) with caps; owned weapons and `Keycard`s as bitmasks |
+| `weapon` | `WeaponDef` table (`weapon_types.c`): damage, cooldown, pellets, spread, kick, ammo, view texture, flash, shake, noise, projectile; switch phases (lower → swap → raise); dry fire |
 | `event` | `GameEvent` queue: gameplay pushes, presentation drains each frame |
 | `cmd` | `PlayerCmd`: move axes, look deltas, button bitmask (held + impulse) |
 | `input` | SDL2 keyboard/mouse → `PlayerCmd`, relative mouse mode |
@@ -120,9 +124,12 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 - **Hit → entity:** `Triangle.owner`/`HitRecord.owner` is an opaque tag at the `gfx` layer. Entity triangles and sprites get `owner = index + 1`; call `entity_hit(&rec)` for the entity index or `ENTITY_INDEX_NONE`. Zero-initialized triangles read as world.
 - **Trace masks:** rendering uses `TRACE_VISIBLE`; anything that blocks (player/enemy movement, bullets, projectiles, enemy sight) uses `scene_trace(..., TRACE_SOLID)`, which skips ghost sprites (corpses, projectiles) and ghost meshes (pickups, exit pad: `EntityDef.mesh_solidity`). Sprites cast no shadows (`scene_occluded()` skips them). The player's ground probe looks past steep surfaces for real ground.
 - **Sprites:** RENDER_SPRITE entities implement `EntityDef.sprite` to pick size, frame and solidity per tick. Textures use magenta (`TEXTURE_KEY_*`) for holes; sheets hold frames side by side, rows top-down.
-- **Touch:** `entity_overlap()` finds touchables in the body cylinder without side effects; the player applies the type's `TouchEffect` (heal, ammo, exit) and only then calls `entity_touch()`. Health/ammo at cap leave pickups in place. Origins up to `TOUCH_FOOT_SLACK` below the feet count (floor pads).
+- **Touch:** `entity_overlap()` finds touchables in the body cylinder without side effects; the player applies the type's `TouchEffect` (heal, ammo, weapon, keycard, exit) and only then calls `entity_touch()`. Health/ammo at cap leave pickups in place. Origins up to `TOUCH_FOOT_SLACK` below the feet count (floor pads).
 - **Damage:** bullets emit `EV_WEAPON_IMPACT` (entity, amount) and `resolve_impacts()` applies them; projectiles damage directly. Both go through `damage_entity()` → type's `damage` hook → `EV_ENEMY_PAIN`/`EV_ENEMY_DIED`. The player is hurt via `player_damage()` (enemies, spit, your own rocket splash).
-- **Enemies:** world owns health and `EnemyState` (and draws frames from it); `game/ai.c` owns transitions and stats (`EnemyDef`). Melee enemies close to reach; ranged ones hold at `preferred_range` with line of sight and fire a projectile only if they still see you after the windup. Enemies move on a fixed height (no gravity/steps yet) and walk straight at the player.
+- **Enemies:** world owns health and `EnemyState` (and draws frames from it); `game/ai.c` owns transitions and stats (`EnemyDef`). Melee enemies close to reach; ranged ones hold at `preferred_range` with line of sight and fire a projectile only if they still see you after the windup. They fall and climb steps like the player (`movement.c`), walk straight at you when the way is clear, else follow `nav_next_waypoint()` (re-searched every `REPATH_TIME`). Gunfire wakes idle ones within `WeaponDef.noise` meters of walking distance (`nav_flood()`): walls and closed doors muffle it.
+- **Nav grid:** built by `level_finish()` from the static BVH only, so doorways are open floor; `logic.c` marks closed doors (`nav_set_door()`): openable ones stop sound, locked ones (keycard, trigger-only) also stop paths. A* runs backwards from the goal so the start reads its next waypoint off directly; scratch is stamped, never cleared.
+- **Movers and triggers:** world stores a mover's slide (`MoverState`, `dir`, `travel`, `offset`) and poses it; `game/logic.c` runs the state machine, like `ai.c` for enemies. Firing is Quake's: a trigger or button fires its `target`; every entity/light with that `targetname` reacts (door opens, hidden monster appears, light toggles). Named enemies start inactive. `EV_TRIGGERED` lets `game.c` show the source's `message`.
+- **Brush entities:** `EntityDef.brush` types are drawn as brushes (`.map`) or `brush` boxes (`.level`). `level_add_brush_entity()` puts the entity at the bounds center (`half_size`) and keeps drawn faces as its own model (`Entity.model`, triangles relative to the entity, own materials); invisible types (triggers) keep only bounds.
 - **Materials:** `Scene` holds parallel arrays of `Material` and `Texture`. Triangles reference materials by index. A material's texture is a procedural texture name or `none`; fallback is checkerboard. Loaders resolve every name through `MatLib`: `.map` faces and `mat=` may name a texture directly; entities without `mat=` get their type's `default_texture`/`default_color`.
 - **Entity keys:** each `EntityDef` lists its keys (`EntityKey`: name, `KeyType`, default, description). The `.map` loader converts `KEY_LENGTH` from units to meters; both loaders warn on unknown keys; the FGD is generated from the same list. Keep spawn-hook defaults and key defaults on the same constant.
 - **Map space:** Z up, 32 units = 1 m; `map_to_engine()` is (x, y, z) → (x, z, −y)/32. Map `angle` (0 = east) → engine yaw via `map_angle_to_yaw()` (−90°).
@@ -137,36 +144,40 @@ spawn <x> <y> <z> <yaw_degrees>
 material <name> <texture_name> <r> <g> <b>
 room <x1> <y1> <z1> <x2> <y2> <z2> <wall_mat> <floor_mat> <ceil_mat>
 box <x1> <y1> <z1> <x2> <y2> <z2> <mat>
+brush <type> <x1> <y1> <z1> <x2> <y2> <z2> [mat] [key=value ...]
 quad <12 floats> <mat>
 obj <filename> <x> <y> <z> <rot_y> <scale> <mat>
 entity <type> <x> <y> <z> [key=value ...]
 light <x> <y> <z> <r> <g> <b> <intensity> <radius> [key=value ...]
 ```
 
-Entity types (all take `rot=` (radians) and `mat=<material or texture name>`; without `mat=` the type's default material is used):
+Entity types (all take `rot=` (radians) and `mat=<material or texture name>`; without `mat=` the type's default material is used; values with spaces go in quotes, `message="Like this"`):
 
 | Type | Keys | Notes |
 |------|------|-------|
 | `health` | `amount` (25) | heals, not taken at full health |
 | `ammo` | `amount` (10), `ammo` (`bullets`/`shells`/`rockets`) | not taken at cap |
 | `weapon` | `give` (`shotgun`/`launcher`), `amount` (8) | weapon + that much ammo; switches to it if new |
-| `door` | `hinge_x`, `hinge_z` | E toggles |
+| `func_door` (brush) | `opens` (`up`/`down`/`side`), `speed` (2.5), `wait` (4, -1 = stays), `lip` (0.125), `key`, `targetname` | E opens; monsters open plain ones; `key` = keycard color; named = only a trigger opens it |
+| `func_button` (brush) | `target`, `message`, `opens` (`side`), `speed`, `wait` (1), `lip`, `key` | E presses: fires `target` |
+| `trigger_once` (brush) | `target`, `message` | fires when the player enters, then is spent |
+| `trigger_multiple` (brush) | `target`, `message`, `wait` (1) | fires again every `wait` s while inside |
+| `keycard` | `color` (`red`/`blue`/`yellow`) | sprite; opens doors/buttons with that `key` |
 | `prop` | — | static cube |
 | `decor` | `w` (0.8), `h` (1.0), `solid` (1) | sprite; default texture `barrel` |
-| `ghoul` | `health` (60) | melee enemy sprite; default texture `ghoul` |
-| `spitter` | `health` (45) | ranged enemy sprite (spits); default texture `spitter` |
+| `ghoul` | `health` (60), `targetname` | melee enemy sprite; named = hidden until triggered |
+| `spitter` | `health` (45), `targetname` | ranged enemy sprite (spits); named = hidden until triggered |
 | `exit` | — | floor pad; touching it ends the level |
 
-`room` generates inner-facing geometry (you're inside it). `box` generates outer-facing geometry (obstacles). UVs auto-tile based on world dimensions.
+`room` generates inner-facing geometry (you're inside it) — it is sealed; for rooms you walk between, build walls from `box`es with doorway gaps (see e1m1). `box` generates outer-facing geometry (obstacles). `brush` is a box-shaped brush entity (`mat` optional for invisible triggers). UVs auto-tile based on world dimensions. Lights take `targetname=` and `off=1`.
 
 ### TrenchBroom (.map) Levels
 
 Setup once: `make editor`, then in TrenchBroom Preferences → RT → Game Path = `<repo>/editor/game`. The game config is versioned in `editor/trenchbroom/RT/`; textures and `rt.fgd` there are generated (git-ignored) — rerun `make editor` after changing textures or entity types.
 
-- Brushes in `worldspawn`, `func_group` (TrenchBroom layers/groups) and `func_detail` become static geometry. Other brush entities are ignored for now (Phase 3 triggers/doors).
-- Point entities: `info_player_start` (origin = feet, `angle`), `light` (`intensity`, `radius` in units, `color`, `shadows`, `flicker_*`, `cord` in units, `swing_*`), and every entity type by name with its keys. Lengths are in units.
-- Textures `skip`/`clip` produce no geometry. Use Valve 220 format (the config's only format); Standard faces also load.
-- Doors in `.map`: place the entity at the hinge (`hinge_x/z` are `.level` only).
+- Brushes in `worldspawn`, `func_group` (TrenchBroom layers/groups) and `func_detail` become static geometry. Brush entities (`func_door`, `func_button`, `trigger_*`) become entities; their `angle` is the slide direction for `opens=side`.
+- Point entities: `info_player_start` (origin = feet, `angle`), `light` (`intensity`, `radius` in units, `color`, `shadows`, `flicker_*`, `cord` in units, `swing_*`, `targetname`, `off`), and every entity type by name with its keys. Lengths are in units. `target`/`targetname` show as link lines in TrenchBroom.
+- Textures `skip`/`clip`/`trigger` produce no geometry (texture trigger brushes with `trigger`). Use Valve 220 format (the config's only format); Standard faces also load.
 - Run `./rt levels/foo.map`; saving in TrenchBroom reloads the game. Check the terminal for `check:` warnings and the `budget:` line; F3 shows the same budgets live.
 
 ### Adding Content
@@ -183,7 +194,11 @@ Setup once: `make editor`, then in TrenchBroom Preferences → RT → Game Path 
 
 **New enemy:** `EntityType` + `EntityDef` row (`RENDER_SPRITE`, `spawn` via `enemy_spawn()`, `damage = enemy_damage`, `sprite` via `enemy_sprite()` with its size, `default_texture`) + `EnemyDef` row in `game/ai.c` (melee or projectile) + an `EnemyFrame` sheet in `proctex.c` + a row in `enemy_sounds[]` in `main.c`.
 
-**New light:** Use the `light` directive in a level file. Keys: `shadows`, `flicker_speed`, `flicker_amount`, `anchor_x/y/z`, `cord`, `swing_speed`, `swing_angle`.
+**New light:** Use the `light` directive in a level file. Keys: `shadows`, `flicker_speed`, `flicker_amount`, `anchor_x/y/z`, `cord`, `swing_speed`, `swing_angle`, `targetname`, `off`.
+
+**New brush entity:** `EntityDef` row with `.brush = true` (and `RENDER_MESH` to draw its faces, `RENDER_NONE` for bounds only). Its behavior goes in `game/logic.c` (state on the entity, transitions in game), never in the loaders.
+
+**Wiring a level:** give a trigger/button `target=X`; give doors, monsters or lights `targetname=X`. The checker warns about targets that name nothing, named doors/monsters nothing targets, keyed doors whose keycard isn't placed, and exits you can't walk to.
 
 **New sound:** Add to `SoundID` enum, generate in `audio_generate_sounds()` or load WAV via `audio_load_wav()`. Push a `GameEvent` from gameplay and map it in `play_event_sounds()`.
 

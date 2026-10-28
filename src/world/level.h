@@ -1,9 +1,10 @@
 /*
  * level.h — Text-based level file loader.
  *
- * Parses .level files containing material, geometry, entity, and light
- * definitions. Generates procedural textures, builds the scene, and
- * constructs the static BVH.
+ * Parses .level files containing material, geometry (room, box, quad,
+ * obj), entity, brush entity (brush) and light definitions. Generates
+ * procedural textures, builds the scene, and constructs the static BVH
+ * and nav grid (shared with the .map loader via level_finish()).
  */
 #ifndef LEVEL_H
 #define LEVEL_H

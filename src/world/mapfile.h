@@ -8,9 +8,12 @@
  *   info_player_start  origin (feet), angle ──> spawn
  *   light              origin + intensity, radius (units), color, ... ──> PointLight
  *   <entity type name> origin, angle, keys ──> entity_spawn() (e.g. "ghoul")
+ *   <brush type name>  brushes, angle, keys ──> level_add_brush_entity()
+ *                      (func_door, func_button, trigger_*: bounds + model)
  *
  * Brushes are convex solids: each face's polygon is its plane clipped by
- * every other plane. Faces textured "skip" or "clip" produce no geometry.
+ * every other plane. Faces textured "skip", "clip" or "trigger" produce
+ * no geometry (a trigger brush still has bounds).
  * Texture names may carry a folder ("rt/brick" → material "brick").
  * Both Standard and Valve 220 face formats are read; UVs use the texture's
  * pixel size so the game matches the editor (64 px texture = 2 m).

@@ -11,8 +11,9 @@ playable soonest. Each phase ends in something you can play.
 - Pistol, shotgun and rocket launcher from a `WeaponDef` table, with
   viewmodels, muzzle flashes, recoil, shake
 - Two-level BVH plus sprites; data-driven entities: pickups, weapons,
-  doors, props, decor sprites, ghoul and spitter enemies, projectiles,
-  exit pad
+  keycards, props, decor sprites, ghoul and spitter enemies, projectiles,
+  exit pad; brush entities: doors, buttons, triggers
+- Enemies path over a nav grid, climb steps, fall, and hear gunfire
 - Particles, temporary lights, damage flash
 - Health, death, respawn, level end; HUD
 - Point lights, shadows, flicker, swinging bulbs, flashlight, fog
@@ -115,8 +116,7 @@ Make levels cheap to build and iterate on before designing them for real.
 
 Carried forward:
 
-- Phase 3: brush entities (doors, triggers) are ignored by the importer;
-  doors in `.map` are point entities placed at the hinge.
+- ~~Phase 3: brush entities ignored by the importer~~ (done in Phase 3)
 - Phase 5: e1m1 is still a `.level`; port it to `.map` when content work
   starts.
 - Not done: noclip (offered, not chosen).
@@ -140,22 +140,45 @@ Plan and design notes: [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md)
 
 Carried forward:
 
-- Phase 3: enemies still walk straight at you on a fixed height; no
-  infighting (projectiles hurt any enemy, but enemies don't retaliate).
+- ~~Phase 3: enemies walk straight at you on a fixed height~~ (done);
+  no infighting (projectiles hurt any enemy, but enemies don't retaliate).
 - Phase 4: projectile glows are point lights refreshed per tick; fine at
   current counts, watch the light budget with many spitters.
 - Particles land on the player's floor height, not real geometry.
 - Playtest: balance (damage, ammo, spitter cadence) is set from numbers,
   not long play sessions.
 
-## Phase 3: Level logic
+## Phase 3: Level logic ✅
 
-- Doors back in e1m1 (entity type exists), keys, switches
-- Triggers as TrenchBroom brush entities (`trigger_once` etc.): on enter
-  → open door, spawn monsters, play sound; doors as `func_door` brushes
-- Sound alerting: gunfire wakes nearby enemies
-- Waypoint graph via `node` directive for enemy pathing
-- Enemy gravity and step climbing (they keep their spawn height today)
+- ✅ Shared walking bodies (`movement.c`): player and enemies climb the
+  same steps (≤ 0.6 m); enemies have gravity
+- ✅ Nav grid built at load from static geometry (no designer work):
+  A* paths around walls, up stairs, never onto crates or roofs
+- ✅ Sound alerting: gunfire floods the nav grid by walking distance;
+  walls and closed doors muffle it
+- ✅ Brush entities in both formats (`.map` brushes, `.level` `brush`
+  boxes): `func_door` (Doom-style, rises; side/down too; never crushes;
+  monsters open plain ones), `func_button`, `trigger_once`,
+  `trigger_multiple`
+- ✅ Keycards (red/blue/yellow), keyed doors and buttons, HUD key icons,
+  "You need the blue keycard"
+- ✅ Quake wiring: `target` → `targetname` opens doors, releases hidden
+  monsters, toggles lights; `message` shows on screen (5x7 font)
+- ✅ Checker: exit unreachable on foot, targets naming nothing, named
+  doors/monsters nobody targets, keyed doors without their keycard
+- ✅ e1m1 fixed (its inner rooms were sealed; the exit was unreachable)
+  and rebuilt with a west door, blue-key storage, a gate button and an
+  ambush; arena got a stair-trigger ambush
+- ✅ The old swinging `door` entity was removed (`func_door` replaces it)
+
+Carried forward:
+
+- Doors don't fire their own `target` when opened (Quake does); no
+  `trigger_relay`, `delay`, or toggling doors yet.
+- Nav ignores jumps and dynamic obstacles (other monsters, crates as
+  entities); enemies can still bunch up in doorways.
+- Phase 5: e1m1 is still a `.level`; port it to `.map` when content work
+  starts.
 
 ## Phase 4: Atmosphere
 

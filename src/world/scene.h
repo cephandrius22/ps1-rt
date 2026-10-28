@@ -5,6 +5,7 @@
  * transformed entity geometry and the sprite list holds billboards, both
  * rebuilt each game tick. scene_trace() tests all three and returns the
  * closest hit; its mask decides whether ghost sprites (corpses) count.
+ * The nav grid (nav.h) is derived from the static BVH at load.
  */
 #ifndef SCENE_H
 #define SCENE_H
