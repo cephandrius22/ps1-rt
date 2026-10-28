@@ -1,5 +1,12 @@
 # Phase 2 — Combat Feel: Implementation Plan
 
+> **Status: implemented.** The code follows this plan; differences:
+> the launcher arrived with projectiles (Step 6) rather than as a Step 1
+> stub; `damage_entity()` lives in `game/damage.c`; projectiles also carry
+> a glow light in flight; a pre-existing bug (falling through the floor on
+> an untaken pickup) was fixed along the way with ghost meshes. CLAUDE.md
+> describes the current code.
+
 ## Context
 
 Phases 0–1.5 gave the game a fight loop (pistol, ghoul, health/ammo, exit) and the

@@ -8,10 +8,12 @@ playable soonest. Each phase ends in something you can play.
 
 - Collision & physics: gravity, jump, step climbing, wall sliding
 - Fixed 60 Hz simulation driven by `PlayerCmd`, events to presentation
-- Hitscan weapons from a `WeaponDef` table (pellets, spread, ammo,
-  recoil); no viewmodel drawn yet
-- Two-level BVH plus sprites; data-driven entities: pickups, doors,
-  props, decor sprites, ghoul enemy, exit pad
+- Pistol, shotgun and rocket launcher from a `WeaponDef` table, with
+  viewmodels, muzzle flashes, recoil, shake
+- Two-level BVH plus sprites; data-driven entities: pickups, weapons,
+  doors, props, decor sprites, ghoul and spitter enemies, projectiles,
+  exit pad
+- Particles, temporary lights, damage flash
 - Health, death, respawn, level end; HUD
 - Point lights, shadows, flicker, swinging bulbs, flashlight, fog
 - 8-voice mixer, procedural sounds (weapon, footsteps, creature voices),
@@ -81,7 +83,6 @@ One level that is fun to fight in.
 
 Carried forward:
 
-- Phase 2: viewmodel sprite (overlay has `weapon_kick` ready).
 - Phase 3: enemies walk straight at the player on a fixed height (no
   gravity, steps or pathing); only sight wakes them.
 - Phase 5: exit replays the level instead of loading the next.
@@ -120,17 +121,32 @@ Carried forward:
   starts.
 - Not done: noclip (offered, not chosen).
 
-## Phase 2: Combat feel
+## Phase 2: Combat feel ✅
 
-Step-by-step implementation plan (files, types, tests): [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md)
+Plan and design notes: [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md)
 
-- Viewmodel: weapon sprite drawn by the overlay, with bob and recoil
-- Shotgun (a `WeaponDef` row: pellets + spread + shells ammo type), one
-  projectile weapon
-- Muzzle flash as short-lived light
-- Screen shake, damage flash
-- Blood/gibs as billboard particles
-- Second enemy type: ranged (the ghoul is melee)
+- ✅ Weapons: pistol, shotgun (7 pellets, shells), rocket launcher
+  (projectile, splash incl. self-damage); 1–3 / wheel switching with
+  lower/raise; weapon and named ammo pickups
+- ✅ Viewmodel per weapon: bob, recoil, switch animation, lit by
+  surroundings, PS1-dithered
+- ✅ Muzzle flash, projectile glow and explosions as temporary lights
+- ✅ Screen shake (camera only) and red damage flash
+- ✅ Blood, gibs, sparks, debris, spit as projected, depth-tested particles
+- ✅ Spitter: ranged enemy that holds at range and spits dodgeable acid
+- ✅ `levels/arena.map` combat test map; weapons and spitters in e1m1
+- ✅ Fixed: standing on an untaken pickup dropped the player through the
+  floor (pickups are now ghost meshes; ground probe looks past steep faces)
+
+Carried forward:
+
+- Phase 3: enemies still walk straight at you on a fixed height; no
+  infighting (projectiles hurt any enemy, but enemies don't retaliate).
+- Phase 4: projectile glows are point lights refreshed per tick; fine at
+  current counts, watch the light budget with many spitters.
+- Particles land on the player's floor height, not real geometry.
+- Playtest: balance (damage, ammo, spitter cadence) is set from numbers,
+  not long play sessions.
 
 ## Phase 3: Level logic
 
