@@ -156,6 +156,10 @@ typedef struct {
     RenderKind render;
     TouchEffect touch_effect;
 
+    /* RENDER_MESH types: SPRITE_GHOST meshes are drawn but don't block
+     * movement, bullets or sight (pickups, floor pads). Default: solid. */
+    SpriteSolidity mesh_solidity;
+
     /* Material used when a level gives no mat=: a procedural texture name
      * (or "none") plus color, so designers can just place a "ghoul" */
     const char *default_texture;
@@ -267,6 +271,9 @@ int entity_count_sprites(const EntityList *list);
 /* Write one Sprite per active RENDER_SPRITE entity into out (up to max).
  * Returns number written. */
 int entity_build_sprites(const EntityList *list, Sprite *out, int max);
+
+/* Does a hit on this entity's mesh block (movement, bullets, sight)? */
+bool entity_mesh_solid(const EntityList *list, int index);
 
 /* Which entity a ray hit, or ENTITY_INDEX_NONE for world geometry/miss.
  * Entity triangles carry owner = index + 1, so zero-initialized

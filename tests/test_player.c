@@ -384,6 +384,59 @@ TEST(test_player_named_pickups) {
     scene_free(&s);
 }
 
+/* Regression: standing on a pickup you can't take (full health) used to
+ * make the ground probe hit the spinning diamond, report "no ground" on
+ * its steep faces, and drop the player through the floor forever */
+TEST(test_player_stands_over_untaken_pickup) {
+    Scene s;
+    Mesh m;
+    floor_scene(&s, &m);
+    entity_add(&s.entities, entity_spawn(ENTITY_PICKUP_HEALTH, vec3(0, 0.5f, 0), ""));
+
+    Player p = grounded_player();
+    PlayerCmd idle = {0};
+    EventQueue q = {0};
+    for (int i = 0; i < 600; i++) {
+        entity_update(&s.entities, 1.0f / 60.0f, (float)i / 60.0f);
+        scene_rebuild_dynamic(&s);
+        player_update(&p, &idle, 1.0f / 60.0f, &s, &q);
+    }
+
+    ASSERT(s.entities.items[0].active);       /* still there (full health) */
+    ASSERT_NEAR(p.foot_y, 0.0f, 1e-3f);        /* on the floor, not under it */
+    ASSERT(p.on_ground);
+    mesh_free(&m);
+    scene_free(&s);
+}
+
+/* A steep surface between the head and the floor doesn't hide the floor */
+TEST(test_player_ground_past_steep_surface) {
+    Scene s;
+    Mesh m;
+    scene_init(&s);
+    mesh_init(&m);
+    Vec3 a = vec3(-10, 0, -10), b = vec3(10, 0, -10), c = vec3(10, 0, 10), d = vec3(-10, 0, 10);
+    mesh_add_tri(&m, (Triangle){.v0 = a, .v1 = d, .v2 = c, .normal = vec3(0, 1, 0)});
+    mesh_add_tri(&m, (Triangle){.v0 = a, .v1 = c, .v2 = b, .normal = vec3(0, 1, 0)});
+    /* Steep slab at knee height crossing the player's column */
+    Vec3 n = vec3_normalize(vec3(1, 0.3f, 0));
+    mesh_add_tri(&m, (Triangle){.v0 = vec3(-0.2f, 0.2f, -1), .v1 = vec3(0.2f, 0.5f, 1),
+                                .v2 = vec3(-0.2f, 0.2f, 1), .normal = n});
+    mesh_add_tri(&m, (Triangle){.v0 = vec3(-0.2f, 0.2f, -1), .v1 = vec3(0.2f, 0.5f, -1),
+                                .v2 = vec3(0.2f, 0.5f, 1), .normal = n});
+    scene_build_static(&s, m.tris, m.count);
+
+    Player p = grounded_player();
+    PlayerCmd idle = {0};
+    EventQueue q = {0};
+    for (int i = 0; i < 120; i++) {
+        player_update(&p, &idle, 1.0f / 60.0f, &s, &q);
+    }
+    ASSERT(p.foot_y > -0.01f); /* didn't fall through the floor */
+    mesh_free(&m);
+    scene_free(&s);
+}
+
 int main(void) {
     floor_scene(&floor_world, &floor_mesh);
 
@@ -413,5 +466,7 @@ int main(void) {
     RUN_TEST(test_player_ammo_pickup);
     RUN_TEST(test_player_blocked_by_solid_sprite);
     RUN_TEST(test_player_named_pickups);
+    RUN_TEST(test_player_stands_over_untaken_pickup);
+    RUN_TEST(test_player_ground_past_steep_surface);
     TEST_REPORT();
 }

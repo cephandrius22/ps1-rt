@@ -57,7 +57,8 @@ void scene_rebuild_dynamic(Scene *s);
 
 typedef enum {
     TRACE_VISIBLE, /* everything drawn: rendering, shadows */
-    TRACE_SOLID,   /* what blocks movement and bullets: skips ghost sprites */
+    TRACE_SOLID,   /* what blocks movement and bullets: skips ghost sprites
+                    * and ghost meshes (pickups, floor pads) */
 } TraceMask;
 
 /* Closest hit among static geometry, entity meshes and sprites */

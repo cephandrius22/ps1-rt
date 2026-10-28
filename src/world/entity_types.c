@@ -328,21 +328,21 @@ static const EntityKey ghoul_keys[] = {
 static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
     [ENTITY_NONE] = { .name = NULL, .render = RENDER_NONE },
     [ENTITY_PICKUP_HEALTH] = {
-        .name = "health", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_HEALTH,
+        .name = "health", .render = RENDER_MESH, .mesh_solidity = SPRITE_GHOST, .touch_effect = TOUCH_EFFECT_HEALTH,
         .default_texture = "none", .default_color = {0.9f, 0.2f, 0.2f},
         .desc = "Health pickup", .keys = health_keys,
         .spawn = health_spawn, .update = pickup_update, .touch = pickup_touch,
         .pose = pickup_pose, .build_mesh = pickup_mesh,
     },
     [ENTITY_PICKUP_AMMO] = {
-        .name = "ammo", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_AMMO,
+        .name = "ammo", .render = RENDER_MESH, .mesh_solidity = SPRITE_GHOST, .touch_effect = TOUCH_EFFECT_AMMO,
         .default_texture = "none", .default_color = {0.9f, 0.8f, 0.2f},
         .desc = "Ammo pickup", .keys = ammo_keys,
         .spawn = ammo_spawn, .update = pickup_update, .touch = pickup_touch,
         .pose = pickup_pose, .build_mesh = pickup_mesh,
     },
     [ENTITY_PICKUP_WEAPON] = {
-        .name = "weapon", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_WEAPON,
+        .name = "weapon", .render = RENDER_MESH, .mesh_solidity = SPRITE_GHOST, .touch_effect = TOUCH_EFFECT_WEAPON,
         .default_texture = "metal_panel", .default_color = {0.4f, 0.45f, 0.5f},
         .desc = "Weapon pickup", .keys = weapon_keys,
         .spawn = weapon_spawn, .update = pickup_update, .touch = pickup_touch,
@@ -374,7 +374,7 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
         .spawn = ghoul_spawn, .damage = ghoul_damage, .sprite = ghoul_sprite,
     },
     [ENTITY_EXIT] = {
-        .name = "exit", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_EXIT,
+        .name = "exit", .render = RENDER_MESH, .mesh_solidity = SPRITE_GHOST, .touch_effect = TOUCH_EFFECT_EXIT,
         .default_texture = "none", .default_color = {0.9f, 0.1f, 0.05f},
         .desc = "Exit pad: touching it ends the level",
         .touch = exit_touch, .build_mesh = exit_mesh,

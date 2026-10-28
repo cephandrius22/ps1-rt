@@ -26,16 +26,30 @@ Player player_create(Vec3 pos) {
 
 /* --- Collision --- */
 
+#define GROUND_SKIP_MAX 4     /* steep surfaces to look past for real ground */
+#define GROUND_SKIP_EPS 1e-3f
+
 /* Height of walkable ground under head_pos, or GROUND_NONE. The ray
- * starts a step above the head so ledges up to STEP_HEIGHT are found. */
+ * starts a step above the head so ledges up to STEP_HEIGHT are found.
+ * Steep surfaces in the way are looked past: giving up at the first one
+ * would report free fall over a perfectly good floor. */
 static float ground_check(Vec3 head_pos, const Scene *scene) {
     Ray down = {vec3(head_pos.x, head_pos.y + STEP_HEIGHT + GROUND_PROBE_PAD, head_pos.z),
                 vec3(0, -1, 0)};
-    HitRecord rec = scene_trace(scene, down, 0.0f, PLAYER_HEIGHT + STEP_HEIGHT + 1.0f, TRACE_SOLID);
-    if (!rec.hit || rec.normal.y <= GROUND_MIN_NORMAL) {
-        return GROUND_NONE;
+    float t_min = 0.0f;
+    float t_max = PLAYER_HEIGHT + STEP_HEIGHT + 1.0f;
+
+    for (int i = 0; i < GROUND_SKIP_MAX; i++) {
+        HitRecord rec = scene_trace(scene, down, t_min, t_max, TRACE_SOLID);
+        if (!rec.hit) {
+            return GROUND_NONE;
+        }
+        if (rec.normal.y > GROUND_MIN_NORMAL) {
+            return rec.point.y;
+        }
+        t_min = rec.t + GROUND_SKIP_EPS;
     }
-    return rec.point.y;
+    return GROUND_NONE;
 }
 
 /* Move along one axis, stopping PLAYER_RADIUS short of walls. Probes at

@@ -295,6 +295,13 @@ int entity_build_sprites(const EntityList *list, Sprite *out, int max) {
     return written;
 }
 
+bool entity_mesh_solid(const EntityList *list, int index) {
+    if (index < 0 || index >= list->count) {
+        return true; /* world geometry */
+    }
+    return entity_def(list->items[index].type)->mesh_solidity == SPRITE_SOLID;
+}
+
 int entity_hit(const HitRecord *rec) {
     if (!rec->hit || rec->owner <= 0) {
         return ENTITY_INDEX_NONE;

@@ -149,12 +149,29 @@ static bool trace_sprites(const Scene *s, Ray ray, float t_min, float t_max,
     return hit;
 }
 
+#define GHOST_SKIP_MAX 8      /* ghost meshes a solid trace may pass in a row */
+#define GHOST_SKIP_EPS 1e-4f  /* restart just past a skipped hit */
+
+/* Closest entity-mesh hit; TRACE_SOLID passes through ghost meshes
+ * (pickups, pads) by re-tracing from just beyond them */
+static HitRecord trace_dynamic(const Scene *s, Ray ray, float t_min, float t_max, TraceMask mask) {
+    for (int i = 0; i < GHOST_SKIP_MAX; i++) {
+        HitRecord hit = bvh_intersect(&s->dynamic_bvh, ray, t_min, t_max);
+        if (!hit.hit || mask == TRACE_VISIBLE ||
+            entity_mesh_solid(&s->entities, entity_hit(&hit))) {
+            return hit;
+        }
+        t_min = hit.t + GHOST_SKIP_EPS;
+    }
+    return (HitRecord){.hit = false, .t = t_max};
+}
+
 HitRecord scene_trace(const Scene *s, Ray ray, float t_min, float t_max, TraceMask mask) {
     HitRecord best = bvh_intersect(&s->static_bvh, ray, t_min, t_max);
 
     if (s->has_dynamic) {
         float dyn_max = best.hit ? best.t : t_max;
-        HitRecord dyn = bvh_intersect(&s->dynamic_bvh, ray, t_min, dyn_max);
+        HitRecord dyn = trace_dynamic(s, ray, t_min, dyn_max, mask);
         if (dyn.hit) {
             best = dyn;
         }

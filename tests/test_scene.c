@@ -186,6 +186,22 @@ TEST(test_scene_sprite_trace_mask) {
     scene_free(&s);
 }
 
+/* Pickup meshes are ghosts: seen, but solid traces pass through */
+TEST(test_scene_ghost_mesh) {
+    Scene s;
+    scene_init(&s);
+    entity_add(&s.entities, entity_spawn(ENTITY_PICKUP_HEALTH, vec3(0, 1, -3), ""));
+    entity_add(&s.entities, entity_spawn(ENTITY_PROP, vec3(0, 0.7f, -6), ""));
+    scene_rebuild_dynamic(&s);
+
+    Ray ahead = {vec3(0, 1, 0), vec3(0, 0, -1)};
+    HitRecord seen = scene_trace(&s, ahead, 0.001f, 100.0f, TRACE_VISIBLE);
+    ASSERT_EQ_INT(entity_hit(&seen), 0);  /* the pickup */
+    HitRecord solid = scene_trace(&s, ahead, 0.001f, 100.0f, TRACE_SOLID);
+    ASSERT_EQ_INT(entity_hit(&solid), 1); /* through it, onto the prop */
+    scene_free(&s);
+}
+
 int main(void) {
     TEST_SUITE("scene");
     RUN_TEST(test_scene_init_free);
@@ -195,5 +211,6 @@ int main(void) {
     RUN_TEST(test_scene_occluded);
     RUN_TEST(test_scene_dynamic_rebuild);
     RUN_TEST(test_scene_sprite_trace_mask);
+    RUN_TEST(test_scene_ghost_mesh);
     TEST_REPORT();
 }
