@@ -20,6 +20,7 @@ static const ParticleLook looks[PARTICLE_KIND_COUNT] = {
     [PARTICLE_GIB]    = {88, 24, 18,    0.11f, 1.0f, 2.5f},
     [PARTICLE_SPARK]  = {255, 214, 130, 0.03f, 0.0f, 0.12f},
     [PARTICLE_DEBRIS] = {64, 54, 44,    0.07f, 1.0f, 1.5f},
+    [PARTICLE_SPIT]   = {110, 220, 60,  0.05f, 1.0f, 0.6f},
 };
 
 /* --- Random numbers: tiny LCG, 0..1 --- */

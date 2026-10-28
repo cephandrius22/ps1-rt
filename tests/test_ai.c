@@ -125,6 +125,59 @@ TEST(test_ai_pain_then_death) {
     free_world();
 }
 
+static int count_projectiles(void) {
+    int n = 0;
+    for (int i = 0; i < s.entities.count; i++) {
+        n += s.entities.items[i].active && s.entities.items[i].type == ENTITY_PROJECTILE;
+    }
+    return n;
+}
+
+/* In range with a clear line: stands still and spits once per cooldown */
+TEST(test_ai_spitter_holds_and_spits) {
+    build_world(false);
+    entity_add(&s.entities, entity_spawn(ENTITY_SPITTER, vec3(0, 0, -6), ""));
+    Player p = player_at_origin();
+    const EnemyDef *def = enemy_def(ENTITY_SPITTER);
+
+    run_ai(&p, (int)((def->windup + 0.1f) / TICK));
+    ASSERT_NEAR(s.entities.items[0].position.z, -6.0f, 1e-6f); /* held position */
+    ASSERT_EQ_INT(count_projectiles(), 1);
+
+    /* Not again until the cooldown (+ next windup) has passed */
+    run_ai(&p, (int)((def->cooldown * 0.5f) / TICK));
+    ASSERT_EQ_INT(count_projectiles(), 1);
+    run_ai(&p, (int)((def->cooldown + def->windup) / TICK));
+    ASSERT_EQ_INT(count_projectiles(), 2);
+    free_world();
+}
+
+/* Too far: walks in until within its preferred range */
+TEST(test_ai_spitter_approaches_from_afar) {
+    build_world(false);
+    entity_add(&s.entities, entity_spawn(ENTITY_SPITTER, vec3(0, 0, -16), ""));
+    Player p = player_at_origin();
+    float range = enemy_def(ENTITY_SPITTER)->preferred_range;
+
+    run_ai(&p, 60 * 6);
+    float dist = -s.entities.items[0].position.z;
+    ASSERT(dist < 16.0f);
+    ASSERT(dist >= range - 0.5f); /* stopped near its range, didn't rush in */
+    free_world();
+}
+
+/* Behind a wall: never spits, even once alerted */
+TEST(test_ai_spitter_needs_line_of_sight) {
+    build_world(true);
+    entity_add(&s.entities, entity_spawn(ENTITY_SPITTER, vec3(0, 0, -6), ""));
+    enemy_set_state(&s.entities.items[0], ENEMY_CHASE);
+    Player p = player_at_origin();
+
+    run_ai(&p, 60 * 3);
+    ASSERT_EQ_INT(count_projectiles(), 0);
+    free_world();
+}
+
 int main(void) {
     TEST_SUITE("ai");
     RUN_TEST(test_ai_def_table);
@@ -132,5 +185,8 @@ int main(void) {
     RUN_TEST(test_ai_wall_blocks_sight);
     RUN_TEST(test_ai_attacks_in_reach);
     RUN_TEST(test_ai_pain_then_death);
+    RUN_TEST(test_ai_spitter_holds_and_spits);
+    RUN_TEST(test_ai_spitter_approaches_from_afar);
+    RUN_TEST(test_ai_spitter_needs_line_of_sight);
     TEST_REPORT();
 }

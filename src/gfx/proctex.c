@@ -408,26 +408,67 @@ static void ghoul_body(const Sheet *sh, int f, int arm_lift, int stride) {
  *   / \    /   \    / \     / \     ___o_
  */
 static void gen_ghoul(Texture *tex) {
-    Sheet sh = sheet_alloc(tex, GHOUL_W, GHOUL_H, GHOUL_FRAME_COUNT);
+    Sheet sh = sheet_alloc(tex, GHOUL_W, GHOUL_H, ENEMY_FRAME_COUNT);
 
-    ghoul_body(&sh, GHOUL_FRAME_STAND, 0, 0);
-    ghoul_head(&sh, GHOUL_FRAME_STAND, 0, false);
+    ghoul_body(&sh, ENEMY_FRAME_STAND, 0, 0);
+    ghoul_head(&sh, ENEMY_FRAME_STAND, 0, false);
 
-    ghoul_body(&sh, GHOUL_FRAME_WALK, 0, 3);
-    ghoul_head(&sh, GHOUL_FRAME_WALK, 0, false);
+    ghoul_body(&sh, ENEMY_FRAME_WALK, 0, 3);
+    ghoul_head(&sh, ENEMY_FRAME_WALK, 0, false);
 
-    ghoul_body(&sh, GHOUL_FRAME_ATTACK, 10, 1);
-    ghoul_head(&sh, GHOUL_FRAME_ATTACK, 0, true);
+    ghoul_body(&sh, ENEMY_FRAME_ATTACK, 10, 1);
+    ghoul_head(&sh, ENEMY_FRAME_ATTACK, 0, true);
 
-    ghoul_body(&sh, GHOUL_FRAME_PAIN, 0, 0);
-    ghoul_head(&sh, GHOUL_FRAME_PAIN, 3, true);
-    sheet_ellipse(&sh, GHOUL_FRAME_PAIN, 15, 20, 3, 3, GHOUL_BLOOD, 0.3f);
+    ghoul_body(&sh, ENEMY_FRAME_PAIN, 0, 0);
+    ghoul_head(&sh, ENEMY_FRAME_PAIN, 3, true);
+    sheet_ellipse(&sh, ENEMY_FRAME_PAIN, 15, 20, 3, 3, GHOUL_BLOOD, 0.3f);
 
     /* Corpse: a heap on the floor in a pool of blood */
-    sheet_ellipse(&sh, GHOUL_FRAME_DEAD, 16, 46, 15, 2, GHOUL_BLOOD, 0.3f);
-    sheet_ellipse(&sh, GHOUL_FRAME_DEAD, 15, 43, 11, 3, GHOUL_SKIN, 0.4f);
-    sheet_ellipse(&sh, GHOUL_FRAME_DEAD, 26, 42, 3, 3, GHOUL_SKIN, 0.3f);
-    sheet_rect(&sh, GHOUL_FRAME_DEAD, 8, 44, 18, 45, GHOUL_DARK, 0);
+    sheet_ellipse(&sh, ENEMY_FRAME_DEAD, 16, 46, 15, 2, GHOUL_BLOOD, 0.3f);
+    sheet_ellipse(&sh, ENEMY_FRAME_DEAD, 15, 43, 11, 3, GHOUL_SKIN, 0.4f);
+    sheet_ellipse(&sh, ENEMY_FRAME_DEAD, 26, 42, 3, 3, GHOUL_SKIN, 0.3f);
+    sheet_rect(&sh, ENEMY_FRAME_DEAD, 8, 44, 18, 45, GHOUL_DARK, 0);
+}
+
+#define SPITTER_W 32
+#define SPITTER_H 40
+
+static const Rgb SPITTER_HIDE   = {74, 62, 84};    /* bruised purple-grey */
+static const Rgb SPITTER_DARK   = {36, 30, 42};
+static const Rgb SPITTER_THROAT = {120, 230, 70};  /* glowing green sac */
+static const Rgb SPITTER_GLOW   = {220, 255, 160};
+static const Rgb SPITTER_EYE    = {255, 120, 40};
+
+/* Hunched body: a big rounded back, head slung low in front of it, a
+ * glowing throat sac. stride spreads the stubby legs; open puffs the sac */
+static void spitter_body(const Sheet *sh, int f, int stride, bool open) {
+    sheet_rect(sh, f, 10 - stride, 30, 13 - stride, 40, SPITTER_DARK, 0.3f);    /* legs */
+    sheet_rect(sh, f, 19 + stride, 30, 22 + stride, 40, SPITTER_DARK, 0.3f);
+    sheet_ellipse(sh, f, 16, 22, 12, 10, SPITTER_HIDE, 0.35f);                   /* back */
+    sheet_rect(sh, f, 5, 22, 8, 34, SPITTER_DARK, 0.3f);                         /* arms */
+    sheet_rect(sh, f, 24, 22, 27, 34, SPITTER_DARK, 0.3f);
+    sheet_ellipse(sh, f, 16, 13, 6, 5, SPITTER_HIDE, 0.3f);                      /* head */
+    sheet_rect(sh, f, 13, 11, 15, 13, SPITTER_EYE, 0);
+    sheet_rect(sh, f, 17, 11, 19, 13, SPITTER_EYE, 0);
+
+    float sac = open ? 6.0f : 4.0f;
+    sheet_ellipse(sh, f, 16, 21, sac, sac * 0.8f, SPITTER_THROAT, 0.2f);
+    sheet_ellipse(sh, f, 16, 21, sac * 0.4f, sac * 0.3f, SPITTER_GLOW, 0);
+}
+
+/* Same frame order as the ghoul (EnemyFrame) */
+static void gen_spitter(Texture *tex) {
+    Sheet sh = sheet_alloc(tex, SPITTER_W, SPITTER_H, ENEMY_FRAME_COUNT);
+    spitter_body(&sh, ENEMY_FRAME_STAND, 0, false);
+    spitter_body(&sh, ENEMY_FRAME_WALK, 2, false);
+    spitter_body(&sh, ENEMY_FRAME_ATTACK, 1, true);
+    spitter_body(&sh, ENEMY_FRAME_PAIN, 0, false);
+    sheet_ellipse(&sh, ENEMY_FRAME_PAIN, 20, 26, 3, 3, GHOUL_BLOOD, 0.3f);
+
+    /* Corpse: a burst sac leaking green */
+    sheet_ellipse(&sh, ENEMY_FRAME_DEAD, 16, 38, 14, 2, SPITTER_THROAT, 0.4f);
+    sheet_ellipse(&sh, ENEMY_FRAME_DEAD, 15, 35, 11, 3, SPITTER_HIDE, 0.4f);
+    sheet_ellipse(&sh, ENEMY_FRAME_DEAD, 25, 34, 3, 3, SPITTER_HIDE, 0.3f);
 }
 
 /* --- Viewmodels: the held weapon, seen from behind; muzzle points
@@ -518,13 +559,13 @@ static void gen_projectiles(Texture *tex) {
 
 static const char *proctex_names[PTEX_COUNT] = {
     "concrete", "brick", "metal_panel", "metal_grate",
-    "rust", "floor_tile", "pipe", "barrel", "ghoul",
+    "rust", "floor_tile", "pipe", "barrel", "ghoul", "spitter",
     "view_pistol", "view_shotgun", "view_launcher", "projectiles"
 };
 
 static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
     gen_concrete, gen_brick, gen_metal_panel, gen_metal_grate,
-    gen_rust, gen_floor_tile, gen_pipe, gen_barrel, gen_ghoul,
+    gen_rust, gen_floor_tile, gen_pipe, gen_barrel, gen_ghoul, gen_spitter,
     gen_view_pistol, gen_view_shotgun, gen_view_launcher, gen_projectiles
 };
 

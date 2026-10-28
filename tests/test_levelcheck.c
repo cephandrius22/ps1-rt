@@ -70,6 +70,12 @@ TEST(test_check_over_budget) {
     ASSERT(strstr(report, "over budget") != NULL);
 }
 
+/* Any enemy type gets the same checks (here: the spitter) */
+TEST(test_check_floating_spitter) {
+    ASSERT_EQ_INT(check_level("spawn 0 0 0 0\nentity exit 3 0 3\nentity spitter 0 2 -3\n"), 1);
+    ASSERT(strstr(report, "spitter #1 is 2.00 m above the floor") != NULL);
+}
+
 int main(void) {
     TEST_SUITE("levelcheck");
     RUN_TEST(test_check_clean_level);
@@ -78,5 +84,6 @@ int main(void) {
     RUN_TEST(test_check_spawn_against_wall);
     RUN_TEST(test_check_floating_enemy);
     RUN_TEST(test_check_over_budget);
+    RUN_TEST(test_check_floating_spitter);
     TEST_REPORT();
 }

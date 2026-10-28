@@ -35,6 +35,7 @@ typedef enum {
     ENTITY_PROP,
     ENTITY_DECOR,         /* static sprite: barrels, candles, bodies */
     ENTITY_GHOUL,         /* melee enemy; AI lives in game/ai.c */
+    ENTITY_SPITTER,       /* ranged enemy (spits projectiles) */
     ENTITY_EXIT,          /* floor pad; touching it ends the level */
     ENTITY_PROJECTILE,    /* rockets, spit: spawned at runtime, moved by game/projectile.c */
     ENTITY_TYPE_COUNT

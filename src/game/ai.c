@@ -18,6 +18,20 @@ static const EnemyDef enemy_defs[ENTITY_TYPE_COUNT] = {
         .cooldown    = 0.8f,
         .pain_time   = 0.15f,
         .radius      = 0.4f,
+        .attack      = ATTACK_MELEE,
+    },
+    [ENTITY_SPITTER] = {
+        .speed       = 2.0f,
+        .sight_range = 22.0f,
+        .melee_range = 0.0f,
+        .windup      = 0.5f,
+        .cooldown    = 1.6f,
+        .pain_time   = 0.2f,
+        .radius      = 0.35f,
+        .attack      = ATTACK_PROJECTILE,
+        .projectile  = PROJECTILE_SPIT,
+        .preferred_range = 9.0f,
+        .muzzle_height = 1.0f,
     },
 };
 
@@ -88,8 +102,30 @@ static void chase(Entity *e, const EnemyDef *def, const Player *p,
     e->position = pos;
 }
 
+#define AIM_BELOW_EYE 0.4f /* ranged shots aim at the chest */
+
+/* Ranged attack: spit at the player's chest. Fired last: spawning may grow
+ * the entity list and move the shooter's Entity in memory. */
+static void spit(Scene *scene, int index, const EnemyDef *def, const Player *p) {
+    Vec3 from = vec3_add(scene->entities.items[index].position, vec3(0, def->muzzle_height, 0));
+    Vec3 target = vec3_sub(p->view.pos, vec3(0, AIM_BELOW_EYE, 0));
+    projectile_fire(scene, def->projectile, from, vec3_sub(target, from), index);
+}
+
+/* In range and in sight: the decision point for any attack */
+static bool can_attack(const Entity *e, const EnemyDef *def, const Player *p,
+                       const Scene *scene, float dist) {
+    if (!player_alive(p) || e->enemy.cooldown > 0) {
+        return false;
+    }
+    if (def->attack == ATTACK_MELEE) {
+        return dist <= def->melee_range;
+    }
+    return dist <= def->preferred_range && sees_player(e, def, p, scene);
+}
+
 static void tick_enemy(Entity *e, int index, const EnemyDef *def, Player *p,
-                       const Scene *scene, float dt, EventQueue *ev) {
+                       Scene *scene, float dt, EventQueue *ev) {
     e->enemy.state_time += dt;
     e->enemy.cooldown = fmaxf(e->enemy.cooldown - dt, 0.0f);
     float dist = flat_distance(e->position, p->view.pos);
@@ -111,27 +147,41 @@ static void tick_enemy(Entity *e, int index, const EnemyDef *def, Player *p,
         }
         return;
 
-    case ENEMY_CHASE:
-        if (dist <= def->melee_range && e->enemy.cooldown <= 0 && player_alive(p)) {
+    case ENEMY_CHASE: {
+        if (can_attack(e, def, p, scene, dist)) {
             enemy_set_state(e, ENEMY_ATTACK);
             push_event(ev, EV_ENEMY_ATTACK, e, index);
             return;
         }
-        if (dist > def->melee_range) {
+        /* Close in: melee until in reach; ranged until it has a clear
+         * shot within its preferred range */
+        bool in_position = def->attack == ATTACK_MELEE
+                         ? dist <= def->melee_range
+                         : dist <= def->preferred_range && sees_player(e, def, p, scene);
+        if (!in_position) {
             chase(e, def, p, scene, dt);
         }
         return;
+    }
 
     case ENEMY_ATTACK:
         if (e->enemy.state_time < def->windup) {
+            return;
+        }
+        e->enemy.cooldown = def->cooldown;
+        enemy_set_state(e, ENEMY_CHASE);
+
+        if (def->attack == ATTACK_PROJECTILE) {
+            /* No shooting through walls: lost sight during the windup */
+            if (sees_player(e, def, p, scene)) {
+                spit(scene, index, def, p);
+            }
             return;
         }
         /* Strike lands only if the player didn't back out of reach */
         if (dist <= def->reach) {
             player_damage(p, def->damage, ev);
         }
-        e->enemy.cooldown = def->cooldown;
-        enemy_set_state(e, ENEMY_CHASE);
         return;
     }
 }

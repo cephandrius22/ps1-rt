@@ -257,6 +257,13 @@ void audio_generate_sounds(Sound sounds[SND_COUNT]) {
     gen_blast(&sounds[SND_SHOTGUN_FIRE], (BlastTone){0.35f, 70.0f, 12.0f, 0.2f, 0.9f});
     gen_blast(&sounds[SND_EXPLOSION],    (BlastTone){1.20f, 45.0f, 3.5f,  0.8f, 1.0f});
     gen_rocket_launch(&sounds[SND_ROCKET_LAUNCH]);
+
+    /* Spitter: higher, wetter (more noise) than the ghoul */
+    gen_vocal(&sounds[SND_SPITTER_ALERT],  (VocalTone){0.50f, 180.0f, 140.0f, 0.30f, 0.55f, 0.6f});
+    gen_vocal(&sounds[SND_SPITTER_ATTACK], (VocalTone){0.35f, 260.0f, 380.0f, 0.15f, 0.70f, 0.7f});
+    gen_vocal(&sounds[SND_SPITTER_PAIN],   (VocalTone){0.20f, 420.0f, 300.0f, 0.15f, 0.40f, 0.6f});
+    gen_vocal(&sounds[SND_SPITTER_DEATH],  (VocalTone){0.80f, 240.0f, 60.0f,  0.35f, 0.60f, 0.8f});
+    gen_blast(&sounds[SND_SPIT_SPLAT], (BlastTone){0.25f, 160.0f, 18.0f, 0.5f, 0.6f});
 }
 
 void sound_free(Sound *s) {

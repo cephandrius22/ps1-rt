@@ -2,7 +2,7 @@
  * proctex.h — Procedural texture generation for industrial environments.
  *
  * Generates low-res textures (32x32 or 64x64) in code using hash-based noise.
- * No external image files needed. Sprite textures (barrel, ghoul) use the
+ * No external image files needed. Sprite textures (barrel, enemies) use the
  * TEXTURE_KEY color for empty pixels; sheets hold frames side by side.
  */
 #ifndef PROCTEX_H
@@ -19,7 +19,8 @@ typedef enum {
     PTEX_FLOOR_TILE,
     PTEX_PIPE,
     PTEX_BARREL,      /* sprite: 32x40, color-keyed */
-    PTEX_GHOUL,       /* sprite sheet: 5 frames of 32x48, color-keyed */
+    PTEX_GHOUL,       /* sprite sheet: 5 EnemyFrame frames of 32x48, color-keyed */
+    PTEX_SPITTER,     /* sprite sheet: 5 EnemyFrame frames of 32x40 */
     PTEX_VIEW_PISTOL, /* viewmodel sheet: 2 frames (ViewFrame) of 64x48 */
     PTEX_VIEW_SHOTGUN,
     PTEX_VIEW_LAUNCHER,
@@ -27,15 +28,15 @@ typedef enum {
     PTEX_COUNT
 } ProceduralTextureID;
 
-/* Ghoul sheet frame order (columns, left to right) */
+/* Enemy sheet frame order, shared by every enemy (columns, left to right) */
 typedef enum {
-    GHOUL_FRAME_STAND,
-    GHOUL_FRAME_WALK,
-    GHOUL_FRAME_ATTACK,
-    GHOUL_FRAME_PAIN,
-    GHOUL_FRAME_DEAD,
-    GHOUL_FRAME_COUNT
-} GhoulFrame;
+    ENEMY_FRAME_STAND,
+    ENEMY_FRAME_WALK,
+    ENEMY_FRAME_ATTACK,
+    ENEMY_FRAME_PAIN,
+    ENEMY_FRAME_DEAD,
+    ENEMY_FRAME_COUNT
+} EnemyFrame;
 
 /* Name a level or map uses for a texture, e.g. "brick" */
 const char *proctex_name(ProceduralTextureID id);

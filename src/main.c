@@ -90,6 +90,7 @@ static void play_event_effects(ScreenFx *fx, const EventQueue *events, const Gam
 #define DEBRIS_COUNT  24
 #define DEBRIS_SPEED  4.0f
 #define BLAST_SPARKS  16
+#define SPIT_SPLASH   10
 
 /* Presentation side of the event queue: blood, gibs and sparks. Particles
  * land at the player's floor height (levels are mostly flat). */
@@ -107,7 +108,10 @@ static void spawn_event_particles(ParticleSystem *ps, const EventQueue *events, 
         } else if (ev->type == EV_WEAPON_IMPACT) {
             particles_burst(ps, PARTICLE_BLOOD, ev->pos, vec3_mul(toward_eye, -1),
                             BLOOD_COUNT, BLOOD_SPEED, 0.6f, floor_y);
-        } else if (ev->type == EV_EXPLOSION && ev->amount > 0) {
+        } else if (ev->type == EV_EXPLOSION && ev->amount == 0) {
+            particles_burst(ps, PARTICLE_SPIT, ev->pos, toward_eye, SPIT_SPLASH,
+                            SPARK_SPEED, 1.0f, floor_y); /* no splash radius: a splat */
+        } else if (ev->type == EV_EXPLOSION) {
             particles_burst(ps, PARTICLE_DEBRIS, ev->pos, vec3(0, 1, 0), DEBRIS_COUNT,
                             DEBRIS_SPEED, 1.0f, floor_y);
             particles_burst(ps, PARTICLE_SPARK, ev->pos, vec3(0, 1, 0), BLAST_SPARKS,
@@ -127,6 +131,26 @@ static const SoundID weapon_fire_sounds[WEAPON_TYPE_COUNT] = {
     [WEAPON_LAUNCHER] = SND_ROCKET_LAUNCH,
 };
 
+/* Voice per enemy type, indexed by EntityType */
+typedef struct {
+    SoundID alert, attack, pain, death;
+} EnemySounds;
+
+static const EnemySounds enemy_sounds[ENTITY_TYPE_COUNT] = {
+    [ENTITY_GHOUL]   = {SND_ENEMY_ALERT, SND_ENEMY_ATTACK, SND_ENEMY_PAIN, SND_ENEMY_DEATH},
+    [ENTITY_SPITTER] = {SND_SPITTER_ALERT, SND_SPITTER_ATTACK, SND_SPITTER_PAIN, SND_SPITTER_DEATH},
+};
+
+static const EnemySounds *sounds_of(const Game *g, int entity) {
+    return &enemy_sounds[g->scene.entities.items[entity].type];
+}
+
+/* Rockets boom; spit splats (the event's entity is the spent projectile) */
+static SoundID burst_sound(const Game *g, int projectile) {
+    int kind = g->scene.entities.items[projectile].projectile.kind;
+    return kind == PROJECTILE_SPIT ? SND_SPIT_SPLAT : SND_EXPLOSION;
+}
+
 static void play_event_sounds(AudioSystem *audio, const EventQueue *events, const Game *g) {
     for (int i = 0; i < events->count; i++) {
         const GameEvent *ev = &events->items[i];
@@ -134,7 +158,7 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events, cons
         case EV_WEAPON_FIRED:
             audio_play(audio, weapon_fire_sounds[g->weapon.type], 0.8f);
             break;
-        case EV_EXPLOSION:     audio_play(audio, SND_EXPLOSION, 0.9f);    break;
+        case EV_EXPLOSION:     audio_play(audio, burst_sound(g, ev->entity), 0.9f); break;
         case EV_WEAPON_IMPACT: audio_play(audio, SND_WEAPON_IMPACT, 0.5f); break;
         case EV_WEAPON_EMPTY:  audio_play(audio, SND_DRY_FIRE, 0.6f);     break;
         case EV_FOOTSTEP:      audio_play(audio, SND_FOOTSTEP, 0.4f);     break;
@@ -144,10 +168,10 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events, cons
         case EV_DOOR_CLOSED:   audio_play(audio, SND_DOOR_CLOSE, 0.7f);   break;
         case EV_PLAYER_HURT:   audio_play(audio, SND_PLAYER_PAIN, 0.7f);  break;
         case EV_PLAYER_DIED:   audio_play(audio, SND_PLAYER_DEATH, 0.8f); break;
-        case EV_ENEMY_ALERT:   audio_play(audio, SND_ENEMY_ALERT, 0.7f);  break;
-        case EV_ENEMY_ATTACK:  audio_play(audio, SND_ENEMY_ATTACK, 0.7f); break;
-        case EV_ENEMY_PAIN:    audio_play(audio, SND_ENEMY_PAIN, 0.6f);   break;
-        case EV_ENEMY_DIED:    audio_play(audio, SND_ENEMY_DEATH, 0.8f);  break;
+        case EV_ENEMY_ALERT:   audio_play(audio, sounds_of(g, ev->entity)->alert, 0.7f);  break;
+        case EV_ENEMY_ATTACK:  audio_play(audio, sounds_of(g, ev->entity)->attack, 0.7f); break;
+        case EV_ENEMY_PAIN:    audio_play(audio, sounds_of(g, ev->entity)->pain, 0.6f);   break;
+        case EV_ENEMY_DIED:    audio_play(audio, sounds_of(g, ev->entity)->death, 0.8f);  break;
         case EV_LEVEL_EXIT:    audio_play(audio, SND_DOOR_OPEN, 0.8f);    break;
         }
     }

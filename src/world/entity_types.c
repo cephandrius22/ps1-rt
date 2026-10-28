@@ -5,7 +5,7 @@
  */
 #include "entity.h"
 #include "kv.h"
-#include "proctex.h" /* GhoulFrame: sprite sheet layout */
+#include "proctex.h" /* EnemyFrame: sprite sheet layout */
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
@@ -210,21 +210,18 @@ static void decor_sprite(const Entity *e, Sprite *out) {
     out->solidity = e->decor.solidity;
 }
 
-/* --- Ghoul: melee enemy sprite. Behavior (sight, chase, attack) is in
- * game/ai.c; here are its body, health and how it looks per state. --- */
+/* --- Enemies: shared body logic. Behavior (sight, chase, attack) is in
+ * game/ai.c; here are health, flinch/death, and frames per state. --- */
 
-#define GHOUL_HEALTH      60.0f
-#define GHOUL_WIDTH       1.0f
-#define GHOUL_HEIGHT      1.7f
-#define GHOUL_WALK_FPS    4.0f  /* stand/walk frame swaps per second */
+#define ENEMY_WALK_FPS    4.0f  /* stand/walk frame swaps per second */
 
-static void ghoul_spawn(Entity *e, const char *args) {
-    e->health = kv_float(args, "health", GHOUL_HEALTH);
+static void enemy_spawn(Entity *e, const char *args, float default_health) {
+    e->health = kv_float(args, "health", default_health);
     enemy_set_state(e, ENEMY_IDLE);
     e->enemy.cooldown = 0;
 }
 
-static DamageResult ghoul_damage(Entity *e, float amount) {
+static DamageResult enemy_damage(Entity *e, float amount) {
     if (e->enemy.state == ENEMY_DEAD) {
         return DAMAGE_IGNORED;
     }
@@ -239,33 +236,60 @@ static DamageResult ghoul_damage(Entity *e, float amount) {
     return DAMAGE_KILLED;
 }
 
-/* Frame from state; chasing alternates stand/walk. Corpses are ghosts. */
-static void ghoul_sprite(const Entity *e, Sprite *out) {
-    out->width = GHOUL_WIDTH;
-    out->height = GHOUL_HEIGHT;
-    out->frame_count = GHOUL_FRAME_COUNT;
+/* Frame from state (EnemyFrame sheet); chasing alternates stand/walk.
+ * Corpses are ghosts. */
+static void enemy_sprite(const Entity *e, Sprite *out, float width, float height) {
+    out->width = width;
+    out->height = height;
+    out->frame_count = ENEMY_FRAME_COUNT;
     out->solidity = SPRITE_SOLID;
 
     switch (e->enemy.state) {
     case ENEMY_IDLE:
-        out->frame = GHOUL_FRAME_STAND;
+        out->frame = ENEMY_FRAME_STAND;
         break;
     case ENEMY_CHASE: {
-        int step = (int)(e->enemy.state_time * GHOUL_WALK_FPS) % 2;
-        out->frame = step ? GHOUL_FRAME_WALK : GHOUL_FRAME_STAND;
+        int step = (int)(e->enemy.state_time * ENEMY_WALK_FPS) % 2;
+        out->frame = step ? ENEMY_FRAME_WALK : ENEMY_FRAME_STAND;
         break;
     }
     case ENEMY_ATTACK:
-        out->frame = GHOUL_FRAME_ATTACK;
+        out->frame = ENEMY_FRAME_ATTACK;
         break;
     case ENEMY_PAIN:
-        out->frame = GHOUL_FRAME_PAIN;
+        out->frame = ENEMY_FRAME_PAIN;
         break;
     case ENEMY_DEAD:
-        out->frame = GHOUL_FRAME_DEAD;
+        out->frame = ENEMY_FRAME_DEAD;
         out->solidity = SPRITE_GHOST;
         break;
     }
+}
+
+/* Ghoul: tall melee enemy */
+#define GHOUL_HEALTH  60.0f
+#define GHOUL_WIDTH   1.0f
+#define GHOUL_HEIGHT  1.7f
+
+static void ghoul_spawn(Entity *e, const char *args) {
+    enemy_spawn(e, args, GHOUL_HEALTH);
+}
+
+static void ghoul_sprite(const Entity *e, Sprite *out) {
+    enemy_sprite(e, out, GHOUL_WIDTH, GHOUL_HEIGHT);
+}
+
+/* Spitter: hunched ranged enemy */
+#define SPITTER_HEALTH  45.0f
+#define SPITTER_WIDTH   1.1f
+#define SPITTER_HEIGHT  1.4f
+
+static void spitter_spawn(Entity *e, const char *args) {
+    enemy_spawn(e, args, SPITTER_HEALTH);
+}
+
+static void spitter_sprite(const Entity *e, Sprite *out) {
+    enemy_sprite(e, out, SPITTER_WIDTH, SPITTER_HEIGHT);
 }
 
 /* --- Exit: glowing floor pad; stays put when touched --- */
@@ -336,6 +360,11 @@ static const EntityKey ghoul_keys[] = {
     {.type = KEY_END},
 };
 
+static const EntityKey spitter_keys[] = {
+    {"health", KEY_FLOAT, SPITTER_HEALTH, "Hit points (pistol does 25)", NULL},
+    {.type = KEY_END},
+};
+
 /* --- Table --- */
 
 static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
@@ -384,7 +413,13 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
         .name = "ghoul", .render = RENDER_SPRITE,
         .default_texture = "ghoul", .default_color = {1, 1, 1},
         .desc = "Melee enemy", .keys = ghoul_keys,
-        .spawn = ghoul_spawn, .damage = ghoul_damage, .sprite = ghoul_sprite,
+        .spawn = ghoul_spawn, .damage = enemy_damage, .sprite = ghoul_sprite,
+    },
+    [ENTITY_SPITTER] = {
+        .name = "spitter", .render = RENDER_SPRITE,
+        .default_texture = "spitter", .default_color = {1, 1, 1},
+        .desc = "Ranged enemy: keeps its distance, spits", .keys = spitter_keys,
+        .spawn = spitter_spawn, .damage = enemy_damage, .sprite = spitter_sprite,
     },
     [ENTITY_PROJECTILE] = {
         .name = "projectile", .render = RENDER_SPRITE, .runtime_only = true,

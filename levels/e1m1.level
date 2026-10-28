@@ -83,6 +83,9 @@ entity ghoul 0.5 0 -10
 entity ghoul -2 0 -17.5
 entity ghoul 12 0 -6.5
 entity ghoul -11 0 -6
+# Spitters: keep their distance in the long spaces
+entity spitter 10 0 -17
+entity spitter -13 0 -11
 # Exit pad at the end of the back passage, under a red glow
 entity exit 0 0 -19
 

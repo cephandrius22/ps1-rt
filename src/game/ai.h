@@ -1,5 +1,5 @@
 /*
- * ai.h — Enemy behavior: sight, chase, melee attack.
+ * ai.h — Enemy behavior: sight, chase, melee or ranged attack.
  *
  * World code stores each enemy's EnemyState and draws it; this module
  * decides transitions, once per game tick:
@@ -8,6 +8,10 @@
  *                           ^                   (strike if still in reach)
  *        any hit ──> PAIN ──┘ after pain_time
  *        health 0 ──> DEAD (corpse, stays)
+ *
+ * Ranged enemies stop approaching once they can see you within
+ * preferred_range; their "strike" is a projectile, fired only if they
+ * still see you when the windup ends.
  *
  * Behavior stats live in an EnemyDef table keyed by EntityType; health
  * is set at spawn by the world (entity_types.c).
@@ -18,6 +22,12 @@
 #include "scene.h"
 #include "player.h"
 #include "event.h"
+#include "projectile.h"
+
+typedef enum {
+    ATTACK_MELEE,
+    ATTACK_PROJECTILE,
+} EnemyAttack;
 
 typedef struct {
     float speed;        /* units per second while chasing */
@@ -29,6 +39,11 @@ typedef struct {
     float cooldown;     /* seconds after a strike before the next */
     float pain_time;    /* seconds stunned after a hit */
     float radius;       /* collision radius vs walls */
+
+    EnemyAttack attack;
+    ProjectileKind projectile;  /* ATTACK_PROJECTILE: what it fires */
+    float preferred_range;      /* ranged: hold position inside this if it sees you */
+    float muzzle_height;        /* ranged: shots leave this high above the feet */
 } EnemyDef;
 
 /* Behavior stats for an entity type, or NULL if it has no AI */

@@ -22,6 +22,7 @@ typedef enum {
     PARTICLE_GIB,
     PARTICLE_SPARK,
     PARTICLE_DEBRIS,
+    PARTICLE_SPIT,     /* green droplets where spit lands */
     PARTICLE_KIND_COUNT
 } ParticleKind;
 
