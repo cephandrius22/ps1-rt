@@ -31,7 +31,32 @@ int light_add(LightList *list, PointLight light) {
     return idx;
 }
 
-void light_update(LightList *list, float time) {
+int light_add_temporary(LightList *list, PointLight light, float ttl) {
+    light.ttl = ttl;
+    light.ttl_total = ttl;
+    return light_add(list, light);
+}
+
+/* Remove expired temporary lights: swap the last light into the hole */
+static void retire_expired(LightList *list, float dt) {
+    for (int i = 0; i < list->count;) {
+        PointLight *l = &list->items[i];
+        if (l->ttl_total <= 0) {
+            i++;
+            continue;
+        }
+        l->ttl -= dt;
+        if (l->ttl > 0) {
+            i++;
+            continue;
+        }
+        list->items[i] = list->items[--list->count];
+    }
+}
+
+void light_update(LightList *list, float time, float dt) {
+    retire_expired(list, dt);
+
     for (int i = 0; i < list->count; i++) {
         PointLight *l = &list->items[i];
         if (l->swing_speed <= 0) {
@@ -54,8 +79,12 @@ void light_update(LightList *list, float time) {
 }
 
 float light_effective_intensity(const PointLight *light, float time) {
+    float intensity = light->intensity;
+    if (light->ttl_total > 0) {
+        intensity *= light->ttl / light->ttl_total; /* linear fade-out */
+    }
     if (light->flicker_speed <= 0 || light->flicker_amount <= 0) {
-        return light->intensity;
+        return intensity;
     }
 
     /* Pseudo-random flicker using layered sine waves */
@@ -63,7 +92,7 @@ float light_effective_intensity(const PointLight *light, float time) {
             * sinf(time * light->flicker_speed * 15.7f + 1.3f)
             * sinf(time * light->flicker_speed * 3.1f + 2.7f);
     f = f * 0.5f + 0.5f; /* 0 to 1 */
-    return light->intensity * (1.0f - light->flicker_amount * f);
+    return intensity * (1.0f - light->flicker_amount * f);
 }
 
 float light_attenuation(const PointLight *light, float distance) {

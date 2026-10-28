@@ -272,6 +272,21 @@ TEST(test_game_weapon_pickup_switches) {
     game_free(&g);
 }
 
+/* A shot adds one temporary light that is gone a few ticks later */
+TEST(test_game_muzzle_flash) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    int lights = g.scene.lights.count;
+    PlayerCmd fire = {.buttons = BTN_ATTACK};
+    PlayerCmd idle = {0};
+
+    game_tick(&g, &fire);
+    ASSERT_EQ_INT(g.scene.lights.count, lights + 1);
+
+    run_ticks(&idle, 10);
+    ASSERT_EQ_INT(g.scene.lights.count, lights);
+    game_free(&g);
+}
+
 int main(void) {
     TEST_SUITE("game");
     RUN_TEST(test_game_init_spawns_player);
@@ -289,5 +304,6 @@ int main(void) {
     RUN_TEST(test_game_weapon_select);
     RUN_TEST(test_game_weapon_slot_impulse_once);
     RUN_TEST(test_game_weapon_pickup_switches);
+    RUN_TEST(test_game_muzzle_flash);
     TEST_REPORT();
 }

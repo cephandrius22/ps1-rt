@@ -166,10 +166,14 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
         col = sky_color(ray.dir);
     }
 
-    /* Light source billboards — draw visible glowing dots at light positions */
+    /* Light source billboards — draw visible glowing dots at lamp positions.
+     * Temporary lights (muzzle flashes, explosions) have no bulb to show. */
     float hit_t = rec.hit ? rec.t : 1000.0f;
     for (int i = 0; i < scene->lights.count; i++) {
         const PointLight *pl = &scene->lights.items[i];
+        if (pl->ttl_total > 0) {
+            continue;
+        }
         Vec3 to_light = vec3_sub(pl->position, ray.origin);
         float t_along = vec3_dot(to_light, ray.dir);
         if (t_along <= 0.1f || t_along >= hit_t) {

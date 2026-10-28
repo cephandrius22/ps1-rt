@@ -186,6 +186,28 @@ static void switch_to_new_weapons(Game *g, int first_event) {
     }
 }
 
+#define MUZZLE_FORWARD 0.5f /* flash this far in front of the eye, meters */
+
+/* Light the room for a moment when a shot leaves the barrel. No shadows:
+ * a shadowed light costs a ray per pixel, too much for a 0.06 s flash. */
+static void spawn_muzzle_flash(Game *g) {
+    const WeaponDef *def = weapon_def(g->weapon.type);
+    if (def->flash_intensity <= 0) {
+        return;
+    }
+
+    Pose view = game_view(g);
+    Vec3 ahead = pose_to_world_dir(view, vec3(0, 0, -1));
+    PointLight flash = {
+        .position = vec3_add(view.pos, vec3_mul(ahead, MUZZLE_FORWARD)),
+        .color = def->flash_color,
+        .intensity = def->flash_intensity,
+        .radius = def->flash_radius,
+        .cast_shadows = false,
+    };
+    light_add_temporary(&g->scene.lights, flash, def->flash_time);
+}
+
 static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     ai_update(&g->scene, &g->player, dt, &g->events);
 
@@ -201,6 +223,9 @@ static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     first_event = g->events.count;
     weapon_update(&g->weapon, cmd, game_view(g), &g->scene, dt,
                   &g->player.inv, &g->events);
+    if (g->weapon.fired_this_tick) {
+        spawn_muzzle_flash(g);
+    }
     resolve_impacts(g, first_event);
 
     if (!player_alive(&g->player)) {
@@ -233,7 +258,7 @@ void game_tick(Game *g, const PlayerCmd *cmd) {
 
     /* World first, so the player collides with this tick's entity poses */
     entity_update(&g->scene.entities, dt, g->time);
-    light_update(&g->scene.lights, g->time);
+    light_update(&g->scene.lights, g->time, dt);
     scene_rebuild_dynamic(&g->scene);
 
     switch (g->mode) {

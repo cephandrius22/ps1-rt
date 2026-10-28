@@ -51,6 +51,12 @@ typedef struct {
     AmmoType ammo;     /* pool drawn from; AMMO_NONE = unlimited */
     int ammo_per_shot;
     float switch_time; /* seconds to lower the old + raise this one */
+
+    /* Muzzle flash: a temporary light in front of the shooter */
+    Vec3 flash_color;
+    float flash_intensity;
+    float flash_radius;  /* meters */
+    float flash_time;    /* seconds; fades over this */
 } WeaponDef;
 
 typedef struct {

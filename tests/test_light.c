@@ -84,12 +84,12 @@ TEST(test_light_swing_updates_position) {
     light_add(&list, swing);
 
     /* At time 0, x swing is centered but z has phase offset */
-    light_update(&list, 0);
+    light_update(&list, 0, 0);
     ASSERT_NEAR(list.items[0].position.x, 0, 0.01f);
 
     /* Record initial position, then check it moves */
     Vec3 pos0 = list.items[0].position;
-    light_update(&list, 1.0f);
+    light_update(&list, 1.0f, 0);
     Vec3 pos1 = list.items[0].position;
     /* Should have moved from the initial position */
     float moved = vec3_length(vec3_sub(pos1, pos0));
@@ -114,10 +114,30 @@ TEST(test_light_no_swing_unchanged) {
     };
     light_add(&list, stationary);
 
-    light_update(&list, 5.0f);
+    light_update(&list, 5.0f, 0);
     ASSERT_NEAR(list.items[0].position.x, 5.0f, 1e-6f);
     ASSERT_NEAR(list.items[0].position.y, 3.0f, 1e-6f);
     ASSERT_NEAR(list.items[0].position.z, 7.0f, 1e-6f);
+
+    light_list_free(&list);
+}
+
+TEST(test_light_temporary_fades_and_expires) {
+    LightList list;
+    light_list_init(&list);
+    light_add(&list, (PointLight){.intensity = 1.0f, .radius = 5});
+    light_add_temporary(&list, (PointLight){.intensity = 4.0f, .radius = 5}, 0.1f);
+    light_add(&list, (PointLight){.intensity = 2.0f, .radius = 5});
+    ASSERT_EQ_INT(list.count, 3);
+
+    light_update(&list, 0, 0.05f);
+    ASSERT_EQ_INT(list.count, 3);
+    ASSERT_NEAR(light_effective_intensity(&list.items[1], 0), 2.0f, 1e-4f); /* half faded */
+
+    light_update(&list, 0, 0.06f);
+    ASSERT_EQ_INT(list.count, 2); /* expired and removed */
+    float total = list.items[0].intensity + list.items[1].intensity;
+    ASSERT_NEAR(total, 3.0f, 1e-6f); /* both permanent lights kept */
 
     light_list_free(&list);
 }
@@ -134,5 +154,6 @@ int main(void) {
     RUN_TEST(test_light_beyond_radius);
     RUN_TEST(test_light_swing_updates_position);
     RUN_TEST(test_light_no_swing_unchanged);
+    RUN_TEST(test_light_temporary_fades_and_expires);
     TEST_REPORT();
 }

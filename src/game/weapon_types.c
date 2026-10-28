@@ -18,6 +18,10 @@ static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
         .ammo        = AMMO_BULLETS,
         .ammo_per_shot = 1,
         .switch_time = 0.4f,
+        .flash_color = {1.0f, 0.8f, 0.45f},
+        .flash_intensity = 2.0f,
+        .flash_radius = 6.0f,
+        .flash_time = 0.06f,
     },
     [WEAPON_SHOTGUN] = {
         .name        = "shotgun",
@@ -32,6 +36,10 @@ static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
         .ammo        = AMMO_SHELLS,
         .ammo_per_shot = 1,
         .switch_time = 0.5f,
+        .flash_color = {1.0f, 0.75f, 0.4f},
+        .flash_intensity = 2.8f,
+        .flash_radius = 9.0f,
+        .flash_time = 0.09f,
     },
 };
 
