@@ -621,7 +621,11 @@ static bool read_entity(Lexer *lx, MapLoader *ml) {
             continue;
         }
         KeyValue *kv = &kvs.pairs[kvs.count++];
-        snprintf(kv->key, sizeof(kv->key), "%s", lx->tok);
+        int len = snprintf(kv->key, sizeof(kv->key), "%s", lx->tok);
+        if (len >= (int)sizeof(kv->key)) {
+            fprintf(stderr, "map: line %d: key '%s' cut to %d characters\n",
+                    lx->line, kv->key, MAP_KEY_MAX - 1);
+        }
         next_token(lx);
         snprintf(kv->value, sizeof(kv->value), "%s", lx->tok);
     }

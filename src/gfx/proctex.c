@@ -6,8 +6,10 @@
 
 /* --- Hash-based noise --- */
 
+/* Unsigned math: it must wrap, and signed overflow is undefined
+ * (GCC optimizes on it; textures would differ between compilers) */
 static uint32_t hash2d(int x, int y) {
-    uint32_t h = (uint32_t)(x * 374761393 + y * 668265263);
+    uint32_t h = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u;
     h = (h ^ (h >> 13)) * 1274126177;
     return h ^ (h >> 16);
 }
