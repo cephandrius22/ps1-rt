@@ -140,6 +140,7 @@
 {
 "classname" "light"
 "origin" "-160 -200 128"
+"targetname" "ambush"
 "intensity" "3"
 "radius" "440"
 "color" "1 0.85 0.5"
@@ -252,4 +253,28 @@
 {
 "classname" "exit"
 "origin" "0 232 48"
+}
+// Ambush: crossing to the exit stairs wakes two hidden ghouls by the spawn
+{
+"classname" "trigger_once"
+"target" "ambush"
+"message" "Behind you"
+{
+( 160 105 0 ) ( 160 104 0 ) ( 160 104 1 ) rt/trigger [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( -160 104 1 ) ( -160 104 0 ) ( -160 105 0 ) rt/trigger [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( -160 136 1 ) ( -160 136 0 ) ( -159 136 0 ) rt/trigger [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( -159 104 0 ) ( -160 104 0 ) ( -160 104 1 ) rt/trigger [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( -159 104 96 ) ( -160 104 96 ) ( -160 105 96 ) rt/trigger [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( -160 105 0 ) ( -160 104 0 ) ( -159 104 0 ) rt/trigger [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+}
+}
+{
+"classname" "ghoul"
+"origin" "-300 -150 0"
+"targetname" "ambush"
+}
+{
+"classname" "ghoul"
+"origin" "300 -150 0"
+"targetname" "ambush"
 }

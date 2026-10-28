@@ -14,6 +14,7 @@
 
 typedef struct {
     const Scene *scene;
+    NavGrid *nav;       /* the scene's, for route searches */
     FILE *out;
     int warnings;
 } Checker;
@@ -200,6 +201,29 @@ static void check_entities(Checker *c) {
     }
 }
 
+/* A walkable route from the spawn to every exit pad. Doors count as
+ * open (their keycards are checked by wiring); jumps don't count. */
+static void check_exits(Checker *c, const LevelInfo *info) {
+    bool stuck = inside_solid(c, info->spawn_pos);
+    if (stuck || nav_node_at(c->nav, info->spawn_pos) == NAV_NONE) {
+        return; /* spawn in a wall or over nothing: already reported */
+    }
+
+    const EntityList *list = &c->scene->entities;
+    for (int i = 0; i < list->count; i++) {
+        const Entity *e = &list->items[i];
+        if (entity_def(e->type)->touch_effect != TOUCH_EFFECT_EXIT) {
+            continue;
+        }
+        Vec3 waypoint;
+        if (!nav_next_waypoint(c->nav, info->spawn_pos, e->position, &waypoint)) {
+            char what[96];
+            snprintf(what, sizeof(what), "exit #%d can't be reached on foot from the spawn", i);
+            warn(c, what, e->position);
+        }
+    }
+}
+
 static void check_budget(Checker *c) {
     const Scene *s = c->scene;
     int tris = s->static_bvh.tri_count;
@@ -214,10 +238,11 @@ static void check_budget(Checker *c) {
     }
 }
 
-int level_check(const Scene *s, const LevelInfo *info, BodySize player, FILE *out) {
-    Checker c = {.scene = s, .out = out};
+int level_check(Scene *s, const LevelInfo *info, BodySize player, FILE *out) {
+    Checker c = {.scene = s, .nav = &s->nav, .out = out};
     check_spawn(&c, info, player);
     check_entities(&c);
+    check_exits(&c, info);
     check_budget(&c);
     return c.warnings;
 }

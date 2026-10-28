@@ -9,8 +9,10 @@
  *
  * Checks: spawn and exit present; player spawn and enemies not inside or
  * overlapping static geometry; a floor under the spawn and every enemy;
- * wiring (every target names something, every named door or monster is
- * targeted, every keycard a door needs is in the level); budget
+ * every exit pad reachable on foot from the spawn (nav grid; doors count
+ * as open, jumps don't count); wiring (every target names something,
+ * every named door or monster is targeted, every keycard a door needs
+ * is in the level); budget
  * (triangles, lights, sprites). Unknown names and keys are reported by
  * the loaders themselves.
  *
@@ -34,7 +36,8 @@ typedef struct {
     float height;
 } BodySize;
 
-/* Print warnings and a budget line to out. Returns the number of warnings. */
-int level_check(const Scene *s, const LevelInfo *info, BodySize player, FILE *out);
+/* Print warnings and a budget line to out. Returns the number of warnings.
+ * The scene is only read; its nav grid's search scratch is written. */
+int level_check(Scene *s, const LevelInfo *info, BodySize player, FILE *out);
 
 #endif

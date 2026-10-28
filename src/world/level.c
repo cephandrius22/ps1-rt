@@ -270,16 +270,18 @@ static void parse_entity(const char *line, LevelParser *p) {
     entity_add(&p->scene->entities, e);
 }
 
-/* brush <type> x1 y1 z1 x2 y2 z2 <mat> [key=value ...]: a box-shaped
- * brush entity, e.g. "brush func_door -1 0 -5 1 2.5 -4.8 rust" */
+/* brush <type> x1 y1 z1 x2 y2 z2 [mat] [key=value ...]: a box-shaped
+ * brush entity, e.g. "brush func_door -1 0 -5 1 2.5 -4.8 rust". Invisible
+ * types (triggers) need no material. */
 static void parse_brush(const char *line, LevelParser *p) {
     char type_str[32];
-    char mat_name[32];
+    char mat_name[32] = "";
     float x1, y1, z1, x2, y2, z2;
     if (sscanf(line, "brush %31s %f %f %f %f %f %f %31s", type_str,
-               &x1, &y1, &z1, &x2, &y2, &z2, mat_name) < 8) {
+               &x1, &y1, &z1, &x2, &y2, &z2, mat_name) < 7) {
         return;
     }
+    bool has_mat = mat_name[0] != '\0' && strchr(mat_name, '=') == NULL;
 
     EntityType type = entity_type_by_name(type_str);
     if (type == ENTITY_NONE || !entity_def(type)->brush) {
@@ -292,7 +294,9 @@ static void parse_brush(const char *line, LevelParser *p) {
     Vec3 hi = vec3(fmaxf(x1, x2), fmaxf(y1, y2), fmaxf(z1, z2));
     Mesh tris;
     mesh_init(&tris);
-    add_box_outer(&tris, lo, hi, find_mat(p, mat_name));
+    if (has_mat) {
+        add_box_outer(&tris, lo, hi, find_mat(p, mat_name));
+    }
     level_add_brush_entity(p->scene, type, lo, hi, &tris, line);
 }
 

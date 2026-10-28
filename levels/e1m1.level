@@ -35,9 +35,16 @@ box 7 0 -3 10 1.0 -1 dark_metal
 box 8 0 -3 10 1.5 -1 dark_metal
 
 # =====================
-# Side Corridor (west)
+# Side Corridor (west) — plain door; the blue keycard is inside
 # =====================
-room -15 0 -12 -8 3 -4 rust_wall floor_tile concrete
+box -14 0 -12.2 -8 4 -12 rust_wall
+box -14 0 -4 -8 4 -3.8 rust_wall
+box -8 0 -12.2 -7.8 4 -9 rust_wall
+box -8 0 -7 -7.8 4 -3.8 rust_wall
+box -8 2.5 -9 -7.8 4 -7 rust_wall
+box -14 3 -12 -8 3.2 -4 concrete
+brush func_door -7.95 0 -9 -7.85 2.5 -7 dark_metal
+brush trigger_once -7.5 0 -9 -6.5 2 -7 message="Something scratches behind the door"
 
 # Pipe running along ceiling
 box -14 2.5 -11 -9 2.8 -10.7 pipe_mat
@@ -47,9 +54,16 @@ box -14 2.5 -5.3 -9 2.8 -5 pipe_mat
 box -13 0.01 -9 -10 0.02 -7 grate
 
 # =====================
-# Storage Room (east)
+# Storage Room (east) — blue door; its button opens the exit gate
 # =====================
-room 8 0 -12 15 3.5 -5 dark_metal floor_tile dark_metal
+box 8 0 -12.2 14 4 -12 dark_metal
+box 8 0 -5 14 4 -4.8 dark_metal
+box 7.8 0 -12.2 8 4 -9 dark_metal
+box 7.8 0 -7 8 4 -4.8 dark_metal
+box 7.8 2.5 -9 8 4 -7 dark_metal
+box 8 3.5 -12 14 3.7 -5 dark_metal
+brush func_door 7.85 0 -9 7.95 2.5 -7 dark_metal key=blue
+brush func_button 13.8 1.0 -8.2 14 1.4 -7.8 rust_wall opens=side rot=-1.5708 lip=0.05 wait=-1 target=lockdown message="Somewhere a gate grinds open"
 
 # Crates
 box 9 0 -11 10.5 1.5 -9.5 rust_wall
@@ -57,9 +71,15 @@ box 10.5 0 -10 12 1 -8.5 rust_wall
 box 12.5 0 -11 14 2 -9 rust_wall
 
 # =====================
-# Back Passage
+# Back Passage — gate opened only by the storage button
 # =====================
-room -6 0 -20 6 3 -15 brick floor_tile concrete
+box -6 0 -15 -1 4 -14.8 brick
+box 1 0 -15 6 4 -14.8 brick
+box -1 2.5 -15 1 4 -14.8 brick
+box -6.2 0 -19 -6 4 -14.8 brick
+box 6 0 -19 6.2 4 -14.8 brick
+box -6 3 -19 6 3.2 -15 concrete
+brush func_door -1 0 -14.95 1 2.5 -14.85 dark_metal targetname=lockdown wait=-1
 
 # =====================
 # Entities
@@ -86,8 +106,13 @@ entity ghoul -11 0 -6
 # Spitters: keep their distance in the long spaces
 entity spitter 10 0 -17
 entity spitter -13 0 -11
+# Ambush: hidden until the storage button is pressed
+entity ghoul -10 0 -16 targetname=lockdown
+entity ghoul 11 0 -14 targetname=lockdown
+# Blue keycard at the far end of the side corridor
+entity keycard -12.5 0 -5 color=blue
 # Exit pad at the end of the back passage, under a red glow
-entity exit 0 0 -19
+entity exit 0 0 -18
 
 # =====================
 # Lights — sparse, sickly yellow, eerie
@@ -100,7 +125,8 @@ light 0 3.5 1 1.0 0.9 0.5 2.0 15.0 shadows=1 flicker_speed=1.5 flicker_amount=0.
 light 3 2.5 -3 1.0 0.8 0.3 1.8 10.0 shadows=1 flicker_speed=7.0 flicker_amount=0.6
 
 # Deep in main hall — single weak sickly light
-light -2 3.0 -13 0.9 0.8 0.4 1.5 12.0 shadows=1 flicker_speed=2.5 flicker_amount=0.3
+# It dies when the ambush springs
+light -2 3.0 -13 0.9 0.8 0.4 1.5 12.0 shadows=1 flicker_speed=2.5 flicker_amount=0.3 targetname=lockdown
 
 # Bare bulb on a string from the ceiling — slow, subtle swing
 light 0 3.0 -8 1.0 0.85 0.4 2.5 13.0 shadows=1 flicker_speed=6.0 flicker_amount=0.2 anchor_x=0 anchor_y=3.95 anchor_z=-8 cord=0.95 swing_speed=0.8 swing_angle=0.15
@@ -112,7 +138,7 @@ light -1 2.5 -17 0.8 0.9 0.5 1.5 10.0 shadows=1 flicker_speed=12.0 flicker_amoun
 light 11 2.8 -8 1.0 0.85 0.45 1.8 12.0 shadows=1 flicker_speed=4.0 flicker_amount=0.35 anchor_x=11 anchor_y=3.3 anchor_z=-8 cord=0.5 swing_speed=0.8 swing_angle=0.15
 
 # Exit — low red glow over the pad
-light 0 1.2 -19 1.0 0.1 0.05 2.0 6.0 flicker_speed=1.0 flicker_amount=0.2
+light 0 1.2 -18 1.0 0.1 0.05 2.0 6.0 flicker_speed=1.0 flicker_amount=0.2
 
 # Side corridor — almost nothing, just a faint glow
 light -11 2.2 -8 0.9 0.8 0.4 1.2 8.0 shadows=1 flicker_speed=3.0 flicker_amount=0.5

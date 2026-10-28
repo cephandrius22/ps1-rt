@@ -78,6 +78,15 @@ TEST(test_check_spitter_in_wall) {
     ASSERT(strstr(report, "spitter #1 overlaps a wall") != NULL);
 }
 
+/* An exit sealed in a box can't be walked to */
+TEST(test_check_exit_unreachable) {
+    const char *sealed = "spawn 0 0 0 0\nentity exit 3 0 3\n"
+                         "box 1.5 0 1.5 4.5 2.9 1.7 c\nbox 1.5 0 4.3 4.5 2.9 4.5 c\n"
+                         "box 1.5 0 1.7 1.7 2.9 4.3 c\nbox 4.3 0 1.7 4.5 2.9 4.3 c\n";
+    ASSERT_EQ_INT(check_level(sealed), 1);
+    ASSERT(strstr(report, "exit #0 can't be reached on foot from the spawn") != NULL);
+}
+
 /* Wiring: a target naming nothing, a named door nothing opens, a keyed
  * door whose keycard is missing */
 TEST(test_check_wiring) {
@@ -108,5 +117,6 @@ int main(void) {
     RUN_TEST(test_check_over_budget);
     RUN_TEST(test_check_spitter_in_wall);
     RUN_TEST(test_check_wiring);
+    RUN_TEST(test_check_exit_unreachable);
     TEST_REPORT();
 }
