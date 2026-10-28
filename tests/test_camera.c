@@ -60,6 +60,36 @@ TEST(test_camera_ray_yaw_rotates) {
     ASSERT(r90.dir.x < -0.5f);
 }
 
+/* camera_project() inverts camera_ray(): a point along pixel (x, y)'s
+ * ray lands back on (x, y) at that distance, for several poses */
+TEST(test_camera_project_roundtrip) {
+    float yaws[] = {0.0f, 0.7f, -2.0f};
+    float pitches[] = {0.0f, 0.4f, -0.3f};
+    int pixels[][2] = {{160, 120}, {10, 15}, {300, 220}, {57, 190}};
+
+    for (int c = 0; c < 3; c++) {
+        Camera cam = camera_create(vec3(1, 2, 3), yaws[c], pitches[c], 1.2f);
+        for (int k = 0; k < 4; k++) {
+            Ray r = camera_ray(&cam, pixels[k][0], pixels[k][1]);
+            Vec3 p = vec3_add(r.origin, vec3_mul(r.dir, 7.5f));
+            int x, y;
+            float dist;
+            ASSERT(camera_project(&cam, p, &x, &y, &dist));
+            ASSERT_EQ_INT(x, pixels[k][0]);
+            ASSERT_EQ_INT(y, pixels[k][1]);
+            ASSERT_NEAR(dist, 7.5f, 1e-3f);
+        }
+    }
+}
+
+TEST(test_camera_project_rejects_behind) {
+    Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
+    int x, y;
+    float dist;
+    ASSERT(!camera_project(&cam, vec3(0, 0, 5), &x, &y, &dist));   /* behind */
+    ASSERT(!camera_project(&cam, vec3(100, 0, -1), &x, &y, &dist)); /* off to the side */
+}
+
 int main(void) {
     TEST_SUITE("camera");
     RUN_TEST(test_camera_create);
@@ -67,5 +97,7 @@ int main(void) {
     RUN_TEST(test_camera_ray_is_normalized);
     RUN_TEST(test_camera_ray_corners_diverge);
     RUN_TEST(test_camera_ray_yaw_rotates);
+    RUN_TEST(test_camera_project_roundtrip);
+    RUN_TEST(test_camera_project_rejects_behind);
     TEST_REPORT();
 }

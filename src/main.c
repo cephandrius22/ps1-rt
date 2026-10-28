@@ -32,6 +32,7 @@
 #include "filewatch.h"
 #include "editor_export.h"
 #include "screenfx.h"
+#include "particles.h"
 #include "levelcheck.h"
 #include "mapfile.h"
 
@@ -65,6 +66,40 @@ static void play_event_effects(ScreenFx *fx, const EventQueue *events, const Gam
             break;
         default:
             break;
+        }
+    }
+}
+
+/* Particle bursts per event: count, speed (m/s), spread (0..1) */
+#define SPARK_COUNT   6
+#define SPARK_SPEED   2.5f
+#define BLOOD_COUNT   10
+#define BLOOD_SPEED   2.0f
+#define GIB_COUNT     10
+#define GIB_SPEED     3.0f
+#define GIB_BLOOD     16
+#define BODY_CENTER   0.9f  /* gibs burst from this high above an enemy's feet */
+
+/* Presentation side of the event queue: blood, gibs and sparks. Particles
+ * land at the player's floor height (levels are mostly flat). */
+static void spawn_event_particles(ParticleSystem *ps, const EventQueue *events, const Game *g) {
+    Vec3 eye = g->player.view.pos;
+    float floor_y = g->player.foot_y;
+
+    for (int i = 0; i < events->count; i++) {
+        const GameEvent *ev = &events->items[i];
+        Vec3 toward_eye = vec3_sub(eye, ev->pos);
+
+        if (ev->type == EV_WEAPON_IMPACT && ev->entity == ENTITY_INDEX_NONE) {
+            particles_burst(ps, PARTICLE_SPARK, ev->pos, toward_eye,
+                            SPARK_COUNT, SPARK_SPEED, 0.8f, floor_y);
+        } else if (ev->type == EV_WEAPON_IMPACT) {
+            particles_burst(ps, PARTICLE_BLOOD, ev->pos, vec3_mul(toward_eye, -1),
+                            BLOOD_COUNT, BLOOD_SPEED, 0.6f, floor_y);
+        } else if (ev->type == EV_ENEMY_DIED) {
+            Vec3 body = vec3_add(ev->pos, vec3(0, BODY_CENTER, 0));
+            particles_burst(ps, PARTICLE_GIB, body, vec3(0, 1, 0), GIB_COUNT, GIB_SPEED, 1.0f, floor_y);
+            particles_burst(ps, PARTICLE_BLOOD, body, vec3(0, 1, 0), GIB_BLOOD, GIB_SPEED, 1.0f, floor_y);
         }
     }
 }
@@ -251,6 +286,8 @@ int main(int argc, char *argv[]) {
     overlay_init(&hud);
     ViewAnim view_anim = {0};
     ScreenFx fx = {0};
+    static ParticleSystem particles;
+    particles_init(&particles, (uint32_t)SDL_GetTicks());
 
     /* Game owns the level, player and weapon (static: Scene is large) */
     static Game game;
@@ -311,6 +348,8 @@ int main(int argc, char *argv[]) {
         play_event_sounds(&audio, &game.events);
         play_event_effects(&fx, &game.events, &game);
         screenfx_update(&fx, dt);
+        spawn_event_particles(&particles, &game.events, &game);
+        particles_update(&particles, dt);
 
         /* Render with point lights and shadow rays (multithreaded) */
         /* Shake moves only what we see, never where shots go */
@@ -322,6 +361,7 @@ int main(int argc, char *argv[]) {
         Camera cam = camera_from_pose(view, VIEW_FOV);
         render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool,
                             game.player.flashlight_on);
+        particles_draw(&particles, &fb, &cam);
         OverlayState overlay = {
             .mode = overlay_mode(game.mode),
             .health = (int)ceilf(game.player.health),

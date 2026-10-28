@@ -67,11 +67,13 @@ typedef struct {
     Vec3 flashlight_dir;
 } RenderParams;
 
-static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
+/* Shade one pixel; writes its hit distance (RENDER_FAR for sky) to *depth */
+static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
                                 const Scene *scene, float time,
                                 const RenderParams *params) {
     Ray ray = camera_ray(cam, x, y);
-    HitRecord rec = scene_intersect(scene, ray, 0.001f, 1000.0f);
+    HitRecord rec = scene_intersect(scene, ray, 0.001f, RENDER_FAR);
+    *depth = rec.hit ? rec.t : RENDER_FAR;
 
     Vec3 col;
     if (rec.hit) {
@@ -168,7 +170,7 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
 
     /* Light source billboards — draw visible glowing dots at lamp positions.
      * Temporary lights (muzzle flashes, explosions) have no bulb to show. */
-    float hit_t = rec.hit ? rec.t : 1000.0f;
+    float hit_t = rec.hit ? rec.t : RENDER_FAR;
     for (int i = 0; i < scene->lights.count; i++) {
         const PointLight *pl = &scene->lights.items[i];
         if (pl->ttl_total > 0) {
@@ -210,8 +212,8 @@ static RenderParams make_render_params(const Scene *scene, const Camera *cam,
     RenderParams p = {
         .sun_dir   = vec3_normalize(vec3(0.5f, 1.0f, -0.3f)),
         .ambient   = AMBIENT_LIGHT,
-        .fog_start = 8.0f,
-        .fog_end   = 22.0f,
+        .fog_start = RENDER_FOG_START,
+        .fog_end   = RENDER_FOG_END,
         .fog_color = vec3(0.04f, 0.03f, 0.02f),
         .materials = scene->materials,
         .textures  = scene->textures,
@@ -250,7 +252,8 @@ void render_scene_lit(Framebuffer *fb, const Camera *cam, const Scene *scene,
 
     for (int y = 0; y < SCREEN_H; y++) {
         for (int x = 0; x < SCREEN_W; x++) {
-            fb->pixels[y * SCREEN_W + x] = shade_pixel_lit(x, y, cam, scene, time, &params);
+            int i = y * SCREEN_W + x;
+            fb->pixels[i] = shade_pixel_lit(x, y, &fb->depth[i], cam, scene, time, &params);
         }
     }
 }
@@ -271,8 +274,9 @@ static void render_chunk_func(void *arg) {
     RenderChunk *chunk = arg;
     for (int y = chunk->y_start; y < chunk->y_end; y++) {
         for (int x = 0; x < SCREEN_W; x++) {
-            chunk->fb->pixels[y * SCREEN_W + x] =
-                shade_pixel_lit(x, y, chunk->cam, chunk->scene,
+            int i = y * SCREEN_W + x;
+            chunk->fb->pixels[i] =
+                shade_pixel_lit(x, y, &chunk->fb->depth[i], chunk->cam, chunk->scene,
                                 chunk->time, &chunk->params);
         }
     }

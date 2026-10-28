@@ -18,3 +18,38 @@ Ray camera_ray(const Camera *cam, int px, int py) {
     Pose pose = {cam->position, cam->yaw, cam->pitch};
     return (Ray){cam->position, pose_to_world_dir(pose, vec3(ndc_x, ndc_y, -1.0f))};
 }
+
+#define CAMERA_NEAR 0.05f /* closer than this can't be projected sensibly */
+
+float camera_focal_px(const Camera *cam) {
+    return (SCREEN_H * 0.5f) / tanf(cam->fov * 0.5f);
+}
+
+bool camera_project(const Camera *cam, Vec3 p, int *px, int *py, float *dist) {
+    /* Into view space: undo yaw (about Y), then pitch (about X). This
+     * inverts pose_to_world_dir(), which applies pitch then yaw. */
+    Vec3 d = vec3_sub(p, cam->position);
+    float cy = cosf(-cam->yaw), sy = sinf(-cam->yaw);
+    Vec3 a = vec3(d.x * cy + d.z * sy, d.y, -d.x * sy + d.z * cy);
+    float cp = cosf(-cam->pitch), sp = sinf(-cam->pitch);
+    Vec3 v = vec3(a.x, a.y * cp - a.z * sp, a.y * sp + a.z * cp);
+    if (v.z > -CAMERA_NEAR) {
+        return false;
+    }
+
+    /* Same mapping as camera_ray(), solved for the pixel */
+    float aspect = (float)SCREEN_W / (float)SCREEN_H;
+    float half_fov = tanf(cam->fov * 0.5f);
+    float ndc_x = (v.x / -v.z) / (aspect * half_fov);
+    float ndc_y = (v.y / -v.z) / half_fov;
+    float fx = (ndc_x + 1.0f) * 0.5f * SCREEN_W;
+    float fy = (1.0f - ndc_y) * 0.5f * SCREEN_H;
+    if (fx < 0 || fx >= SCREEN_W || fy < 0 || fy >= SCREEN_H) {
+        return false;
+    }
+
+    *px = (int)fx;
+    *py = (int)fy;
+    *dist = vec3_length(d);
+    return true;
+}

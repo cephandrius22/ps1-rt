@@ -19,8 +19,15 @@
 /* Forward declare — full definition in scene.h */
 struct Scene;
 
+#define RENDER_FAR       1000.0f /* depth of sky pixels; max ray distance */
+#define RENDER_FOG_START 8.0f    /* fog begins (meters) */
+#define RENDER_FOG_END   22.0f   /* fully fogged */
+
+/* Color plus per-pixel distance from the eye (along the pixel's ray), so
+ * things drawn after the raytrace (particles) can hide behind walls */
 typedef struct {
     uint32_t pixels[SCREEN_W * SCREEN_H];
+    float depth[SCREEN_W * SCREEN_H];
 } Framebuffer;
 
 /* Pixels are ARGB 0xAARRGGBB; framebuffer_set ignores out-of-bounds */
