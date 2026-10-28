@@ -1,10 +1,12 @@
 #include "ai.h"
+#include "movement.h"
 #include <math.h>
 #include <stddef.h>
 
 #define ENEMY_EYE_HEIGHT  1.5f  /* sight rays start here above the feet */
-#define ENEMY_PROBE_KNEE  0.3f  /* wall probe heights above the feet */
-#define ENEMY_PROBE_WAIST 0.9f
+#define ENEMY_STEP        0.6f  /* same ledges the player can walk up */
+#define ENEMY_GRAVITY     18.0f
+#define ENEMY_GROUND_SEARCH 1.0f
 #define TRACE_EPS         0.001f
 
 static const EnemyDef enemy_defs[ENTITY_TYPE_COUNT] = {
@@ -18,6 +20,7 @@ static const EnemyDef enemy_defs[ENTITY_TYPE_COUNT] = {
         .cooldown    = 0.8f,
         .pain_time   = 0.15f,
         .radius      = 0.4f,
+        .height      = 1.7f,
         .attack      = ATTACK_MELEE,
     },
     [ENTITY_SPITTER] = {
@@ -28,6 +31,7 @@ static const EnemyDef enemy_defs[ENTITY_TYPE_COUNT] = {
         .cooldown    = 1.6f,
         .pain_time   = 0.2f,
         .radius      = 0.35f,
+        .height      = 1.4f,
         .attack      = ATTACK_PROJECTILE,
         .projectile  = PROJECTILE_SPIT,
         .preferred_range = 9.0f,
@@ -67,23 +71,8 @@ static bool sees_player(const Entity *e, const EnemyDef *def, const Player *p,
     return !scene_trace(scene, ray, TRACE_EPS, dist, TRACE_SOLID).hit;
 }
 
-/* Move along one axis, stopping radius short of anything solid */
-static Vec3 step_axis(Vec3 pos, Vec3 move, float radius, const Scene *scene) {
-    float len = vec3_length(move);
-    if (len < 1e-6f) {
-        return pos;
-    }
-
-    Vec3 dir = vec3_mul(move, 1.0f / len);
-    float heights[] = {ENEMY_PROBE_KNEE, ENEMY_PROBE_WAIST};
-    for (int i = 0; i < 2; i++) {
-        Ray ray = {vec3_add(pos, vec3(0, heights[i], 0)), dir};
-        HitRecord hit = scene_trace(scene, ray, TRACE_EPS, len + radius, TRACE_SOLID);
-        if (hit.hit) {
-            len = fminf(len, fmaxf(hit.t - radius, 0.0f));
-        }
-    }
-    return vec3_add(pos, vec3_mul(dir, len));
+static BodyShape enemy_shape(const EnemyDef *def) {
+    return (BodyShape){def->radius, def->height, ENEMY_STEP};
 }
 
 /* Walk straight at the player, sliding along walls axis by axis */
@@ -96,10 +85,22 @@ static void chase(Entity *e, const EnemyDef *def, const Player *p,
     }
 
     Vec3 move = vec3_mul(to, def->speed * dt / dist);
-    Vec3 pos = e->position;
-    pos = step_axis(pos, vec3(move.x, 0, 0), def->radius, scene);
-    pos = step_axis(pos, vec3(0, 0, move.z), def->radius, scene);
-    e->position = pos;
+    e->position = movement_slide(scene, e->position, move, enemy_shape(def));
+}
+
+/* Gravity and steps: stand on the ground under the feet (stepping up
+ * ledges lower than ENEMY_STEP), or fall toward it */
+static void settle(Entity *e, const Scene *scene, float dt) {
+    float fall = e->enemy.fall_speed * dt;
+    float ground = movement_ground(scene, e->position, ENEMY_STEP, ENEMY_GROUND_SEARCH + fall);
+
+    if (e->position.y - fall > ground) {
+        e->enemy.fall_speed += ENEMY_GRAVITY * dt;
+        e->position.y -= fall;
+        return;
+    }
+    e->position.y = ground;
+    e->enemy.fall_speed = 0;
 }
 
 #define AIM_BELOW_EYE 0.4f /* ranged shots aim at the chest */
@@ -194,6 +195,7 @@ void ai_update(Scene *scene, Player *player, float dt, EventQueue *ev) {
         if (!e->active || !def) {
             continue;
         }
+        settle(e, scene, dt);
         tick_enemy(e, i, def, player, scene, dt, ev);
     }
 }

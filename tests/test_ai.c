@@ -178,6 +178,17 @@ TEST(test_ai_spitter_needs_line_of_sight) {
     free_world();
 }
 
+/* Enemies fall onto the floor and chase across it */
+TEST(test_ai_enemy_falls_to_floor) {
+    build_world(false);
+    entity_add(&s.entities, entity_spawn(ENTITY_GHOUL, vec3(0, 3, -15), ""));
+    Player p = player_at_origin();
+    run_ai(&p, 120);
+    ASSERT_NEAR(s.entities.items[0].position.y, 0.0f, 1e-4f);
+    ASSERT_NEAR(s.entities.items[0].enemy.fall_speed, 0.0f, 1e-6f);
+    free_world();
+}
+
 int main(void) {
     TEST_SUITE("ai");
     RUN_TEST(test_ai_def_table);
@@ -185,6 +196,7 @@ int main(void) {
     RUN_TEST(test_ai_wall_blocks_sight);
     RUN_TEST(test_ai_attacks_in_reach);
     RUN_TEST(test_ai_pain_then_death);
+    RUN_TEST(test_ai_enemy_falls_to_floor);
     RUN_TEST(test_ai_spitter_holds_and_spits);
     RUN_TEST(test_ai_spitter_approaches_from_afar);
     RUN_TEST(test_ai_spitter_needs_line_of_sight);

@@ -1,15 +1,11 @@
 #include "player.h"
 #include "scene.h"
 #include "weapon.h"
+#include "movement.h"
 #include <math.h>
 
 #define PLAYER_TOUCH_MAX  8        /* entities touched per tick */
-#define GROUND_NONE       -1000.0f /* ground_check() result: nothing below */
-#define GROUND_MIN_NORMAL 0.5f     /* steeper surfaces are walls, not floor */
 #define GROUND_SNAP       0.1f     /* airborne once this far above ground */
-#define GROUND_PROBE_PAD  0.1f     /* extra lift on the ground probe origin */
-#define WALL_PROBE_KNEE   0.2f     /* knee probe height above feet */
-#define WALL_PROBE_HEAD   0.1f     /* head probe depth below top of body */
 
 Player player_create(Vec3 pos) {
     Player p;
@@ -26,65 +22,9 @@ Player player_create(Vec3 pos) {
 
 /* --- Collision --- */
 
-#define GROUND_SKIP_MAX 4     /* steep surfaces to look past for real ground */
-#define GROUND_SKIP_EPS 1e-3f
+static const BodyShape player_shape = {PLAYER_RADIUS, PLAYER_HEIGHT, STEP_HEIGHT};
 
-/* Height of walkable ground under head_pos, or GROUND_NONE. The ray
- * starts a step above the head so ledges up to STEP_HEIGHT are found.
- * Steep surfaces in the way are looked past: giving up at the first one
- * would report free fall over a perfectly good floor. */
-static float ground_check(Vec3 head_pos, const Scene *scene) {
-    Ray down = {vec3(head_pos.x, head_pos.y + STEP_HEIGHT + GROUND_PROBE_PAD, head_pos.z),
-                vec3(0, -1, 0)};
-    float t_min = 0.0f;
-    float t_max = PLAYER_HEIGHT + STEP_HEIGHT + 1.0f;
-
-    for (int i = 0; i < GROUND_SKIP_MAX; i++) {
-        HitRecord rec = scene_trace(scene, down, t_min, t_max, TRACE_SOLID);
-        if (!rec.hit) {
-            return GROUND_NONE;
-        }
-        if (rec.normal.y > GROUND_MIN_NORMAL) {
-            return rec.point.y;
-        }
-        t_min = rec.t + GROUND_SKIP_EPS;
-    }
-    return GROUND_NONE;
-}
-
-/* Move along one axis, stopping PLAYER_RADIUS short of walls. Probes at
- * knee, waist and head so low and overhanging obstacles both block.
- *
- *   head  ──>|
- *   waist ──>|  wall
- *   knee  ──>|
- */
-static Vec3 try_move_axis(Vec3 pos, Vec3 move, float foot_y, const Scene *scene) {
-    float move_len = vec3_length(move);
-    if (move_len < 1e-6f) {
-        return pos;
-    }
-
-    Vec3 move_dir = vec3_mul(move, 1.0f / move_len);
-    float check_dist = move_len + PLAYER_RADIUS;
-    float probe_heights[] = {
-        foot_y + WALL_PROBE_KNEE,
-        foot_y + PLAYER_HEIGHT * 0.5f,
-        foot_y + PLAYER_HEIGHT - WALL_PROBE_HEAD,
-    };
-
-    for (int i = 0; i < 3; i++) {
-        Ray ray = {vec3(pos.x, probe_heights[i], pos.z), move_dir};
-        HitRecord rec = scene_trace(scene, ray, 0.0f, check_dist, TRACE_SOLID);
-        if (!rec.hit) {
-            continue;
-        }
-        float allowed = fmaxf(rec.t - PLAYER_RADIUS, 0.0f);
-        move_len = fminf(move_len, allowed);
-    }
-
-    return vec3_add(pos, vec3_mul(move_dir, move_len));
-}
+#define GROUND_SEARCH 1.0f /* look this far below the feet for ground, plus the fall */
 
 /* --- Movement --- */
 
@@ -115,9 +55,12 @@ static Vec3 wish_dir(const Player *p, const PlayerCmd *cmd) {
 
 /* Integrate gravity and snap to ground; updates foot_y and on_ground */
 static void apply_vertical(Player *p, Vec3 pos, float dt, const Scene *scene) {
-    p->foot_y += p->velocity.y * dt;
+    /* Search from where the feet were, so a fast fall can't skip a floor */
+    float fall = p->velocity.y * dt;
+    Vec3 feet = vec3(pos.x, p->foot_y, pos.z);
+    float ground_y = movement_ground(scene, feet, STEP_HEIGHT, GROUND_SEARCH + fabsf(fall));
+    p->foot_y += fall;
 
-    float ground_y = ground_check(vec3(pos.x, p->foot_y + PLAYER_HEIGHT, pos.z), scene);
     if (p->foot_y > ground_y + GROUND_SNAP) {
         p->on_ground = false;
         return;
@@ -252,9 +195,9 @@ void player_update(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
 
     /* Slide along walls: resolve X and Z independently */
     Vec3 move = vec3_mul(wish_dir(p, cmd), PLAYER_SPEED * dt);
-    Vec3 pos = p->view.pos;
-    pos = try_move_axis(pos, vec3(move.x, 0, 0), p->foot_y, scene);
-    pos = try_move_axis(pos, vec3(0, 0, move.z), p->foot_y, scene);
+    Vec3 feet = movement_slide(scene, vec3(p->view.pos.x, p->foot_y, p->view.pos.z),
+                               move, player_shape);
+    Vec3 pos = vec3(feet.x, p->view.pos.y, feet.z);
 
     apply_vertical(p, pos, dt, scene);
     pos.y = p->foot_y + PLAYER_HEIGHT + PLAYER_EYE_OFFSET;

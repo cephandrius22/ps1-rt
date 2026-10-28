@@ -4,12 +4,12 @@
  * Runs after every load and hot reload; prints one line per problem with
  * the position in meters and in map units (to find it in TrenchBroom):
  *
- *   check: ghoul #2 is 0.80 m above the floor (enemies don't fall)
- *          at (1.00, 0.80, -4.00) m, map (32 128 26)
+ *   check: ghoul #2 overlaps a wall
+ *          at (1.00, 0.00, -4.00) m, map (32 128 0)
  *
  * Checks: spawn and exit present; player spawn and enemies not inside or
- * overlapping static geometry; a floor under the spawn; enemies standing
- * on a floor; budget (triangles, lights, sprites). Unknown names and keys
+ * overlapping static geometry; a floor under the spawn and every enemy;
+ * budget (triangles, lights, sprites). Unknown names and keys
  * are reported by the loaders themselves.
  *
  * Budgets come from measurements on the dev machine (Phase 1.5): frame

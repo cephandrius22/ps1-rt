@@ -55,10 +55,12 @@ TEST(test_check_spawn_against_wall) {
     ASSERT(strstr(report, "player spawn overlaps a wall") != NULL);
 }
 
-TEST(test_check_floating_enemy) {
-    ASSERT_EQ_INT(check_level("spawn 0 0 0 0\nentity exit 3 0 3\nentity ghoul 0 1 -3\n"), 1);
-    ASSERT(strstr(report, "ghoul #1 is 1.00 m above the floor") != NULL);
-    ASSERT(strstr(report, "map (0 96 32)") != NULL); /* position in TrenchBroom units */
+/* Enemies fall now: a raised one is fine; one over the void is not */
+TEST(test_check_enemy_floor) {
+    ASSERT_EQ_INT(check_level("spawn 0 0 0 0\nentity exit 3 0 3\nentity ghoul 0 1 -3\n"), 0);
+    ASSERT_EQ_INT(check_level("spawn 0 0 0 0\nentity exit 3 0 3\nentity ghoul 0 1 20\n"), 1);
+    ASSERT(strstr(report, "ghoul #1 has no floor below it") != NULL);
+    ASSERT(strstr(report, "map (0 -640 32)") != NULL); /* position in TrenchBroom units */
 }
 
 TEST(test_check_over_budget) {
@@ -70,10 +72,10 @@ TEST(test_check_over_budget) {
     ASSERT(strstr(report, "over budget") != NULL);
 }
 
-/* Any enemy type gets the same checks (here: the spitter) */
-TEST(test_check_floating_spitter) {
-    ASSERT_EQ_INT(check_level("spawn 0 0 0 0\nentity exit 3 0 3\nentity spitter 0 2 -3\n"), 1);
-    ASSERT(strstr(report, "spitter #1 is 2.00 m above the floor") != NULL);
+/* Any enemy type gets the same checks (here: the spitter in a wall) */
+TEST(test_check_spitter_in_wall) {
+    ASSERT_EQ_INT(check_level("spawn 0 0 0 0\nentity exit 3 0 3\nentity spitter 4.9 0 -3\n"), 1);
+    ASSERT(strstr(report, "spitter #1 overlaps a wall") != NULL);
 }
 
 int main(void) {
@@ -82,8 +84,8 @@ int main(void) {
     RUN_TEST(test_check_missing_spawn_and_exit);
     RUN_TEST(test_check_spawn_inside_box);
     RUN_TEST(test_check_spawn_against_wall);
-    RUN_TEST(test_check_floating_enemy);
+    RUN_TEST(test_check_enemy_floor);
     RUN_TEST(test_check_over_budget);
-    RUN_TEST(test_check_floating_spitter);
+    RUN_TEST(test_check_spitter_in_wall);
     TEST_REPORT();
 }

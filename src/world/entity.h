@@ -117,6 +117,7 @@ typedef struct {
             EnemyState state;
             float state_time; /* seconds in the current state */
             float cooldown;   /* seconds until it may attack again */
+            float fall_speed; /* m/s downward while airborne */
         } enemy;
         struct {
             int kind;         /* game's ProjectileKind; opaque to world code */

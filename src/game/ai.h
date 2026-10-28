@@ -39,6 +39,7 @@ typedef struct {
     float cooldown;     /* seconds after a strike before the next */
     float pain_time;    /* seconds stunned after a hit */
     float radius;       /* collision radius vs walls */
+    float height;       /* body height (matches the sprite) */
 
     EnemyAttack attack;
     ProjectileKind projectile;  /* ATTACK_PROJECTILE: what it fires */

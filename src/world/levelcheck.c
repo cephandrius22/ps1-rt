@@ -4,7 +4,6 @@
 
 #define FEET_LIFT        0.05f  /* start probes just above the feet */
 #define FLOOR_SEARCH     50.0f  /* max distance to probe up (ceiling) or down (floor) */
-#define ENEMY_FLOAT_TOL  0.15f  /* enemies this far above the floor count as floating */
 #define PROBE_DIRECTIONS 8      /* horizontal rays around a body */
 #define PROBE_REACH      0.9f   /* fraction of the radius probed: touching walls is fine */
 #define KNEE_FRACTION    0.2f   /* probe heights as fractions of body height */
@@ -101,13 +100,9 @@ static void check_enemy(Checker *c, const Entity *e, int index, const Sprite *sp
         warn(c, what, e->position);
     }
 
-    float gap = floor_gap(c, e->position);
-    if (gap == NO_FLOOR) {
+    /* Enemies fall onto whatever is below; only a bottomless drop is wrong */
+    if (floor_gap(c, e->position) == NO_FLOOR) {
         snprintf(what, sizeof(what), "%s #%d has no floor below it", def->name, index);
-        warn(c, what, e->position);
-    } else if (gap > ENEMY_FLOAT_TOL) {
-        snprintf(what, sizeof(what), "%s #%d is %.2f m above the floor (enemies don't fall)",
-                 def->name, index, gap);
         warn(c, what, e->position);
     }
 }
