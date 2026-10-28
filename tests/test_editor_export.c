@@ -75,11 +75,21 @@ TEST(test_fgd_string_keys) {
     ASSERT(strstr(fgd, "= weapon :") != NULL);
 }
 
+/* Brush types are solid classes; target keys get TrenchBroom's link types */
+TEST(test_fgd_brush_classes_and_links) {
+    generate_fgd();
+    ASSERT(strstr(fgd, "@SolidClass color(") != NULL);
+    ASSERT(strstr(fgd, "= func_door :") != NULL);
+    ASSERT(strstr(fgd, "\ttarget(target_destination)") != NULL);
+    ASSERT(strstr(fgd, "\ttargetname(target_source)") != NULL);
+}
+
 int main(void) {
     TEST_SUITE("editor_export");
     RUN_TEST(test_fgd_covers_entity_table);
     RUN_TEST(test_fgd_lengths_in_units);
     RUN_TEST(test_tga_roundtrip);
     RUN_TEST(test_fgd_string_keys);
+    RUN_TEST(test_fgd_brush_classes_and_links);
     TEST_REPORT();
 }

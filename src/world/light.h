@@ -14,6 +14,7 @@
 #include <stdbool.h>
 
 #define MAX_SHADOW_LIGHTS 4  /* max lights that cast shadow rays per pixel */
+#define LIGHT_NAME_MAX    32
 
 typedef struct {
     Vec3 position;
@@ -33,6 +34,10 @@ typedef struct {
     /* Temporary lights: removed when ttl runs out, fading meanwhile */
     float ttl;         /* seconds left; 0 = permanent */
     float ttl_total;   /* lifetime it started with (for the fade) */
+
+    /* Switchable: a trigger whose target is this name toggles it */
+    char targetname[LIGHT_NAME_MAX];
+    bool off;          /* gives no light (zero-init = on) */
 } PointLight;
 
 typedef struct {
@@ -51,7 +56,8 @@ int  light_add(LightList *list, PointLight light);
 int  light_add_temporary(LightList *list, PointLight light, float ttl);
 
 /* Light at pos with shared optional keys from a level line or map entity:
- * shadows, flicker_speed, flicker_amount, swing_speed, swing_angle, cord.
+ * shadows, flicker_speed, flicker_amount, swing_speed, swing_angle, cord,
+ * targetname, off (1 = starts switched off).
  * The swing anchor defaults to `cord` straight above pos. */
 PointLight light_from_keys(Vec3 pos, Vec3 color, float intensity, float radius,
                            const char *args);
@@ -61,7 +67,7 @@ PointLight light_from_keys(Vec3 pos, Vec3 color, float intensity, float radius,
 void light_update(LightList *list, float time, float dt);
 
 /* Get effective intensity for a light at a given time (applies flicker
- * and a temporary light's fade) */
+ * and a temporary light's fade; 0 when switched off) */
 float light_effective_intensity(const PointLight *light, float time);
 
 /* Compute attenuation factor based on distance and light radius */

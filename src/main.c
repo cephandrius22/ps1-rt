@@ -166,7 +166,9 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events, cons
         case EV_WEAPON_PICKUP: break; /* EV_PICKUP already plays the pickup sound */
         case EV_DOOR_OPENED:   audio_play(audio, SND_DOOR_OPEN, 0.7f);    break;
         case EV_DOOR_CLOSED:   audio_play(audio, SND_DOOR_CLOSE, 0.7f);   break;
-        case EV_DOOR_LOCKED:   audio_play(audio, SND_DOOR_LOCKED, 0.7f);  break;
+        case EV_LOCKED:        audio_play(audio, SND_DOOR_LOCKED, 0.7f);  break;
+        case EV_BUTTON_PRESSED: audio_play(audio, SND_SWITCH, 0.7f);      break;
+        case EV_TRIGGERED:     break; /* game.c shows its message */
         case EV_PLAYER_HURT:   audio_play(audio, SND_PLAYER_PAIN, 0.7f);  break;
         case EV_PLAYER_DIED:   audio_play(audio, SND_PLAYER_DEATH, 0.8f); break;
         case EV_ENEMY_ALERT:   audio_play(audio, sounds_of(g, ev->entity)->alert, 0.7f);  break;

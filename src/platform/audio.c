@@ -126,6 +126,20 @@ static void gen_door_locked(Sound *s) {
     }
 }
 
+/* Sharp metallic click: a fast-decaying high tone over a thud */
+static void gen_switch(Sound *s) {
+    *s = make_sound(AUDIO_SAMPLE_RATE, 0.12f);
+    if (!s->samples) {
+        return;
+    }
+    for (int i = 0; i < s->length; i++) {
+        float t = (float)i / s->sample_rate;
+        float click = sinf(t * 1800.0f * 6.28f) * expf(-t * 60.0f);
+        float thud = sinf(t * 140.0f * 6.28f) * expf(-t * 25.0f);
+        s->samples[i] = (int16_t)((click * 0.6f + thud * 0.5f) * 12000.0f);
+    }
+}
+
 static void gen_ambient(Sound *s) {
     *s = make_sound(AUDIO_SAMPLE_RATE, 3.0f);
     if (!s->samples) {
@@ -258,6 +272,7 @@ void audio_generate_sounds(Sound sounds[SND_COUNT]) {
     gen_door_open(&sounds[SND_DOOR_OPEN]);
     gen_door_close(&sounds[SND_DOOR_CLOSE]);
     gen_door_locked(&sounds[SND_DOOR_LOCKED]);
+    gen_switch(&sounds[SND_SWITCH]);
     gen_ambient(&sounds[SND_AMBIENT]);
     gen_dry_fire(&sounds[SND_DRY_FIRE]);
 

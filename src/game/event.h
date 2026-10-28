@@ -31,7 +31,9 @@ typedef enum {
     EV_WEAPON_PICKUP, /* pos = collector, entity = pickup, amount = 1 if newly owned */
     EV_DOOR_OPENED,   /* pos = door, entity = door */
     EV_DOOR_CLOSED,   /* pos = door, entity = door */
-    EV_DOOR_LOCKED,   /* pos = door, entity = door; used without its keycard */
+    EV_LOCKED,        /* pos/entity = door or button used without its keycard */
+    EV_BUTTON_PRESSED, /* pos/entity = the func_button */
+    EV_TRIGGERED,     /* pos/entity = trigger or button that fired its target */
     EV_PLAYER_HURT,   /* pos = player eye, amount = damage taken */
     EV_PLAYER_DIED,   /* pos = player eye, amount = final blow */
     EV_ENEMY_ALERT,   /* pos = enemy feet, entity = enemy; spotted the player */

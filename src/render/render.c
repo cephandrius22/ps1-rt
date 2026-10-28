@@ -106,7 +106,7 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
             Vec3 to_light = vec3_sub(pl->position, hit_pos);
             float dist = vec3_length(to_light);
 
-            if (dist >= pl->radius) {
+            if (pl->off || dist >= pl->radius) {
                 continue;
             }
 
@@ -173,7 +173,7 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
     float hit_t = rec.hit ? rec.t : RENDER_FAR;
     for (int i = 0; i < scene->lights.count; i++) {
         const PointLight *pl = &scene->lights.items[i];
-        if (pl->ttl_total > 0) {
+        if (pl->ttl_total > 0 || pl->off) {
             continue;
         }
         Vec3 to_light = vec3_sub(pl->position, ray.origin);

@@ -9,8 +9,10 @@
  *
  * Checks: spawn and exit present; player spawn and enemies not inside or
  * overlapping static geometry; a floor under the spawn and every enemy;
- * budget (triangles, lights, sprites). Unknown names and keys
- * are reported by the loaders themselves.
+ * wiring (every target names something, every named door or monster is
+ * targeted, every keycard a door needs is in the level); budget
+ * (triangles, lights, sprites). Unknown names and keys are reported by
+ * the loaders themselves.
  *
  * Budgets come from measurements on the dev machine (Phase 1.5): frame
  * time grows ~0.12 ms per light and ~0.11 ms per sprite; triangles are

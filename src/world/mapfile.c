@@ -464,6 +464,8 @@ static void entity_args(const KeyValues *kvs, const EntityDef *def, char *out, s
         if (meta && meta->type == KEY_LENGTH) {
             float meters = (float)atof(kv->value) / MAP_UNITS_PER_METER;
             len += (size_t)snprintf(out + len, size - len, "%s=%g ", kv->key, meters);
+        } else if (strchr(kv->value, ' ')) {
+            len += (size_t)snprintf(out + len, size - len, "%s=\"%s\" ", kv->key, kv->value);
         } else {
             len += (size_t)snprintf(out + len, size - len, "%s=%s ", kv->key, kv->value);
         }
@@ -478,7 +480,7 @@ static void entity_args(const KeyValues *kvs, const EntityDef *def, char *out, s
 
 static const char *light_keys[] = {
     "intensity", "radius", "color", "shadows", "flicker_speed", "flicker_amount",
-    "cord", "swing_speed", "swing_angle",
+    "cord", "swing_speed", "swing_angle", "targetname", "off",
 };
 
 static void warn_unknown_light_keys(const KeyValues *kvs) {
@@ -510,10 +512,11 @@ static void spawn_light(MapLoader *ml, const KeyValues *kvs, Vec3 pos) {
     char args[MAP_ARGS_MAX];
     float cord = (float)atof(kv_get(kvs, "cord", "0")) / MAP_UNITS_PER_METER;
     snprintf(args, sizeof(args), "shadows=%s flicker_speed=%s flicker_amount=%s "
-             "swing_speed=%s swing_angle=%s cord=%g",
+             "swing_speed=%s swing_angle=%s cord=%g off=%s targetname=%s",
              kv_get(kvs, "shadows", "0"), kv_get(kvs, "flicker_speed", "0"),
              kv_get(kvs, "flicker_amount", "0"), kv_get(kvs, "swing_speed", "0"),
-             kv_get(kvs, "swing_angle", "0"), cord);
+             kv_get(kvs, "swing_angle", "0"), cord, kv_get(kvs, "off", "0"),
+             kv_get(kvs, "targetname", ""));
 
     Vec3 color = vec3((float)rgb.x, (float)rgb.y, (float)rgb.z);
     light_add(&ml->scene->lights, light_from_keys(pos, color, intensity, radius, args));

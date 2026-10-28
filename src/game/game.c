@@ -134,6 +134,9 @@ const char *game_message(const Game *g) {
 }
 
 static void set_message(Game *g, const char *fmt, const char *arg) {
+    if (arg[0] == '\0') {
+        return;
+    }
     snprintf(g->message, sizeof(g->message), fmt, arg);
     g->message_time = GAME_MESSAGE_TIME;
 }
@@ -144,10 +147,12 @@ static void post_messages(Game *g, int first_event) {
         const GameEvent *ev = &g->events.items[i];
         const Entity *e = ev->entity >= 0 ? &g->scene.entities.items[ev->entity] : NULL;
 
-        if (ev->type == EV_DOOR_LOCKED) {
+        if (ev->type == EV_LOCKED) {
             set_message(g, "You need the %s keycard", e->mover.key);
         } else if (ev->type == EV_PICKUP && e->type == ENTITY_KEYCARD) {
             set_message(g, "Picked up the %s keycard", e->pickup.item);
+        } else if (ev->type == EV_TRIGGERED) {
+            set_message(g, "%s", e->message);
         }
     }
 }
@@ -309,12 +314,12 @@ void game_tick(Game *g, const PlayerCmd *cmd) {
     g->message_time = fmaxf(g->message_time - dt, 0.0f);
 
     /* World first, so the player collides with this tick's entity poses */
+    int first_event = g->events.count;
     entity_update(&g->scene.entities, dt, g->time);
     logic_update(&g->scene, &g->player, dt, &g->events);
     light_update(&g->scene.lights, g->time, dt);
     scene_rebuild_dynamic(&g->scene);
 
-    int first_event = g->events.count;
     switch (g->mode) {
     case GAME_PLAYING:
         tick_playing(g, cmd, dt);

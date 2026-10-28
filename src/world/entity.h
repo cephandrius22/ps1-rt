@@ -49,6 +49,9 @@ typedef enum {
     ENTITY_EXIT,          /* floor pad; touching it ends the level */
     ENTITY_PROJECTILE,    /* rockets, spit: spawned at runtime, moved by game/projectile.c */
     ENTITY_KEYCARD,       /* red/blue/yellow card; opens func_doors with key= */
+    ENTITY_BUTTON,        /* func_button: brush pressed with E; fires its target */
+    ENTITY_TRIGGER_ONCE,  /* invisible brush: fires its target when entered, once */
+    ENTITY_TRIGGER_MULTIPLE, /* same, again every `wait` seconds while inside */
     ENTITY_TYPE_COUNT
 } EntityType;
 
@@ -103,6 +106,7 @@ typedef enum {
 
 #define ENTITY_ITEM_MAX 16
 #define ENTITY_NAME_MAX 32
+#define ENTITY_MESSAGE_MAX 64
 #define PROJECTILE_OWNER_PLAYER (-2)
 
 typedef struct {
@@ -116,10 +120,12 @@ typedef struct {
     int model;        /* 1-based index into EntityMeshes.models; 0 = type template */
     Vec3 half_size;
 
-    /* Triggering, Quake-style: when this entity fires, every entity named
-     * `target` reacts (doors open, monsters appear). Any type may carry them. */
+    /* Triggering, Quake-style: when this entity fires, every entity (and
+     * light) named `target` reacts: doors open, hidden monsters appear,
+     * lights toggle; `message` shows on screen. Any type may carry them. */
     char target[ENTITY_NAME_MAX];
     char targetname[ENTITY_NAME_MAX];
+    char message[ENTITY_MESSAGE_MAX];
 
     /* Type-specific data */
     union {
@@ -137,7 +143,11 @@ typedef struct {
             float timer;      /* seconds spent open */
             char key[ENTITY_ITEM_MAX]; /* keycard needed ("red"), "" = none */
             bool nav_closed;  /* game/logic.c: the nav grid has it marked shut */
-        } mover;
+        } mover;          /* func_door, func_button */
+        struct {
+            float wait;       /* seconds before it can fire again; < 0 = once */
+            float cooldown;   /* seconds until it re-arms */
+        } trigger;
         struct {
             float width;
             float height;

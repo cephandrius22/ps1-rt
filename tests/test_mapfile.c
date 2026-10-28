@@ -138,13 +138,21 @@ TEST(test_map_brush_entity) {
           "\"speed\" \"64\"\n\"key\" \"red\"\n", f);
     write_box_brush(f, 0, 0, 0, 64, 8, 96, tex);
     fputs("}\n", f);
+
+    /* Trigger: all faces "trigger" (no triangles), a spaced message */
+    const char *trig[6] = {"trigger", "trigger", "trigger", "trigger", "trigger", "trigger"};
+    fputs("{\n\"classname\" \"trigger_once\"\n\"target\" \"lamp\"\n"
+          "\"message\" \"Lights out\"\n", f);
+    write_box_brush(f, 0, 32, 0, 64, 96, 64, trig);
+    fputs("}\n{\n\"classname\" \"light\"\n\"origin\" \"0 0 96\"\n"
+          "\"targetname\" \"lamp\"\n\"off\" \"1\"\n}\n", f);
     fclose(f);
 
     Scene door_scene;
     scene_init(&door_scene);
     ASSERT_EQ_INT(mapfile_load(&door_scene, DOOR_MAP, &info), 0);
     remove(DOOR_MAP);
-    ASSERT_EQ_INT(door_scene.entities.count, 1);
+    ASSERT_EQ_INT(door_scene.entities.count, 2);
 
     const Entity *door = &door_scene.entities.items[0];
     ASSERT_EQ_INT(door->type, ENTITY_DOOR);
@@ -156,6 +164,13 @@ TEST(test_map_brush_entity) {
     ASSERT_NEAR(door->mover.dir.x, 1.0f, 1e-4f);   /* angle 0 = east = +X */
     ASSERT_NEAR(door->mover.speed, 2.0f, 1e-4f);
     ASSERT(strcmp(door->mover.key, "red") == 0);
+
+    const Entity *trigger = &door_scene.entities.items[1];
+    ASSERT_EQ_INT(trigger->model, 0);                  /* invisible: bounds only */
+    ASSERT_NEAR(trigger->half_size.x, 1.0f, 1e-4f);
+    ASSERT(strcmp(trigger->message, "Lights out") == 0);
+    ASSERT(strcmp(door_scene.lights.items[0].targetname, "lamp") == 0);
+    ASSERT(door_scene.lights.items[0].off);
     scene_free(&door_scene);
 }
 

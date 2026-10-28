@@ -78,6 +78,26 @@ TEST(test_check_spitter_in_wall) {
     ASSERT(strstr(report, "spitter #1 overlaps a wall") != NULL);
 }
 
+/* Wiring: a target naming nothing, a named door nothing opens, a keyed
+ * door whose keycard is missing */
+TEST(test_check_wiring) {
+    const char *ok = "spawn 0 0 0 0\nentity exit 3 0 3\n"
+                     "brush trigger_once -1 0 1 1 2 2 c target=gate\n"
+                     "brush func_door -1 0 -5 1 2.5 -4.8 c targetname=gate\n"
+                     "brush func_door 2 0 -5 4 2.5 -4.8 c key=red\n"
+                     "entity keycard 0 0 2 color=red\n";
+    ASSERT_EQ_INT(check_level(ok), 0);
+
+    const char *bad = "spawn 0 0 0 0\nentity exit 3 0 3\n"
+                      "brush trigger_once -1 0 1 1 2 2 c target=gaet\n"
+                      "brush func_door -1 0 -5 1 2.5 -4.8 c targetname=gate\n"
+                      "brush func_door 2 0 -5 4 2.5 -4.8 c key=blue\n";
+    ASSERT_EQ_INT(check_level(bad), 3);
+    ASSERT(strstr(report, "trigger_once #1 targets 'gaet', but nothing has that name") != NULL);
+    ASSERT(strstr(report, "func_door #2 is named 'gate', but nothing targets it") != NULL);
+    ASSERT(strstr(report, "func_door #3 needs the blue keycard, but the level has none") != NULL);
+}
+
 int main(void) {
     TEST_SUITE("levelcheck");
     RUN_TEST(test_check_clean_level);
@@ -87,5 +107,6 @@ int main(void) {
     RUN_TEST(test_check_enemy_floor);
     RUN_TEST(test_check_over_budget);
     RUN_TEST(test_check_spitter_in_wall);
+    RUN_TEST(test_check_wiring);
     TEST_REPORT();
 }

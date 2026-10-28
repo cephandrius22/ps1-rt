@@ -79,6 +79,9 @@ void light_update(LightList *list, float time, float dt) {
 }
 
 float light_effective_intensity(const PointLight *light, float time) {
+    if (light->off) {
+        return 0;
+    }
     float intensity = light->intensity;
     if (light->ttl_total > 0) {
         intensity *= light->ttl / light->ttl_total; /* linear fade-out */
@@ -109,7 +112,7 @@ float light_attenuation(const PointLight *light, float distance) {
 PointLight light_from_keys(Vec3 pos, Vec3 color, float intensity, float radius,
                            const char *args) {
     float cord = kv_float(args, "cord", 0);
-    return (PointLight){
+    PointLight light = {
         .position = pos,
         .color = color,
         .intensity = intensity,
@@ -121,5 +124,8 @@ PointLight light_from_keys(Vec3 pos, Vec3 color, float intensity, float radius,
         .cord_length = cord,
         .swing_speed = kv_float(args, "swing_speed", 0),
         .swing_angle = kv_float(args, "swing_angle", 0),
+        .off = kv_int(args, "off", 0) != 0,
     };
+    kv_string(args, "targetname", light.targetname, sizeof(light.targetname));
+    return light;
 }

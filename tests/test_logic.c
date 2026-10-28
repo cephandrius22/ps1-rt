@@ -1,4 +1,5 @@
 #include "test_framework.h"
+#include <string.h>
 #include "logic.h"
 #include "ai.h"
 
@@ -96,11 +97,74 @@ TEST(test_logic_keycard_opens_keyed_door) {
 
     logic_use(&s, &p, &ev);
     ASSERT_EQ_INT(door(d)->mover.state, MOVER_CLOSED);
-    ASSERT(has_event(EV_DOOR_LOCKED));
+    ASSERT(has_event(EV_LOCKED));
 
     inventory_give_keycard(&p.inv, KEYCARD_RED);
     logic_use(&s, &p, &ev);
     ASSERT_EQ_INT(door(d)->mover.state, MOVER_OPENING);
+    free_world();
+}
+
+/* trigger_once over the player's path: fires the named door, shows its
+ * message once, then is spent */
+TEST(test_logic_trigger_once_opens_named_door) {
+    int d = build_world("targetname=gate");
+    Entity trig = entity_spawn_brush(ENTITY_TRIGGER_ONCE, vec3(0, 1, 2), vec3(2, 1, 0.5f),
+                                     "target=gate message=\"The gate grinds open\"");
+    int t = entity_add(&s.entities, trig);
+
+    Player outside = player_at(vec3(0, 0, 5));
+    run(&outside, TICK);
+    ASSERT_EQ_INT(door(d)->mover.state, MOVER_CLOSED);
+
+    Player inside = player_at(vec3(0, 0, 2));
+    run(&inside, TICK);
+    ASSERT_EQ_INT(door(d)->mover.state, MOVER_OPENING);
+    ASSERT(has_event(EV_TRIGGERED));
+    ASSERT(!s.entities.items[t].active);
+    ASSERT(strcmp(s.entities.items[t].message, "The gate grinds open") == 0);
+    free_world();
+}
+
+/* trigger_multiple fires again only after its wait */
+TEST(test_logic_trigger_multiple_rearms) {
+    build_world("");
+    int t = entity_add(&s.entities, entity_spawn_brush(ENTITY_TRIGGER_MULTIPLE, vec3(0, 1, 2),
+                                                       vec3(2, 1, 0.5f), "wait=0.5"));
+    Player inside = player_at(vec3(0, 0, 2));
+    int fired = 0;
+    for (int i = 0; i < 60; i++) {   /* one second inside */
+        events_clear(&ev);
+        logic_update(&s, &inside, TICK, &ev);
+        fired += has_event(EV_TRIGGERED);
+    }
+    ASSERT_EQ_INT(fired, 2);
+    ASSERT(s.entities.items[t].active);
+    free_world();
+}
+
+/* Button: E presses it, its target fires (hidden monster appears, a
+ * light toggles), then it pops back */
+TEST(test_logic_button_fires_target) {
+    build_world("");
+    s.entities.items[0].active = false; /* door out of the way */
+    Entity button = entity_spawn_brush(ENTITY_BUTTON, vec3(0, 1.2f, -1.5f),
+                                       vec3(0.2f, 0.2f, 0.1f), "target=ambush wait=0.5");
+    int b = entity_add(&s.entities, button);
+    int ghoul = entity_add(&s.entities, entity_spawn(ENTITY_GHOUL, vec3(5, 0, -5),
+                                                     "targetname=ambush"));
+    light_add(&s.lights, light_from_keys(vec3(0, 2, 0), vec3(1, 1, 1), 1, 5, "targetname=ambush"));
+    ASSERT(!s.entities.items[ghoul].active); /* named: waits hidden */
+
+    Player p = player_at(vec3(0, 0, 0));
+    logic_use(&s, &p, &ev);
+    ASSERT(has_event(EV_BUTTON_PRESSED));
+    ASSERT(s.entities.items[ghoul].active);
+    ASSERT_EQ_INT(s.entities.items[ghoul].enemy.state, ENEMY_CHASE);
+    ASSERT(s.lights.items[0].off);
+
+    run(&p, 2.0f);
+    ASSERT_EQ_INT(s.entities.items[b].mover.state, MOVER_CLOSED);
     free_world();
 }
 
@@ -168,6 +232,9 @@ int main(void) {
     RUN_TEST(test_logic_locked_doors_ignore_use);
     RUN_TEST(test_logic_keycard_opens_keyed_door);
     RUN_TEST(test_logic_door_reverses_on_player);
+    RUN_TEST(test_logic_trigger_once_opens_named_door);
+    RUN_TEST(test_logic_trigger_multiple_rearms);
+    RUN_TEST(test_logic_button_fires_target);
     RUN_TEST(test_logic_monsters_open_plain_doors);
     RUN_TEST(test_logic_closed_door_muffles);
     TEST_REPORT();

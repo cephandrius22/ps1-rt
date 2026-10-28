@@ -1,6 +1,7 @@
 #include "levelcheck.h"
 #include "mapfile.h"
 #include <math.h>
+#include <string.h>
 
 #define FEET_LIFT        0.05f  /* start probes just above the feet */
 #define FLOOR_SEARCH     50.0f  /* max distance to probe up (ceiling) or down (floor) */
@@ -107,6 +108,76 @@ static void check_enemy(Checker *c, const Entity *e, int index, const Sprite *sp
     }
 }
 
+/* --- Wiring: target / targetname / key --- */
+
+static bool entity_named(const EntityList *list, const char *name) {
+    for (int i = 0; i < list->count; i++) {
+        if (strcmp(list->items[i].targetname, name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool light_named(const LightList *lights, const char *name) {
+    for (int i = 0; i < lights->count; i++) {
+        if (strcmp(lights->items[i].targetname, name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool targeted(const EntityList *list, const char *name) {
+    for (int i = 0; i < list->count; i++) {
+        if (strcmp(list->items[i].target, name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool keycard_placed(const EntityList *list, const char *color) {
+    for (int i = 0; i < list->count; i++) {
+        const Entity *e = &list->items[i];
+        bool card = entity_def(e->type)->touch_effect == TOUCH_EFFECT_KEYCARD;
+        if (card && strcmp(e->pickup.item, color) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Mistakes that leave a level unwinnable or a trap that never springs */
+static void check_wiring(Checker *c, int i) {
+    const EntityList *list = &c->scene->entities;
+    const Entity *e = &list->items[i];
+    const EntityDef *def = entity_def(e->type);
+    char what[160];
+
+    bool dangling = e->target[0] && !entity_named(list, e->target) &&
+                    !light_named(&c->scene->lights, e->target);
+    if (dangling) {
+        snprintf(what, sizeof(what), "%s #%d targets '%s', but nothing has that name",
+                 def->name, i, e->target);
+        warn(c, what, e->position);
+    }
+
+    if (e->targetname[0] && !targeted(list, e->targetname)) {
+        snprintf(what, sizeof(what), "%s #%d is named '%s', but nothing targets it",
+                 def->name, i, e->targetname);
+        warn(c, what, e->position);
+    }
+
+    /* Types with a key= read it into mover.key (doors, buttons) */
+    bool keyed = entity_key(def, "key") && e->mover.key[0];
+    if (keyed && !keycard_placed(list, e->mover.key)) {
+        snprintf(what, sizeof(what), "%s #%d needs the %s keycard, but the level has none",
+                 def->name, i, e->mover.key);
+        warn(c, what, e->position);
+    }
+}
+
 static void check_entities(Checker *c) {
     const EntityList *list = &c->scene->entities;
     bool has_exit = false;
@@ -115,6 +186,7 @@ static void check_entities(Checker *c) {
         const Entity *e = &list->items[i];
         const EntityDef *def = entity_def(e->type);
         has_exit |= def->touch_effect == TOUCH_EFFECT_EXIT;
+        check_wiring(c, i);
         if (!def->damage || !def->sprite) {
             continue;
         }

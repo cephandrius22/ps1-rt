@@ -1,4 +1,5 @@
 #include "test_framework.h"
+#include <string.h>
 #include "light.h"
 
 TEST(test_light_list_init) {
@@ -142,6 +143,18 @@ TEST(test_light_temporary_fades_and_expires) {
     light_list_free(&list);
 }
 
+/* Switchable lights: named, optionally starting off; off gives nothing */
+TEST(test_light_keys_name_and_off) {
+    PointLight l = light_from_keys(vec3(0, 2, 0), vec3(1, 1, 1), 2.0f, 8.0f,
+                                   "targetname=hall off=1");
+    ASSERT(strcmp(l.targetname, "hall") == 0);
+    ASSERT(l.off);
+    ASSERT_NEAR(light_effective_intensity(&l, 0), 0.0f, 1e-6f);
+
+    l.off = false;
+    ASSERT_NEAR(light_effective_intensity(&l, 0), 2.0f, 1e-6f);
+}
+
 int main(void) {
     TEST_SUITE("light");
     RUN_TEST(test_light_list_init);
@@ -155,5 +168,6 @@ int main(void) {
     RUN_TEST(test_light_swing_updates_position);
     RUN_TEST(test_light_no_swing_unchanged);
     RUN_TEST(test_light_temporary_fades_and_expires);
+    RUN_TEST(test_light_keys_name_and_off);
     TEST_REPORT();
 }

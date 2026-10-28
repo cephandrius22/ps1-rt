@@ -127,14 +127,19 @@ static void weapon_pickup_mesh(Mesh *m) {
     make_box_mesh(m, vec3(-hl, -hh, -hd), vec3(hl, hh, hd));
 }
 
-/* --- Doors (func_door): brushes that slide open along one axis. Doom
- * style by default: up into the ceiling. game/logic.c opens and closes
- * them; here is only their shape and pose. --- */
+/* --- Movers (func_door, func_button): brushes that slide along one
+ * axis. Doors default to Doom style, up into the ceiling; buttons sink
+ * into the wall along the angle arrow. game/logic.c moves them; here is
+ * only their shape and pose. --- */
 
-#define DOOR_SPEED_DEF  2.5f   /* m/s */
-#define DOOR_WAIT_DEF   4.0f   /* seconds open before closing */
-#define DOOR_LIP_DEF    0.125f /* meters left showing when fully open */
-#define DOOR_OPENS_DEF  "up"
+#define DOOR_SPEED_DEF    2.5f   /* m/s */
+#define DOOR_WAIT_DEF     4.0f   /* seconds open before closing */
+#define DOOR_LIP_DEF      0.125f /* meters left showing when fully open */
+#define DOOR_OPENS_DEF    "up"
+#define BUTTON_SPEED_DEF  1.0f
+#define BUTTON_WAIT_DEF   1.0f   /* seconds pressed before popping back */
+#define BUTTON_LIP_DEF    0.125f
+#define BUTTON_OPENS_DEF  "side"
 
 /* Direction from the opens= key: up, down, or side (along rot, the
  * editor's angle arrow; yaw 0 faces -Z) */
@@ -148,27 +153,61 @@ static Vec3 door_dir(const Entity *e, const char *opens) {
     return vec3(0, 1, 0);
 }
 
-/* Travel = the door's own size along its direction, minus the lip:
+/* Defaults per mover type */
+typedef struct {
+    const char *opens;
+    float speed, wait, lip;
+} MoverDefaults;
+
+static const MoverDefaults door_defaults = {DOOR_OPENS_DEF, DOOR_SPEED_DEF, DOOR_WAIT_DEF, DOOR_LIP_DEF};
+static const MoverDefaults button_defaults = {BUTTON_OPENS_DEF, BUTTON_SPEED_DEF, BUTTON_WAIT_DEF,
+                                              BUTTON_LIP_DEF};
+
+/* Travel = the mover's own size along its direction, minus the lip:
  *
  *    ┌──┐ ↑ open: lip still in the doorway
  *    │  │ │ travel
  *    └──┘ ┘
  */
-static void door_spawn(Entity *e, const char *args) {
-    char opens[ENTITY_ITEM_MAX] = DOOR_OPENS_DEF;
+static void mover_spawn(Entity *e, const char *args, const MoverDefaults *def) {
+    char opens[ENTITY_ITEM_MAX];
+    snprintf(opens, sizeof(opens), "%s", def->opens);
     kv_string(args, "opens", opens, sizeof(opens));
     kv_string(args, "key", e->mover.key, sizeof(e->mover.key));
 
     Vec3 dir = door_dir(e, opens);
     Vec3 size = vec3_mul(e->half_size, 2.0f);
     float extent = fabsf(dir.x) * size.x + fabsf(dir.y) * size.y + fabsf(dir.z) * size.z;
-    float lip = kv_float(args, "lip", DOOR_LIP_DEF);
+    float lip = kv_float(args, "lip", def->lip);
 
     e->mover.state = MOVER_CLOSED;
     e->mover.dir = dir;
     e->mover.travel = fmaxf(extent - lip, 0.0f);
-    e->mover.speed = kv_float(args, "speed", DOOR_SPEED_DEF);
-    e->mover.wait = kv_float(args, "wait", DOOR_WAIT_DEF);
+    e->mover.speed = kv_float(args, "speed", def->speed);
+    e->mover.wait = kv_float(args, "wait", def->wait);
+}
+
+static void door_spawn(Entity *e, const char *args) {
+    mover_spawn(e, args, &door_defaults);
+}
+
+static void button_spawn(Entity *e, const char *args) {
+    mover_spawn(e, args, &button_defaults);
+}
+
+/* --- Triggers: invisible brushes; game/logic.c fires them when the
+ * player is inside. trigger_once never re-arms. --- */
+
+#define TRIGGER_WAIT_DEF 1.0f
+#define TRIGGER_ONCE     (-1.0f)
+
+static void trigger_once_spawn(Entity *e, const char *args) {
+    (void)args;
+    e->trigger.wait = TRIGGER_ONCE;
+}
+
+static void trigger_multiple_spawn(Entity *e, const char *args) {
+    e->trigger.wait = fmaxf(kv_float(args, "wait", TRIGGER_WAIT_DEF), 0.0f);
 }
 
 static void mover_pose(const Entity *e, Vec3 *pos, float *rot_y) {
@@ -209,10 +248,12 @@ static void decor_sprite(const Entity *e, Sprite *out) {
 
 #define ENEMY_WALK_FPS    4.0f  /* stand/walk frame swaps per second */
 
+/* A named enemy waits hidden (inactive) until a trigger targets it */
 static void enemy_spawn(Entity *e, const char *args, float default_health) {
     e->health = kv_float(args, "health", default_health);
     enemy_set_state(e, ENEMY_IDLE);
     e->enemy.cooldown = 0;
+    e->active = e->targetname[0] == '\0';
 }
 
 static DamageResult enemy_damage(Entity *e, float amount) {
@@ -375,6 +416,30 @@ static const EntityKey door_keys[] = {
     {.type = KEY_END},
 };
 
+static const EntityKey button_keys[] = {
+    {"target", KEY_STRING, 0, "Fires everything with this name", ""},
+    {"message", KEY_STRING, 0, "Shown when pressed", ""},
+    {"opens", KEY_STRING, 0, "Pressed in: side (along the angle), up, down", BUTTON_OPENS_DEF},
+    {"speed", KEY_LENGTH, BUTTON_SPEED_DEF, "Speed per second", NULL},
+    {"wait", KEY_FLOAT, BUTTON_WAIT_DEF, "Seconds before it pops back (-1 = stays in)", NULL},
+    {"lip", KEY_LENGTH, BUTTON_LIP_DEF, "Left showing when pressed", NULL},
+    {"key", KEY_STRING, 0, "Keycard needed: red, blue, yellow (empty = none)", ""},
+    {.type = KEY_END},
+};
+
+static const EntityKey trigger_once_keys[] = {
+    {"target", KEY_STRING, 0, "Fires everything with this name", ""},
+    {"message", KEY_STRING, 0, "Shown when entered", ""},
+    {.type = KEY_END},
+};
+
+static const EntityKey trigger_multiple_keys[] = {
+    {"target", KEY_STRING, 0, "Fires everything with this name", ""},
+    {"message", KEY_STRING, 0, "Shown when entered", ""},
+    {"wait", KEY_FLOAT, TRIGGER_WAIT_DEF, "Seconds before it can fire again", NULL},
+    {.type = KEY_END},
+};
+
 static const EntityKey keycard_keys[] = {
     {"color", KEY_STRING, 0, "Card color: red, blue, yellow", KEYCARD_COLOR_DEF},
     {.type = KEY_END},
@@ -387,13 +452,17 @@ static const EntityKey decor_keys[] = {
     {.type = KEY_END},
 };
 
+#define HIDDEN_DESC "Name; a named monster stays hidden until triggered"
+
 static const EntityKey ghoul_keys[] = {
     {"health", KEY_FLOAT, GHOUL_HEALTH, "Hit points (pistol does 25)", NULL},
+    {"targetname", KEY_STRING, 0, HIDDEN_DESC, ""},
     {.type = KEY_END},
 };
 
 static const EntityKey spitter_keys[] = {
     {"health", KEY_FLOAT, SPITTER_HEALTH, "Hit points (pistol does 25)", NULL},
+    {"targetname", KEY_STRING, 0, HIDDEN_DESC, ""},
     {.type = KEY_END},
 };
 
@@ -464,6 +533,24 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
         .desc = "Keycard: opens doors with a matching key", .keys = keycard_keys,
         .spawn = keycard_spawn, .update = pickup_update, .touch = pickup_touch,
         .sprite = keycard_sprite,
+    },
+    [ENTITY_BUTTON] = {
+        .name = "func_button", .render = RENDER_MESH, .brush = true, .usable = true,
+        .default_texture = "metal_panel", .default_color = {0.7f, 0.6f, 0.2f},
+        .desc = "Button brush: E presses it and fires its target", .keys = button_keys,
+        .spawn = button_spawn, .pose = mover_pose,
+    },
+    [ENTITY_TRIGGER_ONCE] = {
+        .name = "trigger_once", .render = RENDER_NONE, .brush = true,
+        .default_texture = "none", .default_color = {0.8f, 0.5f, 0.1f},
+        .desc = "Invisible brush: fires its target the first time the player enters",
+        .keys = trigger_once_keys, .spawn = trigger_once_spawn,
+    },
+    [ENTITY_TRIGGER_MULTIPLE] = {
+        .name = "trigger_multiple", .render = RENDER_NONE, .brush = true,
+        .default_texture = "none", .default_color = {0.8f, 0.5f, 0.1f},
+        .desc = "Invisible brush: fires its target while the player is inside, every wait",
+        .keys = trigger_multiple_keys, .spawn = trigger_multiple_spawn,
     },
     [ENTITY_EXIT] = {
         .name = "exit", .render = RENDER_MESH, .mesh_solidity = SPRITE_GHOST, .touch_effect = TOUCH_EFFECT_EXIT,

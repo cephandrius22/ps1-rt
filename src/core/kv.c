@@ -31,7 +31,12 @@ bool kv_string(const char *line, const char *key, char *out, size_t size) {
         return false;
     }
 
-    size_t n = strcspn(val, " \t\r\n");
+    const char *stop = " \t\r\n";
+    if (*val == '"') {
+        val++;
+        stop = "\"";
+    }
+    size_t n = strcspn(val, stop);
     if (n >= size) {
         n = size - 1;
     }

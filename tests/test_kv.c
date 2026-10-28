@@ -25,6 +25,11 @@ TEST(test_kv_string) {
     char tiny[4];
     ASSERT(kv_string("x mat=abcdefgh", "mat", tiny, sizeof(tiny)));
     ASSERT(strcmp(tiny, "abc") == 0);
+
+    /* Quoted: spaces kept, quotes dropped */
+    char msg[32];
+    ASSERT(kv_string("brush trigger_once message=\"It's open\" wait=1", "message", msg, sizeof(msg)));
+    ASSERT(strcmp(msg, "It's open") == 0);
 }
 
 int main(void) {

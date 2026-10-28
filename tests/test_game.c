@@ -243,6 +243,20 @@ TEST(test_game_locked_door_message) {
     game_free(&g);
 }
 
+/* A trigger's message shows when the player walks in */
+TEST(test_game_trigger_message) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    Entity trig = entity_spawn_brush(ENTITY_TRIGGER_ONCE, vec3(5, 1, 10), vec3(1, 1, 1),
+                                     "message=\"Something moves below\"");
+    entity_add(&g.scene.entities, trig);
+
+    PlayerCmd idle = {0};
+    game_tick(&g, &idle);
+    ASSERT(game_message(&g) != NULL);
+    ASSERT(strcmp(game_message(&g), "Something moves below") == 0);
+    game_free(&g);
+}
+
 /* Number keys select only owned weapons; the wheel skips unowned ones */
 TEST(test_game_weapon_select) {
     ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
@@ -343,6 +357,7 @@ int main(void) {
     RUN_TEST(test_game_exit_ends_level);
     RUN_TEST(test_game_reload_keeps_pose);
     RUN_TEST(test_game_locked_door_message);
+    RUN_TEST(test_game_trigger_message);
     RUN_TEST(test_game_weapon_select);
     RUN_TEST(test_game_weapon_slot_impulse_once);
     RUN_TEST(test_game_weapon_pickup_switches);

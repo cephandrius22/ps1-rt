@@ -51,6 +51,17 @@ static EditorBox mesh_box(const Mesh *m) {
     return m->count > 0 ? box : point_box();
 }
 
+/* TrenchBroom draws a line from each target to what it names */
+static const char *string_kind(const char *key) {
+    if (strcmp(key, "target") == 0) {
+        return "target_destination";
+    }
+    if (strcmp(key, "targetname") == 0) {
+        return "target_source";
+    }
+    return "string";
+}
+
 static void write_key(FILE *out, const EntityKey *k) {
     switch (k->type) {
     case KEY_BOOL:
@@ -68,7 +79,7 @@ static void write_key(FILE *out, const EntityKey *k) {
         fprintf(out, "\t%s(float) : \"%s\" : \"%g\"\n", k->name, k->desc, k->def);
         break;
     case KEY_STRING:
-        fprintf(out, "\t%s(string) : \"%s\" : \"%s\"\n", k->name, k->desc,
+        fprintf(out, "\t%s(%s) : \"%s\" : \"%s\"\n", k->name, string_kind(k->name), k->desc,
                 k->def_string ? k->def_string : "");
         break;
     case KEY_END:
@@ -113,7 +124,9 @@ static void write_builtin_classes(FILE *out) {
                  "\tflicker_amount(float) : \"Flicker depth, 0-1\" : \"0\"\n"
                  "\tcord(float) : \"Cord length for swinging (units)\" : \"0\"\n"
                  "\tswing_speed(float) : \"Swing speed (0 = still)\" : \"0\"\n"
-                 "\tswing_angle(float) : \"Max swing, radians\" : \"0\"\n]\n\n");
+                 "\tswing_angle(float) : \"Max swing, radians\" : \"0\"\n"
+                 "\ttargetname(target_source) : \"Name; triggers targeting it toggle it\"\n"
+                 "\toff(choices) : \"Starts switched off\" : 0 = [ 0 : \"No\" 1 : \"Yes\" ]\n]\n\n");
 }
 
 int editor_write_fgd(FILE *out) {
@@ -166,6 +179,7 @@ typedef struct {
 static const ToolTexture tool_textures[] = {
     {"skip", {220, 200, 40}},  /* hidden faces: no geometry */
     {"clip", {150, 60, 200}},  /* reserved for player clips (no geometry yet) */
+    {"trigger", {230, 120, 30}}, /* trigger brushes: invisible in game */
 };
 
 /* Diagonal stripes on black, so tool faces stand out in the editor */
