@@ -122,6 +122,8 @@ Carried forward:
 
 ## Phase 2: Combat feel
 
+Step-by-step implementation plan (files, types, tests): [docs/PHASE2_PLAN.md](docs/PHASE2_PLAN.md)
+
 - Viewmodel: weapon sprite drawn by the overlay, with bob and recoil
 - Shotgun (a `WeaponDef` row: pellets + spread + shells ammo type), one
   projectile weapon
