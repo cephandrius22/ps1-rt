@@ -49,6 +49,7 @@ bool inventory_full(const Inventory *inv, AmmoType type);
 /* Level-file name → type: "bullets", "shells", "rockets"; AMMO_NONE if unknown */
 AmmoType inventory_ammo_by_name(const char *name);
 
+/* weapon is a WeaponType value (plain int to avoid including weapon.h) */
 void inventory_give_weapon(Inventory *inv, int weapon);
 bool inventory_has_weapon(const Inventory *inv, int weapon);
 

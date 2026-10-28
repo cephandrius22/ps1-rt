@@ -32,6 +32,7 @@ typedef struct MatLib {
     Scene *scene;
 } MatLib;
 
+/* Start a registry that writes materials into scene (no textures yet) */
 void matlib_init(MatLib *lib, Scene *scene);
 
 /* Define a material. texture is a procedural texture name or "none".

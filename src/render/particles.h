@@ -42,6 +42,7 @@ typedef struct {
     uint32_t seed;   /* own RNG: deterministic tests, no shared rand() state */
 } ParticleSystem;
 
+/* Empty system; the seed makes bursts reproducible (tests pass a constant) */
 void particles_init(ParticleSystem *ps, uint32_t seed);
 
 /* Spray count particles from at, mostly along dir (need not be unit),

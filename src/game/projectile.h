@@ -50,6 +50,7 @@ typedef struct {
     float burst_time;
 } ProjectileDef;
 
+/* Table row for a kind; PROJECTILE_NONE / out of range fall back to the rocket */
 const ProjectileDef *projectile_def(ProjectileKind kind);
 
 /* Launch from `from` along dir (normalized here). owner = shooter's entity
