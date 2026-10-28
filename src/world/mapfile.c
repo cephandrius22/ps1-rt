@@ -354,8 +354,8 @@ static Vec2 face_uv(const Face *f, D3 p, int tex_w, int tex_h) {
     return (Vec2){(float)u, (float)v};
 }
 
-/* Triangulate every drawable face of a brush into the world mesh */
-static void emit_brush(MapLoader *ml, const Brush *b) {
+/* Triangulate every drawable face of a brush into out */
+static void emit_brush(MapLoader *ml, const Brush *b, Mesh *out) {
     for (int i = 0; i < b->count; i++) {
         const Face *f = &b->faces[i];
         const char *tex = texture_basename(f->texture);
@@ -387,7 +387,21 @@ static void emit_brush(MapLoader *ml, const Brush *b) {
                 .normal = normal,
                 .material_id = mat,
             };
-            mesh_add_tri(&ml->world, t);
+            mesh_add_tri(out, t);
+        }
+    }
+}
+
+/* Grow [lo, hi] (engine space) by every face corner, drawn or not: a
+ * trigger is all "trigger" faces and still has a size */
+static void brush_bounds(const Brush *b, Vec3 *lo, Vec3 *hi) {
+    for (int i = 0; i < b->count; i++) {
+        D3 poly[POLY_VERTS_MAX];
+        int n = face_polygon(b, i, poly);
+        for (int k = 0; k < n; k++) {
+            Vec3 p = d3_to_engine(poly[k]);
+            *lo = vec3(fminf(lo->x, p.x), fminf(lo->y, p.y), fminf(lo->z, p.z));
+            *hi = vec3(fmaxf(hi->x, p.x), fmaxf(hi->y, p.y), fmaxf(hi->z, p.z));
         }
     }
 }
@@ -535,6 +549,49 @@ static void spawn_point_entity(MapLoader *ml, const KeyValues *kvs, const char *
     entity_add(&ml->scene->entities, e);
 }
 
+/* Brushes of a brush entity (func_door), gathered while reading it */
+typedef struct {
+    Mesh tris;
+    Vec3 lo, hi;
+    int brushes;
+} BrushModel;
+
+static EntityType brush_type(const char *classname) {
+    EntityType type = entity_type_by_name(classname);
+    return type != ENTITY_NONE && entity_def(type)->brush ? type : ENTITY_NONE;
+}
+
+/* Where a brush goes: the world, the entity's model, or nowhere */
+static void place_brush(MapLoader *ml, const Brush *b, const char *classname,
+                        BrushModel *model) {
+    if (is_world_geometry(classname)) {
+        emit_brush(ml, b, &ml->world);
+        return;
+    }
+    if (brush_type(classname) != ENTITY_NONE) {
+        emit_brush(ml, b, &model->tris);
+        brush_bounds(b, &model->lo, &model->hi);
+        model->brushes++;
+        return;
+    }
+    if (model->brushes == 0) {
+        fprintf(stderr, "map: brushes on '%s' ignored (not a brush entity)\n", classname);
+    }
+    model->brushes = -1; /* warned once */
+}
+
+static void spawn_brush_entity(MapLoader *ml, const KeyValues *kvs, EntityType type,
+                               BrushModel *model) {
+    if (model->brushes <= 0) {
+        fprintf(stderr, "map: %s has no brushes\n", entity_def(type)->name);
+        mesh_free(&model->tris);
+        return;
+    }
+    char args[MAP_ARGS_MAX];
+    entity_args(kvs, entity_def(type), args, sizeof(args));
+    level_add_brush_entity(ml->scene, type, model->lo, model->hi, &model->tris, args);
+}
+
 /* { "key" "value" ... { brush } ... } — the opening brace is consumed */
 static bool read_entity(Lexer *lx, MapLoader *ml) {
     KeyValues kvs = {0};
@@ -542,18 +599,16 @@ static bool read_entity(Lexer *lx, MapLoader *ml) {
     if (!brush) {
         return false;
     }
+    BrushModel model = {.lo = vec3(INFINITY, INFINITY, INFINITY),
+                        .hi = vec3(-INFINITY, -INFINITY, -INFINITY)};
+    mesh_init(&model.tris);
 
     bool ok = true;
-    bool warned_brushes = false;
     while (ok && next_token(lx) && strcmp(lx->tok, "}") != 0) {
         if (strcmp(lx->tok, "{") == 0) {
             ok = read_brush(lx, brush);
-            const char *classname = kv_get(&kvs, "classname", "");
-            if (ok && is_world_geometry(classname)) {
-                emit_brush(ml, brush);
-            } else if (ok && !warned_brushes) {
-                fprintf(stderr, "map: brushes on '%s' ignored (not supported yet)\n", classname);
-                warned_brushes = true;
+            if (ok) {
+                place_brush(ml, brush, kv_get(&kvs, "classname", ""), &model);
             }
             continue;
         }
@@ -570,7 +625,13 @@ static bool read_entity(Lexer *lx, MapLoader *ml) {
     free(brush);
 
     const char *classname = kv_get(&kvs, "classname", "");
-    if (ok && !is_world_geometry(classname)) {
+    EntityType type = brush_type(classname);
+    if (!ok || is_world_geometry(classname)) {
+        mesh_free(&model.tris);
+    } else if (type != ENTITY_NONE) {
+        spawn_brush_entity(ml, &kvs, type, &model);
+    } else {
+        mesh_free(&model.tris);
         spawn_point_entity(ml, &kvs, classname);
     }
     return ok;

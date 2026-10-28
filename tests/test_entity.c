@@ -1,4 +1,5 @@
 #include "test_framework.h"
+#include <string.h>
 #include "entity.h"
 #include <stdlib.h>
 
@@ -43,10 +44,9 @@ TEST(test_entity_meshes_init) {
 
     ASSERT(em.initialized[ENTITY_PICKUP_HEALTH]);
     ASSERT(em.initialized[ENTITY_PICKUP_AMMO]);
-    ASSERT(em.initialized[ENTITY_DOOR]);
+    ASSERT(!em.initialized[ENTITY_DOOR]); /* brush: per-entity models */
     ASSERT(em.initialized[ENTITY_PROP]);
     ASSERT(em.meshes[ENTITY_PICKUP_HEALTH].count > 0);
-    ASSERT(em.meshes[ENTITY_DOOR].count > 0);
 
     entity_meshes_free(&em);
 }
@@ -80,51 +80,45 @@ TEST(test_entity_collect_pickup) {
     entity_list_free(&list);
 }
 
-TEST(test_entity_door_toggle) {
+/* A 2 m wide, 2.5 m tall door brush centered at (0, 1.25, z) */
+static Entity door_at(float z, const char *args) {
+    return entity_spawn_brush(ENTITY_DOOR, vec3(0, 1.25f, z), vec3(1, 1.25f, 0.1f), args);
+}
+
+TEST(test_entity_door_usable) {
     EntityList list;
     entity_list_init(&list);
+    entity_add(&list, door_at(-2, ""));
+    entity_add(&list, door_at(-10, ""));
 
-    Entity door = {
-        .type = ENTITY_DOOR, .position = vec3(0, 0, -2),
-        .active = true, .door = {.angle = 0, .target_angle = 0,
-        .swing_speed = DOOR_SWING_SPEED, .hinge = vec3(0, 0, -2)}
-    };
-    entity_add(&list, door);
+    /* Facing the near door, within USE_RANGE; the far one is out of range */
+    Vec3 eye = vec3(0, 1.6f, 0);
+    ASSERT_EQ_INT(entity_find_usable(&list, eye, vec3(0, 0, -1), USE_RANGE), 0);
+    ASSERT_EQ_INT(entity_find_usable(&list, eye, vec3(0, 0, 1), USE_RANGE), ENTITY_INDEX_NONE);
 
-    /* Player facing the door, within USE_RANGE */
-    Vec3 player_pos = vec3(0, 1, 0);
-    Vec3 forward = vec3(0, 0, -1);
-
-    int used = ENTITY_INDEX_NONE;
-    ASSERT(entity_try_use(&list, player_pos, forward, USE_RANGE, &used) == USE_OPENED);
-    ASSERT(used == 0);
-    ASSERT(list.items[0].door.target_angle > 0);
-
-    /* Toggle back */
-    ASSERT(entity_try_use(&list, player_pos, forward, USE_RANGE, NULL) == USE_CLOSED);
-    ASSERT_NEAR(list.items[0].door.target_angle, 0, 1e-6f);
+    /* A wide door is used from its edge: 1.9 m off its center, 0.1 m from its end */
+    Vec3 aside = vec3(1.9f, 1.6f, -0.5f);
+    ASSERT_EQ_INT(entity_find_usable(&list, aside, vec3(0, 0, -1), USE_RANGE), 0);
 
     entity_list_free(&list);
 }
 
-TEST(test_entity_door_out_of_range) {
-    EntityList list;
-    entity_list_init(&list);
+/* Travel = size along the direction, minus the lip; sideways follows rot */
+TEST(test_entity_door_shape) {
+    Entity up = door_at(0, "lip=0.5");
+    ASSERT_NEAR(up.mover.travel, 2.0f, 1e-5f);
+    ASSERT_EQ_INT(up.mover.state, MOVER_CLOSED);
 
-    Entity door = {
-        .type = ENTITY_DOOR, .position = vec3(0, 0, -10),
-        .active = true, .door = {.angle = 0, .target_angle = 0,
-        .swing_speed = DOOR_SWING_SPEED, .hinge = vec3(0, 0, -10)}
-    };
-    entity_add(&list, door);
+    Entity side = door_at(0, "opens=side rot=-1.5707963 lip=0");
+    ASSERT_NEAR(side.mover.dir.x, 1.0f, 1e-5f); /* yaw -90° faces +X */
+    ASSERT_NEAR(side.mover.travel, 2.0f, 1e-5f);
 
-    Vec3 player_pos = vec3(0, 1, 0);
-    Vec3 forward = vec3(0, 0, -1);
-
-    ASSERT(entity_try_use(&list, player_pos, forward, USE_RANGE, NULL) == USE_NOTHING);
-    ASSERT_NEAR(list.items[0].door.target_angle, 0, 1e-6f);
-
-    entity_list_free(&list);
+    /* Posed bounds follow the slide */
+    up.mover.offset = 1.0f;
+    Vec3 lo, hi;
+    entity_bounds(&up, &lo, &hi);
+    ASSERT_NEAR(lo.y, 1.0f, 1e-5f);
+    ASSERT_NEAR(hi.y, 3.5f, 1e-5f);
 }
 
 TEST(test_entity_build_triangles) {
@@ -183,32 +177,10 @@ TEST(test_entity_inactive_skipped) {
     entity_meshes_free(&em);
 }
 
-TEST(test_entity_update_door_animates) {
-    EntityList list;
-    entity_list_init(&list);
-
-    Entity door = {
-        .type = ENTITY_DOOR, .active = true,
-        .door = {.angle = 0, .target_angle = 1.5f, .swing_speed = DOOR_SWING_SPEED,
-                 .hinge = vec3(0, 0, 0)}
-    };
-    entity_add(&list, door);
-
-    /* Simulate several frames */
-    for (int i = 0; i < 60; i++) {
-        entity_update(&list, 1.0f / 60.0f, (float)i / 60.0f);
-    }
-
-    ASSERT(list.items[0].door.angle > 0);
-    ASSERT(list.items[0].door.angle <= 1.5f);
-
-    entity_list_free(&list);
-}
-
 TEST(test_entity_type_by_name) {
     ASSERT_EQ_INT(entity_type_by_name("health"), ENTITY_PICKUP_HEALTH);
     ASSERT_EQ_INT(entity_type_by_name("ammo"), ENTITY_PICKUP_AMMO);
-    ASSERT_EQ_INT(entity_type_by_name("door"), ENTITY_DOOR);
+    ASSERT_EQ_INT(entity_type_by_name("func_door"), ENTITY_DOOR);
     ASSERT_EQ_INT(entity_type_by_name("prop"), ENTITY_PROP);
     ASSERT_EQ_INT(entity_type_by_name("dragon"), ENTITY_NONE);
 }
@@ -221,11 +193,10 @@ TEST(test_entity_spawn_reads_args) {
     ASSERT_NEAR(hp.rotation_y, 1.5f, 1e-6f);
     ASSERT_EQ_INT(hp.material_id, 0); /* resolved later by the level loader */
 
-    /* Defaults when keys are absent; hinge falls back to position */
-    Entity door = entity_spawn(ENTITY_DOOR, vec3(4, 0, -6), "");
-    ASSERT_NEAR(door.door.swing_speed, DOOR_SWING_SPEED, 1e-6f);
-    ASSERT_NEAR(door.door.hinge.x, 4.0f, 1e-6f);
-    ASSERT_NEAR(door.door.hinge.z, -6.0f, 1e-6f);
+    /* Shared keys any type may carry */
+    Entity named = entity_spawn(ENTITY_PROP, vec3(0, 0, 0), "target=gate targetname=lever");
+    ASSERT(strcmp(named.target, "gate") == 0);
+    ASSERT(strcmp(named.targetname, "lever") == 0);
 }
 
 TEST(test_entity_hookless_type_is_inert) {
@@ -238,7 +209,8 @@ TEST(test_entity_hookless_type_is_inert) {
     Cylinder body = {.base = vec3(0, 0, -1), .radius = COLLECT_RADIUS, .height = 1.6f};
     ASSERT(entity_overlap(&list, body, found, 4) == 0);
     ASSERT(entity_touch(&list, 0) == TOUCH_IGNORED);
-    ASSERT(entity_try_use(&list, vec3(0, 0, 0), vec3(0, 0, -1), USE_RANGE, NULL) == USE_NOTHING);
+    ASSERT_EQ_INT(entity_find_usable(&list, vec3(0, 0, 0), vec3(0, 0, -1), USE_RANGE),
+                  ENTITY_INDEX_NONE);
     ASSERT(list.items[0].active);
 
     entity_list_free(&list);
@@ -251,11 +223,10 @@ int main(void) {
     RUN_TEST(test_entity_add_grows);
     RUN_TEST(test_entity_meshes_init);
     RUN_TEST(test_entity_collect_pickup);
-    RUN_TEST(test_entity_door_toggle);
-    RUN_TEST(test_entity_door_out_of_range);
+    RUN_TEST(test_entity_door_usable);
+    RUN_TEST(test_entity_door_shape);
     RUN_TEST(test_entity_build_triangles);
     RUN_TEST(test_entity_inactive_skipped);
-    RUN_TEST(test_entity_update_door_animates);
     RUN_TEST(test_entity_type_by_name);
     RUN_TEST(test_entity_spawn_reads_args);
     RUN_TEST(test_entity_hookless_type_is_inert);

@@ -270,6 +270,32 @@ static void parse_entity(const char *line, LevelParser *p) {
     entity_add(&p->scene->entities, e);
 }
 
+/* brush <type> x1 y1 z1 x2 y2 z2 <mat> [key=value ...]: a box-shaped
+ * brush entity, e.g. "brush func_door -1 0 -5 1 2.5 -4.8 rust" */
+static void parse_brush(const char *line, LevelParser *p) {
+    char type_str[32];
+    char mat_name[32];
+    float x1, y1, z1, x2, y2, z2;
+    if (sscanf(line, "brush %31s %f %f %f %f %f %f %31s", type_str,
+               &x1, &y1, &z1, &x2, &y2, &z2, mat_name) < 8) {
+        return;
+    }
+
+    EntityType type = entity_type_by_name(type_str);
+    if (type == ENTITY_NONE || !entity_def(type)->brush) {
+        fprintf(stderr, "level: '%s' is not a brush entity type\n", type_str);
+        return;
+    }
+    warn_unknown_keys(line, entity_def(type));
+
+    Vec3 lo = vec3(fminf(x1, x2), fminf(y1, y2), fminf(z1, z2));
+    Vec3 hi = vec3(fmaxf(x1, x2), fmaxf(y1, y2), fmaxf(z1, z2));
+    Mesh tris;
+    mesh_init(&tris);
+    add_box_outer(&tris, lo, hi, find_mat(p, mat_name));
+    level_add_brush_entity(p->scene, type, lo, hi, &tris, line);
+}
+
 static void parse_light(const char *line, Scene *scene) {
     float x, y, z, r, g, b, intensity, radius;
     if (sscanf(line, "light %f %f %f %f %f %f %f %f",
@@ -288,6 +314,27 @@ static void parse_light(const char *line, Scene *scene) {
 }
 
 /* --- Public API --- */
+
+void level_add_brush_entity(Scene *scene, EntityType type, Vec3 lo, Vec3 hi,
+                            Mesh *tris, const char *args) {
+    Vec3 center = vec3_mul(vec3_add(lo, hi), 0.5f);
+    Vec3 half = vec3_mul(vec3_sub(hi, lo), 0.5f);
+    Entity e = entity_spawn_brush(type, center, half, args);
+
+    /* Model triangles are stored relative to the entity, so posing it
+     * (a door sliding) is a plain offset */
+    if (entity_def(type)->render == RENDER_MESH && tris->count > 0) {
+        for (int i = 0; i < tris->count; i++) {
+            Triangle *t = &tris->tris[i];
+            t->v0 = vec3_sub(t->v0, center);
+            t->v1 = vec3_sub(t->v1, center);
+            t->v2 = vec3_sub(t->v2, center);
+        }
+        e.model = entity_meshes_add_model(&scene->entity_meshes, tris);
+    }
+    mesh_free(tris);
+    entity_add(&scene->entities, e);
+}
 
 void level_finish(Scene *scene, MatLib *mats, Mesh *world, const char *name) {
     /* Materials for types spawned during play (no level line to resolve) */
@@ -377,6 +424,8 @@ int level_load(Scene *scene, const char *filename, LevelInfo *info) {
             parse_quad(p, &parser);
         } else if (strncmp(p, "obj ", 4) == 0) {
             parse_obj(p, &parser);
+        } else if (strncmp(p, "brush ", 6) == 0) {
+            parse_brush(p, &parser);
         } else if (strncmp(p, "entity ", 7) == 0) {
             parse_entity(p, &parser);
         } else if (strncmp(p, "light ", 6) == 0) {

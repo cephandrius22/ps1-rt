@@ -166,19 +166,6 @@ static void touch_entities(Player *p, Scene *scene, EventQueue *ev) {
     }
 }
 
-/* Use key: nearest usable entity in front (doors) */
-static void use_entity(const Player *p, Scene *scene, EventQueue *ev) {
-    Vec3 pos = p->view.pos;
-    int used;
-    UseResult res = entity_try_use(&scene->entities, pos, yaw_forward(p), USE_RANGE, &used);
-    if (res == USE_NOTHING) {
-        return;
-    }
-
-    GameEventType type = (res == USE_OPENED) ? EV_DOOR_OPENED : EV_DOOR_CLOSED;
-    events_push(ev, (GameEvent){.type = type, .pos = pos, .entity = used});
-}
-
 /* --- Tick --- */
 
 void player_update(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
@@ -214,9 +201,6 @@ void player_update(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
     }
 
     touch_entities(p, scene, ev);
-    if (cmd_has(cmd, BTN_USE)) {
-        use_entity(p, scene, ev);
-    }
 }
 
 /* --- Damage --- */

@@ -4,6 +4,7 @@
 #include "damage.h"
 #include "projectile.h"
 #include "levelcheck.h"
+#include "logic.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -228,6 +229,9 @@ static void make_noise(Game *g) {
 
 static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     ai_update(&g->scene, &g->player, dt, &g->events);
+    if (cmd_has(cmd, BTN_USE)) {
+        logic_use(&g->scene, &g->player, &g->events);
+    }
 
     int first_event = g->events.count;
     player_update(&g->player, cmd, dt, &g->scene, &g->events);
@@ -282,6 +286,7 @@ void game_tick(Game *g, const PlayerCmd *cmd) {
 
     /* World first, so the player collides with this tick's entity poses */
     entity_update(&g->scene.entities, dt, g->time);
+    logic_update(&g->scene, &g->player, dt, &g->events);
     light_update(&g->scene.lights, g->time, dt);
     scene_rebuild_dynamic(&g->scene);
 

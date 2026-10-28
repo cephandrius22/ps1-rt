@@ -27,8 +27,8 @@ TEST(test_level_materials) {
     scene_init(&scene);
     LevelInfo info;
     level_load(&scene, "tests/test.level", &info);
-    /* 4 declared (stone, floor, ceil, red_flat) + the door's default "rust"
-     * + "projectiles", prepared for runtime spawns */
+    /* 4 declared (stone, floor, ceil, red_flat) + the decor's default
+     * "barrel" + "projectiles", prepared for runtime spawns */
     ASSERT_EQ_INT(scene.material_count, 6);
     /* stone has concrete texture */
     ASSERT(scene.materials[0].texture_id >= 0);
@@ -45,7 +45,7 @@ TEST(test_level_textures) {
     scene_init(&scene);
     LevelInfo info;
     level_load(&scene, "tests/test.level", &info);
-    /* 4 procedural textures: concrete, floor_tile, rust (door default),
+    /* 4 procedural textures: concrete, floor_tile, barrel (decor default),
      * projectiles (runtime spawns) */
     ASSERT_EQ_INT(scene.texture_count, 4);
     ASSERT(scene.textures[0].pixels != NULL);
@@ -68,12 +68,31 @@ TEST(test_level_entities) {
     scene_init(&scene);
     LevelInfo info;
     level_load(&scene, "tests/test.level", &info);
-    ASSERT_EQ_INT(scene.entities.count, 2);
+    ASSERT_EQ_INT(scene.entities.count, 3);
     /* First entity is health pickup */
     ASSERT_EQ_INT(scene.entities.items[0].type, ENTITY_PICKUP_HEALTH);
     ASSERT_NEAR(scene.entities.items[0].pickup.amount, 50.0f, 0.01f);
-    /* Second entity is door */
-    ASSERT_EQ_INT(scene.entities.items[1].type, ENTITY_DOOR);
+    ASSERT_EQ_INT(scene.entities.items[1].type, ENTITY_DECOR);
+    ASSERT_EQ_INT(scene.entities.items[2].type, ENTITY_DOOR);
+    scene_free(&scene);
+}
+
+/* brush directive: entity at the box center, faces kept as its model */
+TEST(test_level_brush_door) {
+    Scene scene;
+    scene_init(&scene);
+    LevelInfo info;
+    level_load(&scene, "tests/test.level", &info);
+
+    const Entity *door = &scene.entities.items[2];
+    ASSERT_NEAR(door->position.y, 1.25f, 1e-4f);
+    ASSERT_NEAR(door->position.z, -4.9f, 1e-4f);
+    ASSERT_NEAR(door->half_size.x, 1.0f, 1e-4f);
+    ASSERT(door->model > 0);
+    ASSERT_EQ_INT(scene.entity_meshes.models[door->model - 1].count, 12);
+    ASSERT_NEAR(door->mover.dir.y, 1.0f, 1e-6f);   /* rises by default */
+    ASSERT(door->mover.travel > 2.0f && door->mover.travel < 2.5f);
+    ASSERT_NEAR(door->mover.wait, 2.0f, 1e-6f);
     scene_free(&scene);
 }
 
@@ -102,7 +121,7 @@ TEST(test_level_missing_file) {
 }
 
 /* mat=<name> picks a declared material; without mat= the type's default
- * material is created (door → "rust", textured) */
+ * material is created (decor → "barrel", textured) */
 TEST(test_level_entity_materials) {
     Scene scene;
     scene_init(&scene);
@@ -110,10 +129,10 @@ TEST(test_level_entity_materials) {
     level_load(&scene, "tests/test.level", &info);
 
     const Entity *health = &scene.entities.items[0];
-    const Entity *door = &scene.entities.items[1];
+    const Entity *decor = &scene.entities.items[1];
     ASSERT_EQ_INT(health->material_id, 3); /* red_flat */
-    ASSERT(door->material_id != health->material_id);
-    ASSERT(scene.materials[door->material_id].texture_id >= 0);
+    ASSERT(decor->material_id != health->material_id);
+    ASSERT(scene.materials[decor->material_id].texture_id >= 0);
     scene_free(&scene);
 }
 
@@ -125,6 +144,7 @@ int main(void) {
     RUN_TEST(test_level_textures);
     RUN_TEST(test_level_geometry);
     RUN_TEST(test_level_entities);
+    RUN_TEST(test_level_brush_door);
     RUN_TEST(test_level_lights);
     RUN_TEST(test_level_missing_file);
     RUN_TEST(test_level_entity_materials);

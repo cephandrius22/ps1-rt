@@ -6,6 +6,7 @@
 
 #define TEST_MAP "tests/test.map"
 #define BAD_MAP  "build/tests/bad.map"
+#define DOOR_MAP "build/tests/door.map"
 
 static Scene s;
 static LevelInfo info;
@@ -109,6 +110,55 @@ TEST(test_map_malformed) {
     scene_free(&missing);
 }
 
+/* Axis-aligned brush, Standard format; faces +x -x +y -y +z -z */
+static void write_box_brush(FILE *f, int x0, int y0, int z0, int x1, int y1, int z1,
+                            const char *tex[6]) {
+    fprintf(f, "{\n"
+            "( %d %d %d ) ( %d %d %d ) ( %d %d %d ) %s 0 0 0 1 1\n"
+            "( %d %d %d ) ( %d %d %d ) ( %d %d %d ) %s 0 0 0 1 1\n"
+            "( %d %d %d ) ( %d %d %d ) ( %d %d %d ) %s 0 0 0 1 1\n"
+            "( %d %d %d ) ( %d %d %d ) ( %d %d %d ) %s 0 0 0 1 1\n"
+            "( %d %d %d ) ( %d %d %d ) ( %d %d %d ) %s 0 0 0 1 1\n"
+            "( %d %d %d ) ( %d %d %d ) ( %d %d %d ) %s 0 0 0 1 1\n}\n",
+            x1, y0 + 1, z0, x1, y0, z0, x1, y0, z0 + 1, tex[0],
+            x0, y0, z0 + 1, x0, y0, z0, x0, y0 + 1, z0, tex[1],
+            x0, y1, z0 + 1, x0, y1, z0, x0 + 1, y1, z0, tex[2],
+            x0 + 1, y0, z0, x0, y0, z0, x0, y0, z0 + 1, tex[3],
+            x0 + 1, y0, z1, x0, y0, z1, x0, y0 + 1, z1, tex[4],
+            x0, y0 + 1, z0, x0, y0, z0, x0 + 1, y0, z0, tex[5]);
+}
+
+/* func_door brush: entity at the bounds center, drawn faces as its
+ * model, keys converted (speed: units → m, angle → side direction) */
+TEST(test_map_brush_entity) {
+    FILE *f = fopen(DOOR_MAP, "w");
+    const char *tex[6] = {"rust", "rust", "rust", "rust", "skip", "rust"};
+    fputs("{\n\"classname\" \"worldspawn\"\n}\n"
+          "{\n\"classname\" \"func_door\"\n\"angle\" \"0\"\n\"opens\" \"side\"\n"
+          "\"speed\" \"64\"\n\"key\" \"red\"\n", f);
+    write_box_brush(f, 0, 0, 0, 64, 8, 96, tex);
+    fputs("}\n", f);
+    fclose(f);
+
+    Scene door_scene;
+    scene_init(&door_scene);
+    ASSERT_EQ_INT(mapfile_load(&door_scene, DOOR_MAP, &info), 0);
+    remove(DOOR_MAP);
+    ASSERT_EQ_INT(door_scene.entities.count, 1);
+
+    const Entity *door = &door_scene.entities.items[0];
+    ASSERT_EQ_INT(door->type, ENTITY_DOOR);
+    ASSERT_NEAR(door->position.x, 1.0f, 1e-4f);    /* map (32 4 48) */
+    ASSERT_NEAR(door->position.y, 1.5f, 1e-4f);
+    ASSERT_NEAR(door->position.z, -0.125f, 1e-4f);
+    ASSERT_NEAR(door->half_size.z, 0.125f, 1e-4f);
+    ASSERT_EQ_INT(door_scene.entity_meshes.models[door->model - 1].count, 10); /* skip face dropped */
+    ASSERT_NEAR(door->mover.dir.x, 1.0f, 1e-4f);   /* angle 0 = east = +X */
+    ASSERT_NEAR(door->mover.speed, 2.0f, 1e-4f);
+    ASSERT(strcmp(door->mover.key, "red") == 0);
+    scene_free(&door_scene);
+}
+
 int main(void) {
     TEST_SUITE("mapfile");
     RUN_TEST(test_map_axis_conversion);
@@ -116,6 +166,7 @@ int main(void) {
     RUN_TEST(test_map_spawn_and_light);
     RUN_TEST(test_map_entities);
     RUN_TEST(test_map_uv_scale);
+    RUN_TEST(test_map_brush_entity);
     RUN_TEST(test_map_malformed);
     TEST_REPORT();
 }

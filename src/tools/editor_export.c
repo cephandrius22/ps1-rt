@@ -76,6 +76,23 @@ static void write_key(FILE *out, const EntityKey *k) {
     }
 }
 
+static void write_keys(FILE *out, const EntityDef *def) {
+    for (const EntityKey *k = def->keys; k && k->type != KEY_END; k++) {
+        write_key(out, k);
+    }
+    fputs("]\n\n", out);
+}
+
+/* Brush entities: drawn as brushes, textured per face (no mat key) */
+static void write_solid_class(FILE *out, const EntityDef *def) {
+    Vec3 c = def->default_color;
+    fprintf(out, "@SolidClass color(%d %d %d) = %s : \"%s\"\n[\n",
+            (int)(c.x * COLOR_BYTE), (int)(c.y * COLOR_BYTE), (int)(c.z * COLOR_BYTE),
+            def->name, def->desc ? def->desc : def->name);
+    fputs("\tangle(integer) : \"Direction, degrees (opens=side)\" : 0\n", out);
+    write_keys(out, def);
+}
+
 /* Built-in classes the map loader handles itself */
 static void write_builtin_classes(FILE *out) {
     fputs("@SolidClass = worldspawn : \"World\" []\n"
@@ -112,6 +129,12 @@ int editor_write_fgd(FILE *out) {
         if (def->runtime_only) {
             continue;
         }
+        Vec3 c = def->default_color;
+        if (def->brush) {
+            write_solid_class(out, def);
+            continue;
+        }
+
         EditorBox box = point_box();
         if (def->render == RENDER_SPRITE && def->sprite) {
             box = sprite_box(def, (EntityType)t);
@@ -119,17 +142,13 @@ int editor_write_fgd(FILE *out) {
             box = mesh_box(&meshes.meshes[t]);
         }
 
-        Vec3 c = def->default_color;
         fprintf(out, "@PointClass size(%g %g %g, %g %g %g) color(%d %d %d) = %s : \"%s\"\n[\n",
                 box.min[0], box.min[1], box.min[2], box.max[0], box.max[1], box.max[2],
                 (int)(c.x * COLOR_BYTE), (int)(c.y * COLOR_BYTE), (int)(c.z * COLOR_BYTE),
                 def->name, def->desc ? def->desc : def->name);
         fputs("\tangle(integer) : \"Facing, degrees\" : 0\n"
               "\tmat(string) : \"Material name (empty = type default)\"\n", out);
-        for (const EntityKey *k = def->keys; k && k->type != KEY_END; k++) {
-            write_key(out, k);
-        }
-        fputs("]\n\n", out);
+        write_keys(out, def);
     }
 
     entity_meshes_free(&meshes);

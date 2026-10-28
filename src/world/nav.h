@@ -19,8 +19,9 @@
  * nothing paths onto it.
  *
  * Floors near a wall cost more, keeping paths in the middle of halls.
- * Closed doors mark nodes blocked at runtime (nav_set_blocked): sound
- * and paths stop there.
+ * Doors aren't static geometry, so doorways are open floor; at runtime
+ * a closed door marks its nodes (nav_set_door): sound stops at any
+ * closed door, paths only at locked ones (monsters open the others).
  */
 #ifndef NAV_H
 #define NAV_H
@@ -33,6 +34,11 @@
 #define NAV_HEADROOM  1.4f   /* clear height needed above a floor */
 #define NAV_STEP      0.6f   /* highest step between neighbours (= walking bodies) */
 #define NAV_NONE      (-1)
+
+typedef enum {
+    NAV_DOOR_OPENABLE, /* blocks sound; paths go through (monsters open it) */
+    NAV_DOOR_LOCKED,   /* blocks sound and paths (keycard, trigger-only) */
+} NavDoor;
 
 typedef struct {
     float f;    /* cost so far + estimate to the goal */
@@ -48,7 +54,8 @@ typedef struct {
     float *height;          /* floor height; NAN = no floor */
     uint8_t *links;         /* bit d = can walk to the neighbour in direction d */
     uint8_t *tight;         /* 1 = a wall is close (costs more) */
-    uint8_t *blocked;       /* closed doors covering the node */
+    uint8_t *closed;        /* closed doors covering the node (sound stops) */
+    uint8_t *locked;        /* closed locked doors covering it (paths stop) */
 
     /* Search scratch, reused per query: a node's entry is valid only when
      * its stamp equals the current search number (no clearing) */
@@ -89,8 +96,9 @@ bool nav_next_waypoint(NavGrid *nav, Vec3 from, Vec3 to, Vec3 *waypoint);
 void nav_flood(NavGrid *nav, Vec3 from, float max_dist);
 bool nav_heard(const NavGrid *nav, Vec3 feet);
 
-/* Doors: add (+1) or remove (-1) a closed door over the nodes whose
- * cell centers fall inside the world box [lo, hi] */
-void nav_set_blocked(NavGrid *nav, Vec3 lo, Vec3 hi, int delta);
+/* Add (+1) or remove (-1) a closed door over the nodes near the world
+ * box [lo, hi]. The box is widened by half a cell so even a thin door
+ * covers a row of cell centers. */
+void nav_set_door(NavGrid *nav, Vec3 lo, Vec3 hi, NavDoor kind, int delta);
 
 #endif

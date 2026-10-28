@@ -116,12 +116,27 @@ TEST(test_nav_flood_walls_and_doors) {
     ASSERT(!nav_heard(&s.nav, vec3(-12, 0, 0)));
 
     /* A closed door band across the hall stops it */
-    nav_set_blocked(&s.nav, vec3(-20, 0, 1.8f), vec3(20, 2, 2.3f), 1);
+    nav_set_door(&s.nav, vec3(-20, 0, 2.0f), vec3(20, 2, 2.1f), NAV_DOOR_OPENABLE, 1);
     nav_flood(&s.nav, vec3(0, 0, 0), 30);
     ASSERT(!nav_heard(&s.nav, vec3(0, 0, 3)));
-    nav_set_blocked(&s.nav, vec3(-20, 0, 1.8f), vec3(20, 2, 2.3f), -1);
+    nav_set_door(&s.nav, vec3(-20, 0, 2.0f), vec3(20, 2, 2.1f), NAV_DOOR_OPENABLE, -1);
     nav_flood(&s.nav, vec3(0, 0, 0), 30);
     ASSERT(nav_heard(&s.nav, vec3(0, 0, 3)));
+    free_world();
+}
+
+/* Openable doors let paths through, locked ones don't */
+TEST(test_nav_locked_door_blocks_path) {
+    build_world();
+    Vec3 lo = vec3(-20, 0, 2.0f), hi = vec3(20, 2, 2.1f);
+    Vec3 wp;
+
+    nav_set_door(&s.nav, lo, hi, NAV_DOOR_OPENABLE, 1);
+    ASSERT(nav_next_waypoint(&s.nav, vec3(0, 0, 0), vec3(-10, 0, 6), &wp));
+    nav_set_door(&s.nav, lo, hi, NAV_DOOR_OPENABLE, -1);
+
+    nav_set_door(&s.nav, lo, hi, NAV_DOOR_LOCKED, 1);
+    ASSERT(!nav_next_waypoint(&s.nav, vec3(0, 0, 0), vec3(-10, 0, 6), &wp));
     free_world();
 }
 
@@ -141,6 +156,7 @@ int main(void) {
     RUN_TEST(test_nav_path_up_stairs);
     RUN_TEST(test_nav_crate_unreachable);
     RUN_TEST(test_nav_flood_walls_and_doors);
+    RUN_TEST(test_nav_locked_door_blocks_path);
     RUN_TEST(test_nav_empty_world);
     TEST_REPORT();
 }

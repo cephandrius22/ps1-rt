@@ -17,7 +17,7 @@ TEST(test_game_init_spawns_player) {
     ASSERT_NEAR(g.player.view.pos.y, PLAYER_HEIGHT + PLAYER_EYE_OFFSET, 1e-5f);
     ASSERT_NEAR(g.player.view.pos.z, 10.0f, 1e-5f);
     ASSERT_NEAR(g.player.view.yaw, (float)M_PI / 2.0f, 1e-5f);
-    ASSERT(g.scene.entities.count == 2);
+    ASSERT(g.scene.entities.count == 3);
 
     game_free(&g);
 }
@@ -221,7 +221,7 @@ TEST(test_game_reload_keeps_pose) {
 
     snprintf(g.level_path, sizeof(g.level_path), "tests/no_such.level");
     ASSERT(game_reload(&g) == GAME_LOAD_FAILED);
-    ASSERT_EQ_INT(g.scene.entities.count, 2); /* still the old level */
+    ASSERT_EQ_INT(g.scene.entities.count, 3); /* still the old level */
     game_free(&g);
 }
 

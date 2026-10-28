@@ -42,14 +42,18 @@ int entity_add(EntityList *list, Entity e) {
     return idx;
 }
 
-/* Generic fields come from shared keys (rot, mat); the type reads the rest */
-Entity entity_spawn(EntityType type, Vec3 pos, const char *args) {
+/* Generic fields come from shared keys (rot, target, targetname); the
+ * type reads the rest */
+Entity entity_spawn_brush(EntityType type, Vec3 center, Vec3 half_size, const char *args) {
     Entity e = {
         .type = type,
-        .position = pos,
+        .position = center,
+        .half_size = half_size,
         .active = true,
         .rotation_y = kv_float(args, "rot", 0),
     };
+    kv_string(args, "target", e.target, sizeof(e.target));
+    kv_string(args, "targetname", e.targetname, sizeof(e.targetname));
 
     const EntityDef *def = entity_def(type);
     if (def->spawn) {
@@ -58,9 +62,17 @@ Entity entity_spawn(EntityType type, Vec3 pos, const char *args) {
     return e;
 }
 
+Entity entity_spawn(EntityType type, Vec3 pos, const char *args) {
+    return entity_spawn_brush(type, pos, vec3(0, 0, 0), args);
+}
+
 /* --- Template meshes --- */
 
 void entity_meshes_init(EntityMeshes *em) {
+    em->models = NULL;
+    em->model_count = 0;
+    em->model_cap = 0;
+
     for (int t = 0; t < ENTITY_TYPE_COUNT; t++) {
         em->initialized[t] = false;
         mesh_init(&em->meshes[t]);
@@ -81,6 +93,30 @@ void entity_meshes_free(EntityMeshes *em) {
         }
         em->initialized[t] = false;
     }
+
+    for (int i = 0; i < em->model_count; i++) {
+        mesh_free(&em->models[i]);
+    }
+    free(em->models);
+    em->models = NULL;
+    em->model_count = 0;
+    em->model_cap = 0;
+}
+
+int entity_meshes_add_model(EntityMeshes *em, Mesh *mesh) {
+    if (em->model_count >= em->model_cap) {
+        int cap = em->model_cap ? em->model_cap * 2 : ENTITY_LIST_INITIAL_CAP;
+        Mesh *grown = realloc(em->models, (size_t)cap * sizeof(Mesh));
+        if (!grown) {
+            mesh_free(mesh);
+            return 0;
+        }
+        em->models = grown;
+        em->model_cap = cap;
+    }
+    em->models[em->model_count++] = *mesh;
+    mesh_init(mesh); /* ownership moved */
+    return em->model_count;
 }
 
 /* --- Dispatch --- */
@@ -139,8 +175,24 @@ static void entity_pose(const Entity *e, Vec3 *pos, float *rot_y) {
     *rot_y = e->rotation_y;
 }
 
-UseResult entity_try_use(EntityList *list, Vec3 pos, Vec3 forward, float range,
-                         int *used) {
+void entity_bounds(const Entity *e, Vec3 *lo, Vec3 *hi) {
+    Vec3 pos;
+    float rot;
+    entity_pose(e, &pos, &rot);
+    *lo = vec3_sub(pos, e->half_size);
+    *hi = vec3_add(pos, e->half_size);
+}
+
+/* Point of the entity nearest to pos on the horizontal plane: its
+ * position, or for brushes the closest point of its bounds (a wide door
+ * is used from its edge, not only its middle) */
+static Vec3 use_point(const Entity *e, Vec3 pos) {
+    Vec3 lo, hi;
+    entity_bounds(e, &lo, &hi);
+    return vec3(fminf(fmaxf(pos.x, lo.x), hi.x), pos.y, fminf(fmaxf(pos.z, lo.z), hi.z));
+}
+
+int entity_find_usable(const EntityList *list, Vec3 pos, Vec3 forward, float range) {
     Vec3 fwd = vec3(forward.x, 0, forward.z);
     if (vec3_length(fwd) > 0.01f) {
         fwd = vec3_normalize(fwd);
@@ -151,14 +203,11 @@ UseResult entity_try_use(EntityList *list, Vec3 pos, Vec3 forward, float range,
     int best = ENTITY_INDEX_NONE;
     for (int i = 0; i < list->count; i++) {
         const Entity *e = &list->items[i];
-        if (!e->active || !entity_def(e->type)->use) {
+        if (!e->active || !entity_def(e->type)->usable) {
             continue;
         }
 
-        Vec3 target;
-        float rot;
-        entity_pose(e, &target, &rot);
-        Vec3 to_target = vec3_sub(target, pos);
+        Vec3 to_target = vec3_sub(use_point(e, pos), pos);
         to_target.y = 0;
 
         float dist = vec3_length(to_target);
@@ -172,15 +221,7 @@ UseResult entity_try_use(EntityList *list, Vec3 pos, Vec3 forward, float range,
         best_dist = dist;
         best = i;
     }
-
-    if (used) {
-        *used = best;
-    }
-    if (best == ENTITY_INDEX_NONE) {
-        return USE_NOTHING;
-    }
-    Entity *e = &list->items[best];
-    return entity_def(e->type)->use(e);
+    return best;
 }
 
 DamageResult entity_damage(EntityList *list, int i, float amount) {
@@ -214,10 +255,14 @@ static Triangle transform_triangle(Triangle t, Vec3 pos, float rot_y) {
     return out;
 }
 
-/* Template mesh for an entity, or NULL if it isn't drawn as a mesh */
+/* Mesh for an entity (its brush model, else the type template), or
+ * NULL if it isn't drawn as a mesh */
 static const Mesh *entity_mesh(const Entity *e, const EntityMeshes *em) {
     if (!e->active || entity_def(e->type)->render != RENDER_MESH) {
         return NULL;
+    }
+    if (e->model > 0 && e->model <= em->model_count) {
+        return &em->models[e->model - 1];
     }
     if (!em->initialized[e->type]) {
         return NULL;
@@ -252,7 +297,9 @@ int entity_build_triangles(const EntityList *list, const EntityMeshes *em,
 
         for (int t = 0; t < tmpl->count && written < max_tris; t++) {
             Triangle tri = tmpl->tris[t];
-            tri.material_id = e->material_id;
+            if (!e->model) {
+                tri.material_id = e->material_id; /* brush faces keep their own */
+            }
             tri.owner = i + 1;
             out[written++] = transform_triangle(tri, pos, rot);
         }

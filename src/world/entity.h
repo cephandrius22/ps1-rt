@@ -11,12 +11,22 @@
  *   entity_update()  ──> def->update()
  *   entity_overlap() ──> touchable entities inside a body; the toucher
  *                        decides, then entity_touch() ──> def->touch()
- *   entity_try_use() ──> def->use()     (E key, e.g. doors)
+ *   entity_find_usable()               (E key: what's in front; game decides)
  *   entity_damage()  ──> def->damage()  (bullets, e.g. enemies)
  *   entity_build_triangles() ──> def->pose() + template mesh (RENDER_MESH)
  *   entity_build_sprites()   ──> def->sprite()               (RENDER_SPRITE)
  *
  * Adding a type = enum value + EntityDef row in entity_types.c.
+ *
+ * Brush entities (def->brush, e.g. func_door) are drawn by the level
+ * designer as brushes instead of placed as a point. Their position is
+ * the center of the brushes' bounds, half_size their extent, and their
+ * triangles become a per-entity model (EntityMeshes.models), posed like
+ * a template mesh:
+ *
+ *     ┌─────────┐ ← brushes, in the editor
+ *     │    +    │   + = position, half_size = (w/2, h/2, d/2)
+ *     └─────────┘
  */
 #ifndef ENTITY_H
 #define ENTITY_H
@@ -31,7 +41,7 @@ typedef enum {
     ENTITY_PICKUP_HEALTH,
     ENTITY_PICKUP_AMMO,
     ENTITY_PICKUP_WEAPON,
-    ENTITY_DOOR,
+    ENTITY_DOOR,          /* func_door: brush that slides open (game/logic.c runs it) */
     ENTITY_PROP,
     ENTITY_DECOR,         /* static sprite: barrels, candles, bodies */
     ENTITY_GHOUL,         /* melee enemy; AI lives in game/ai.c */
@@ -80,13 +90,17 @@ typedef enum {
     ENEMY_DEAD,
 } EnemyState;
 
+/* Doors: closed (offset 0) ⇄ open (offset = travel). World stores and
+ * poses it; game/logic.c decides the transitions. */
 typedef enum {
-    USE_NOTHING,
-    USE_OPENED,
-    USE_CLOSED,
-} UseResult;
+    MOVER_CLOSED,
+    MOVER_OPENING,
+    MOVER_OPEN,
+    MOVER_CLOSING,
+} MoverState;
 
 #define ENTITY_ITEM_MAX 16
+#define ENTITY_NAME_MAX 32
 #define PROJECTILE_OWNER_PLAYER (-2)
 
 typedef struct {
@@ -96,6 +110,15 @@ typedef struct {
     bool active;
     float health;     /* for damageable types; 0 = dead */
 
+    /* Brush entities (see top); zero for point entities */
+    int model;        /* 1-based index into EntityMeshes.models; 0 = type template */
+    Vec3 half_size;
+
+    /* Triggering, Quake-style: when this entity fires, every entity named
+     * `target` reacts (doors open, monsters appear). Any type may carry them. */
+    char target[ENTITY_NAME_MAX];
+    char targetname[ENTITY_NAME_MAX];
+
     /* Type-specific data */
     union {
         struct {
@@ -103,11 +126,16 @@ typedef struct {
             char item[ENTITY_ITEM_MAX]; /* what it gives, by name: "shells", "shotgun" */
         } pickup;
         struct {
-            float angle;        /* current swing angle in radians */
-            float target_angle; /* 0 = closed, ~1.5 = open */
-            float swing_speed;
-            Vec3 hinge;         /* hinge position (world space) */
-        } door;
+            MoverState state;
+            Vec3 dir;         /* unit direction it opens along */
+            float travel;     /* meters from closed to open */
+            float offset;     /* meters moved from closed */
+            float speed;      /* m/s */
+            float wait;       /* seconds open before closing; < 0 = stays open */
+            float timer;      /* seconds spent open */
+            char key[ENTITY_ITEM_MAX]; /* keycard needed ("red"), "" = none */
+            bool nav_closed;  /* game/logic.c: the nav grid has it marked shut */
+        } mover;
         struct {
             float width;
             float height;
@@ -187,15 +215,20 @@ typedef struct {
      * loader prepares its default material for runtime spawns */
     bool runtime_only;
 
+    /* Placed as brushes (FGD @SolidClass); see the top of this file */
+    bool brush;
+
+    /* The E key can pick it (entity_find_usable); game decides what happens */
+    bool usable;
+
     /* Fill type-specific fields from level key=values, e.g. "amount=25" */
     void (*spawn)(Entity *e, const char *args);
 
     void (*update)(Entity *e, float dt, float time);
     TouchResult (*touch)(Entity *e);
-    UseResult (*use)(Entity *e);
     DamageResult (*damage)(Entity *e, float amount);
 
-    /* World placement of the template mesh this frame (bob, hinge swing) */
+    /* World placement of the mesh this frame (bob, door slide) */
     void (*pose)(const Entity *e, Vec3 *pos, float *rot_y);
 
     /* Build the shared template mesh (RENDER_MESH only) */
@@ -212,15 +245,18 @@ typedef struct {
     int capacity;
 } EntityList;
 
-/* Template meshes shared by entity type */
+/* Template meshes shared by entity type, plus one model per brush entity */
 typedef struct {
     Mesh meshes[ENTITY_TYPE_COUNT];
     bool initialized[ENTITY_TYPE_COUNT];
+
+    Mesh *models;
+    int model_count;
+    int model_cap;
 } EntityMeshes;
 
 #define COLLECT_RADIUS   1.0f
 #define USE_RANGE        2.5f
-#define DOOR_SWING_SPEED 2.5f
 
 /* Type table lookup */
 const EntityDef *entity_def(EntityType type);
@@ -237,6 +273,10 @@ EntityType entity_type_by_name(const char *name); /* ENTITY_NONE if unknown */
  * material_id is left 0; the level loader resolves mat= or the default. */
 Entity entity_spawn(EntityType type, Vec3 pos, const char *args);
 
+/* Brush entity: center and half_size of its brushes' bounds are set
+ * before the type reads its args (a door's travel depends on its size) */
+Entity entity_spawn_brush(EntityType type, Vec3 center, Vec3 half_size, const char *args);
+
 /* Growable entity array. entity_add returns the new (stable) index, or
  * -1 if out of memory. Entities are never removed, only deactivated. */
 void entity_list_init(EntityList *list);
@@ -246,6 +286,10 @@ int  entity_add(EntityList *list, Entity e);
 /* Build every RENDER_MESH type's template via its build_mesh hook */
 void entity_meshes_init(EntityMeshes *em);
 void entity_meshes_free(EntityMeshes *em);
+
+/* Take ownership of a brush entity's mesh (triangles relative to its
+ * position). Returns the 1-based model id for Entity.model, or 0. */
+int entity_meshes_add_model(EntityMeshes *em, Mesh *mesh);
 
 /* Advance all active entities one tick */
 void entity_update(EntityList *list, float dt, float time);
@@ -262,10 +306,13 @@ int entity_overlap(const EntityList *list, Cylinder body, int *out, int max);
 /* Run entity i's touch hook (e.g. a pickup deactivates itself) */
 TouchResult entity_touch(EntityList *list, int i);
 
-/* Use the nearest usable entity in range and roughly in front.
- * Writes its index to used (if non-NULL). */
-UseResult entity_try_use(EntityList *list, Vec3 pos, Vec3 forward, float range,
-                         int *used);
+/* The nearest usable entity within range and roughly in front of pos,
+ * or ENTITY_INDEX_NONE. Brush entities count from their nearest edge. */
+int entity_find_usable(const EntityList *list, Vec3 pos, Vec3 forward, float range);
+
+/* World box an entity covers this tick: posed brush bounds, or just its
+ * position for point entities */
+void entity_bounds(const Entity *e, Vec3 *lo, Vec3 *hi);
 
 /* Damage entity i via its hook (e.g. an enemy flinches or dies) */
 DamageResult entity_damage(EntityList *list, int i, float amount);

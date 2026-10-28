@@ -13,7 +13,8 @@ box -1 0 -1 1 2 1 stone
 
 # Entities
 entity health 3 0.5 0 amount=50 mat=red_flat
-entity door 0 0 -5 hinge_x=0 hinge_z=-5
+entity decor 0 0 -4
+brush func_door -1 0 -5 1 2.5 -4.8 stone wait=2
 
 # Lights
 light 0 2.5 0 1.0 0.9 0.7 3.0 15.0 shadows=1

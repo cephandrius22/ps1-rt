@@ -127,59 +127,53 @@ static void weapon_pickup_mesh(Mesh *m) {
     make_box_mesh(m, vec3(-hl, -hh, -hd), vec3(hl, hh, hd));
 }
 
-/* --- Doors: swing around a hinge toward a target angle --- */
+/* --- Doors (func_door): brushes that slide open along one axis. Doom
+ * style by default: up into the ceiling. game/logic.c opens and closes
+ * them; here is only their shape and pose. --- */
 
-#define DOOR_OPEN_ANGLE    1.5f   /* ~86 degrees */
-#define DOOR_CLOSED_ANGLE  0.0f
-#define DOOR_SNAP_EPSILON  0.01f
-#define DOOR_WIDTH         1.2f
-#define DOOR_HEIGHT        2.4f
-#define DOOR_THICKNESS     0.15f
+#define DOOR_SPEED_DEF  2.5f   /* m/s */
+#define DOOR_WAIT_DEF   4.0f   /* seconds open before closing */
+#define DOOR_LIP_DEF    0.125f /* meters left showing when fully open */
+#define DOOR_OPENS_DEF  "up"
 
+/* Direction from the opens= key: up, down, or side (along rot, the
+ * editor's angle arrow; yaw 0 faces -Z) */
+static Vec3 door_dir(const Entity *e, const char *opens) {
+    if (strcmp(opens, "down") == 0) {
+        return vec3(0, -1, 0);
+    }
+    if (strcmp(opens, "side") == 0) {
+        return vec3(-sinf(e->rotation_y), 0, -cosf(e->rotation_y));
+    }
+    return vec3(0, 1, 0);
+}
+
+/* Travel = the door's own size along its direction, minus the lip:
+ *
+ *    ┌──┐ ↑ open: lip still in the doorway
+ *    │  │ │ travel
+ *    └──┘ ┘
+ */
 static void door_spawn(Entity *e, const char *args) {
-    e->door.angle = DOOR_CLOSED_ANGLE;
-    e->door.target_angle = DOOR_CLOSED_ANGLE;
-    e->door.swing_speed = DOOR_SWING_SPEED;
-    e->door.hinge = vec3(kv_float(args, "hinge_x", e->position.x), 0,
-                         kv_float(args, "hinge_z", e->position.z));
+    char opens[ENTITY_ITEM_MAX] = DOOR_OPENS_DEF;
+    kv_string(args, "opens", opens, sizeof(opens));
+    kv_string(args, "key", e->mover.key, sizeof(e->mover.key));
+
+    Vec3 dir = door_dir(e, opens);
+    Vec3 size = vec3_mul(e->half_size, 2.0f);
+    float extent = fabsf(dir.x) * size.x + fabsf(dir.y) * size.y + fabsf(dir.z) * size.z;
+    float lip = kv_float(args, "lip", DOOR_LIP_DEF);
+
+    e->mover.state = MOVER_CLOSED;
+    e->mover.dir = dir;
+    e->mover.travel = fmaxf(extent - lip, 0.0f);
+    e->mover.speed = kv_float(args, "speed", DOOR_SPEED_DEF);
+    e->mover.wait = kv_float(args, "wait", DOOR_WAIT_DEF);
 }
 
-static void door_update(Entity *e, float dt, float time) {
-    (void)time;
-    float diff = e->door.target_angle - e->door.angle;
-    if (fabsf(diff) <= DOOR_SNAP_EPSILON) {
-        e->door.angle = e->door.target_angle;
-        return;
-    }
-
-    /* Step toward target without overshooting */
-    float step = e->door.swing_speed * dt;
-    if (diff > 0) {
-        e->door.angle += step < diff ? step : diff;
-    } else {
-        e->door.angle += -step > diff ? -step : diff;
-    }
-}
-
-static UseResult door_use(Entity *e) {
-    bool is_open = e->door.target_angle > DOOR_SNAP_EPSILON;
-    if (is_open) {
-        e->door.target_angle = DOOR_CLOSED_ANGLE;
-        return USE_CLOSED;
-    }
-    e->door.target_angle = DOOR_OPEN_ANGLE;
-    return USE_OPENED;
-}
-
-static void door_pose(const Entity *e, Vec3 *pos, float *rot_y) {
-    *pos = e->door.hinge;
-    *rot_y = e->door.angle;
-}
-
-/* Mesh extends from the hinge (x=0) to the free edge (x=width) */
-static void door_mesh(Mesh *m) {
-    float half_t = DOOR_THICKNESS * 0.5f;
-    make_box_mesh(m, vec3(0, 0, -half_t), vec3(DOOR_WIDTH, DOOR_HEIGHT, half_t));
+static void mover_pose(const Entity *e, Vec3 *pos, float *rot_y) {
+    *pos = vec3_add(e->position, vec3_mul(e->mover.dir, e->mover.offset));
+    *rot_y = 0; /* the model is already in world orientation */
 }
 
 /* --- Props: static cube --- */
@@ -343,8 +337,12 @@ static const EntityKey weapon_keys[] = {
 };
 
 static const EntityKey door_keys[] = {
-    {"hinge_x", KEY_FLOAT, 0, ".level only: hinge X (defaults to the door position)", NULL},
-    {"hinge_z", KEY_FLOAT, 0, ".level only: hinge Z (defaults to the door position)", NULL},
+    {"opens", KEY_STRING, 0, "Direction: up, down, or side (along the angle)", DOOR_OPENS_DEF},
+    {"speed", KEY_LENGTH, DOOR_SPEED_DEF, "Speed per second", NULL},
+    {"wait", KEY_FLOAT, DOOR_WAIT_DEF, "Seconds open before closing (-1 = stays open)", NULL},
+    {"lip", KEY_LENGTH, DOOR_LIP_DEF, "Left showing when open", NULL},
+    {"key", KEY_STRING, 0, "Keycard needed: red, blue, yellow (empty = none)", ""},
+    {"targetname", KEY_STRING, 0, "Name; a named door opens only when triggered", ""},
     {.type = KEY_END},
 };
 
@@ -391,11 +389,10 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
         .pose = pickup_pose, .build_mesh = weapon_pickup_mesh,
     },
     [ENTITY_DOOR] = {
-        .name = "door", .render = RENDER_MESH,
-        .default_texture = "rust", .default_color = {0.4f, 0.2f, 0.1f},
-        .desc = "Swinging door; E toggles. Place at the hinge.", .keys = door_keys,
-        .spawn = door_spawn, .update = door_update, .use = door_use,
-        .pose = door_pose, .build_mesh = door_mesh,
+        .name = "func_door", .render = RENDER_MESH, .brush = true, .usable = true,
+        .default_texture = "metal_panel", .default_color = {0.4f, 0.2f, 0.1f},
+        .desc = "Door brush: E opens (Doom-style, rises by default)", .keys = door_keys,
+        .spawn = door_spawn, .pose = mover_pose,
     },
     [ENTITY_PROP] = {
         .name = "prop", .render = RENDER_MESH,

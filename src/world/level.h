@@ -25,6 +25,12 @@ int level_load(Scene *scene, const char *filename, LevelInfo *info);
 
 struct MatLib;
 
+/* Shared by both loaders: add a brush entity (door, trigger) covering
+ * the world box [lo, hi]. tris are its faces in world space (may be
+ * empty); drawn types keep them as the entity's model, others free them. */
+void level_add_brush_entity(Scene *scene, EntityType type, Vec3 lo, Vec3 hi,
+                            Mesh *tris, const char *args);
+
 /* Shared last step of every loader: hand textures to the scene, jitter
  * world triangles, build the static BVH, free the world mesh */
 void level_finish(Scene *scene, struct MatLib *mats, Mesh *world, const char *name);

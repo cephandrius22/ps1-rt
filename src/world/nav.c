@@ -206,7 +206,8 @@ static bool alloc_grid(NavGrid *nav) {
     nav->height = malloc(sizeof(float) * n);
     nav->links = calloc(n, 1);
     nav->tight = calloc(n, 1);
-    nav->blocked = calloc(n, 1);
+    nav->closed = calloc(n, 1);
+    nav->locked = calloc(n, 1);
     nav->seen = calloc(n, sizeof(uint32_t));
     nav->done = calloc(n, sizeof(uint32_t));
     nav->cost = malloc(sizeof(float) * n);
@@ -214,7 +215,7 @@ static bool alloc_grid(NavGrid *nav) {
     nav->heap = malloc(sizeof(NavHeapItem) * nav->heap_cap);
     nav->flood_seen = calloc(n, sizeof(uint32_t));
 
-    return nav->height && nav->links && nav->tight && nav->blocked && nav->seen &&
+    return nav->height && nav->links && nav->tight && nav->closed && nav->locked && nav->seen &&
            nav->done && nav->cost && nav->parent && nav->heap && nav->flood_seen;
 }
 
@@ -263,7 +264,8 @@ void nav_free(NavGrid *nav) {
     free(nav->height);
     free(nav->links);
     free(nav->tight);
-    free(nav->blocked);
+    free(nav->closed);
+    free(nav->locked);
     free(nav->seen);
     free(nav->done);
     free(nav->cost);
@@ -416,7 +418,7 @@ static bool search(NavGrid *nav, int start, int goal) {
 
         for (int d = 0; d < DIRS; d++) {
             int m = neighbor(nav, n, d);
-            if (m == NAV_NONE || nav->blocked[m] || !linked(nav, m, dir_opposite[d])) {
+            if (m == NAV_NONE || nav->locked[m] || !linked(nav, m, dir_opposite[d])) {
                 continue;
             }
             if (nav->done[m] != nav->search) {
@@ -430,7 +432,7 @@ static bool search(NavGrid *nav, int start, int goal) {
 bool nav_next_waypoint(NavGrid *nav, Vec3 from, Vec3 to, Vec3 *waypoint) {
     int start = nav_node_at(nav, from);
     int goal = nav_node_at(nav, to);
-    if (start == NAV_NONE || goal == NAV_NONE || nav->blocked[goal]) {
+    if (start == NAV_NONE || goal == NAV_NONE || nav->locked[goal]) {
         return false;
     }
     if (start == goal) {
@@ -491,7 +493,7 @@ void nav_flood(NavGrid *nav, Vec3 from, float max_dist) {
             }
             int m = neighbor(nav, n, d);
             float c = item.f + step_cost(nav, n, m, d);
-            if (nav->blocked[m] || c > max_dist || nav->done[m] == nav->search) {
+            if (nav->closed[m] || c > max_dist || nav->done[m] == nav->search) {
                 continue;
             }
             if (nav->seen[m] == nav->search && c >= nav->cost[m]) {
@@ -511,18 +513,27 @@ bool nav_heard(const NavGrid *nav, Vec3 feet) {
 
 /* --- Doors --- */
 
-void nav_set_blocked(NavGrid *nav, Vec3 lo, Vec3 hi, int delta) {
+static void add_count(uint8_t *count, int delta) {
+    int c = *count + delta;
+    *count = (uint8_t)(c < 0 ? 0 : c);
+}
+
+void nav_set_door(NavGrid *nav, Vec3 lo, Vec3 hi, NavDoor kind, int delta) {
+    float pad = NAV_CELL * 0.5f;
     for (int n = 0; n < nav->node_count; n++) {
         if (!has_floor(nav, n)) {
             continue;
         }
         Vec3 p = nav_node_pos(nav, n);
-        bool inside = p.x >= lo.x && p.x <= hi.x && p.z >= lo.z && p.z <= hi.z &&
+        bool inside = p.x >= lo.x - pad && p.x <= hi.x + pad &&
+                      p.z >= lo.z - pad && p.z <= hi.z + pad &&
                       p.y >= lo.y - NAV_STEP && p.y <= hi.y;
         if (!inside) {
             continue;
         }
-        int b = nav->blocked[n] + delta;
-        nav->blocked[n] = (uint8_t)(b < 0 ? 0 : b);
+        add_count(&nav->closed[n], delta);
+        if (kind == NAV_DOOR_LOCKED) {
+            add_count(&nav->locked[n], delta);
+        }
     }
 }
