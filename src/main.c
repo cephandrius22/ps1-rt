@@ -126,6 +126,56 @@ static void fill_debug(OverlayState *o, const Game *g, float work_ms, float fps)
                p->view.pos.x * k, -p->view.pos.z * k, p->foot_y * k, angle);
 }
 
+/* Viewmodel animation: presentation only, driven by frame time */
+#define BOB_RATE          9.0f   /* bob phase speed (rad/s) at full walking speed */
+#define BOB_X             6.0f   /* sway, pixels */
+#define BOB_Y             4.0f   /* dip, pixels */
+#define VIEW_FIRE_SHOW    0.07f  /* seconds the firing frame stays up */
+#define RECOIL_PX_PER_RAD 150.0f /* how far the gun jumps per radian of kick */
+#define VIEW_LOWER_PX     110.0f /* drop when fully lowered for a switch */
+#define VIEW_LIGHT_SCALE  0.45f  /* probe ignores shadows and angles: tone it down */
+#define VIEW_LIGHT_MIN    0.25f  /* never fully black */
+#define VIEW_LIGHT_MAX    1.1f
+
+typedef struct {
+    float bob_phase;
+    float fire_show; /* seconds left showing the firing frame */
+} ViewAnim;
+
+static bool fired_this_frame(const EventQueue *events) {
+    for (int i = 0; i < events->count; i++) {
+        if (events->items[i].type == EV_WEAPON_FIRED) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* The held weapon: which sheet and frame, bob/recoil/switch offsets, and
+ * a brightness probe so the gun is dark in dark rooms */
+static void fill_viewmodel(ViewmodelState *vm, ViewAnim *anim, const Game *g, float dt) {
+    if (g->mode != GAME_PLAYING) {
+        vm->texture = NULL;
+        return;
+    }
+
+    const Player *p = &g->player;
+    float walk = p->on_ground ? fminf(p->move_speed / PLAYER_SPEED, 1.0f) : 0.0f;
+    anim->bob_phase += dt * BOB_RATE * walk;
+    anim->fire_show = fired_this_frame(&g->events) ? VIEW_FIRE_SHOW
+                                                   : fmaxf(anim->fire_show - dt, 0.0f);
+
+    vm->texture = weapon_def(g->weapon.type)->view_texture;
+    vm->frame = anim->fire_show > 0 ? VIEW_FRAME_FIRE : VIEW_FRAME_IDLE;
+    vm->offset_x = sinf(anim->bob_phase) * BOB_X * walk;
+    vm->offset_y = fabsf(cosf(anim->bob_phase)) * BOB_Y * walk
+                 + g->weapon.kick * RECOIL_PX_PER_RAD
+                 + weapon_lowered(&g->weapon) * VIEW_LOWER_PX;
+
+    float light = render_light_at(&g->scene, p->view.pos, g->time, p->flashlight_on);
+    vm->light = fminf(fmaxf(light * VIEW_LIGHT_SCALE, VIEW_LIGHT_MIN), VIEW_LIGHT_MAX);
+}
+
 /* Game mode → what the overlay should show */
 static OverlayMode overlay_mode(GameMode mode) {
     switch (mode) {
@@ -173,6 +223,9 @@ int main(int argc, char *argv[]) {
         SCREEN_W, SCREEN_H);
 
     Framebuffer fb;
+    Overlay hud;
+    overlay_init(&hud);
+    ViewAnim view_anim = {0};
 
     /* Game owns the level, player and weapon (static: Scene is large) */
     static Game game;
@@ -244,10 +297,11 @@ int main(int argc, char *argv[]) {
             .kills_total = game.kills_total,
             .weapon_kick = game.weapon.kick,
         };
+        fill_viewmodel(&overlay.viewmodel, &view_anim, &game, dt);
         if (show_debug) {
             fill_debug(&overlay, &game, work_ms, fps);
         }
-        overlay_draw(&fb, &overlay);
+        overlay_draw(&hud, &fb, &overlay);
 
         /* Work time: everything this frame except waiting for vsync */
         float frame_work = (float)(SDL_GetPerformanceCounter() - frame_start) / (float)freq * 1000.0f;
@@ -269,6 +323,7 @@ int main(int argc, char *argv[]) {
     printf("\n");
     audio_shutdown(&audio);
     threadpool_destroy(&pool);
+    overlay_free(&hud);
     game_free(&game);
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(sdl_renderer);

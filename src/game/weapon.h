@@ -47,6 +47,7 @@ typedef struct {
     float spread;      /* radians off-center for outer pellets */
     float kick;        /* pitch recoil per shot (radians) */
     float kick_return; /* recoil recovery per second */
+    const char *view_texture; /* viewmodel sheet (proctex name) */
     AmmoType ammo;     /* pool drawn from; AMMO_NONE = unlimited */
     int ammo_per_shot;
     float switch_time; /* seconds to lower the old + raise this one */

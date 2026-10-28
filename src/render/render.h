@@ -31,6 +31,10 @@ uint32_t color_rgb(uint8_t r, uint8_t g, uint8_t b);
 /* Background for rays that hit nothing: dim vertical gradient */
 Vec3 sky_color(Vec3 dir);
 
+/* Rough brightness at a point (no shadows): ambient + point lights +
+ * flashlight. Used to light the viewmodel like its surroundings. */
+float render_light_at(const struct Scene *scene, Vec3 p, float time, bool flashlight);
+
 /* Full scene render with point lights and shadow rays */
 void render_scene_lit(Framebuffer *fb, const Camera *cam, const struct Scene *scene,
                       float time, bool flashlight);

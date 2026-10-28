@@ -1,5 +1,7 @@
 #include "overlay.h"
+#include "ps1_effects.h"
 #include <stddef.h>
+#include <math.h>
 
 /* 3x5 pixel digits, one row per 3-bit value (MSB = left pixel).
  * Example: '1' = 010 110 010 010 111 */
@@ -42,6 +44,7 @@ static const unsigned char colon_rows[GLYPH_H] = {0, 2, 0, 2, 0};
 #define DEAD_TINT_KEEP  0.35f       /* fraction of green/blue kept when dead */
 #define END_DIM         0.3f        /* brightness kept behind the level-end text */
 #define DEBUG_SCALE     1           /* debug text: 3x5 pixels per glyph */
+#define VIEW_SCALE      2           /* viewmodel texel → 2x2 screen pixels */
 #define DEBUG_MARGIN    3
 #define DEBUG_LINE_GAP  2           /* pixels between debug lines */
 #define DEBUG_OK_COLOR   0xFF8CD278u /* green */
@@ -191,7 +194,79 @@ static void draw_kill_count(Framebuffer *fb, int kills, int total) {
     draw_number(fb, total, x + glyph_advance(TITLE_SCALE), y, TITLE_SCALE, HUD_TITLE);
 }
 
-void overlay_draw(Framebuffer *fb, const OverlayState *state) {
+void overlay_init(Overlay *o) {
+    for (int i = 0; i < PTEX_COUNT; i++) {
+        o->generated[i] = false;
+        o->views[i].pixels = NULL;
+    }
+}
+
+void overlay_free(Overlay *o) {
+    for (int i = 0; i < PTEX_COUNT; i++) {
+        if (o->generated[i]) {
+            texture_free(&o->views[i]);
+        }
+        o->generated[i] = false;
+    }
+}
+
+static const Texture *view_texture(Overlay *o, const char *name) {
+    int id = name ? proctex_find(name) : -1;
+    if (id < 0) {
+        return NULL;
+    }
+    if (!o->generated[id]) {
+        proctex_generate(&o->views[id], (ProceduralTextureID)id);
+        o->generated[id] = true;
+    }
+    return &o->views[id];
+}
+
+/* Lit and dithered like the world, so the gun doesn't look pasted on */
+static uint32_t lit_pixel(const uint8_t *rgb, float light, int x, int y) {
+    uint8_t r = (uint8_t)fminf(rgb[0] * light, 255.0f);
+    uint8_t g = (uint8_t)fminf(rgb[1] * light, 255.0f);
+    uint8_t b = (uint8_t)fminf(rgb[2] * light, 255.0f);
+    return ps1_dither_color(r, g, b, x, y);
+}
+
+/* Viewmodel: one sheet frame, scaled VIEW_SCALE, bottom-center, offset by
+ * bob/recoil/switch. Nearest-neighbour; color-key texels are skipped. */
+static void draw_viewmodel(Overlay *o, Framebuffer *fb, const ViewmodelState *vm) {
+    const Texture *tex = view_texture(o, vm->texture);
+    if (!tex) {
+        return;
+    }
+
+    int w = VIEW_FRAME_W * VIEW_SCALE;
+    int h = VIEW_FRAME_H * VIEW_SCALE;
+    int x0 = (SCREEN_W - w) / 2 + (int)vm->offset_x;
+    int y0 = SCREEN_H - h + (int)vm->offset_y;
+    int col0 = vm->frame * VIEW_FRAME_W;
+
+    for (int y = 0; y < h; y++) {
+        int sy = y0 + y;
+        if (sy < 0 || sy >= SCREEN_H) {
+            continue;
+        }
+        for (int x = 0; x < w; x++) {
+            int sx = x0 + x;
+            if (sx < 0 || sx >= SCREEN_W) {
+                continue;
+            }
+            const uint8_t *p = tex->pixels + ((y / VIEW_SCALE) * tex->width +
+                                              col0 + x / VIEW_SCALE) * 3;
+            bool key = p[0] == TEXTURE_KEY_R && p[1] == TEXTURE_KEY_G && p[2] == TEXTURE_KEY_B;
+            if (!key) {
+                fb->pixels[sy * SCREEN_W + sx] = lit_pixel(p, vm->light, sx, sy);
+            }
+        }
+    }
+}
+
+void overlay_draw(Overlay *o, Framebuffer *fb, const OverlayState *state) {
+    draw_viewmodel(o, fb, &state->viewmodel);
+
     switch (state->mode) {
     case OVERLAY_PLAYING:
         break;

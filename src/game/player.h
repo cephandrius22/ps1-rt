@@ -33,6 +33,7 @@ typedef struct {
     bool on_ground;
     bool flashlight_on;
     float walk_distance;  /* distance since last footstep event */
+    float move_speed;     /* horizontal speed last tick, m/s (viewmodel bob) */
     float health;         /* 0 = dead */
     Inventory inv;        /* ammo pools */
 } Player;

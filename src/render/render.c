@@ -199,11 +199,13 @@ static uint32_t shade_pixel_lit(int x, int y, const Camera *cam,
     return ps1_dither_color(cr, cg, cb, x, y);
 }
 
+#define AMBIENT_LIGHT 0.04f /* light everywhere, before sun and lamps */
+
 static RenderParams make_render_params(const Scene *scene, const Camera *cam,
                                        bool flashlight) {
     RenderParams p = {
         .sun_dir   = vec3_normalize(vec3(0.5f, 1.0f, -0.3f)),
-        .ambient   = 0.04f,
+        .ambient   = AMBIENT_LIGHT,
         .fog_start = 8.0f,
         .fog_end   = 22.0f,
         .fog_color = vec3(0.04f, 0.03f, 0.02f),
@@ -219,6 +221,21 @@ static RenderParams make_render_params(const Scene *scene, const Camera *cam,
         p.flashlight_dir = pose_to_world_dir(view, vec3(0, 0, -1));
     }
     return p;
+}
+
+#define FLASHLIGHT_SELF_LIGHT 0.35f /* flashlight's spill on what you hold */
+
+float render_light_at(const Scene *scene, Vec3 p, float time, bool flashlight) {
+    float light = AMBIENT_LIGHT;
+    for (int i = 0; i < scene->lights.count; i++) {
+        const PointLight *pl = &scene->lights.items[i];
+        float dist = vec3_length(vec3_sub(pl->position, p));
+        if (dist >= pl->radius) {
+            continue;
+        }
+        light += light_attenuation(pl, dist) * light_effective_intensity(pl, time);
+    }
+    return flashlight ? light + FLASHLIGHT_SELF_LIGHT : light;
 }
 
 /* --- Single-threaded lit render --- */

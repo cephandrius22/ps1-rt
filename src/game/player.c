@@ -245,6 +245,10 @@ void player_update(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
     apply_vertical(p, pos, dt, scene);
     pos.y = p->foot_y + PLAYER_HEIGHT + PLAYER_EYE_OFFSET;
 
+    float dx = pos.x - p->view.pos.x;
+    float dz = pos.z - p->view.pos.z;
+    p->move_speed = dt > 0 ? sqrtf(dx * dx + dz * dz) / dt : 0;
+
     track_footsteps(p, pos, ev);
     p->view.pos = pos;
 

@@ -7,6 +7,7 @@
 static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
     [WEAPON_PISTOL] = {
         .name        = "pistol",
+        .view_texture = "view_pistol",
         .damage      = 25.0f,
         .cooldown    = 0.2f,
         .range       = 100.0f,
@@ -20,6 +21,7 @@ static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
     },
     [WEAPON_SHOTGUN] = {
         .name        = "shotgun",
+        .view_texture = "view_shotgun",
         .damage      = 10.0f,   /* per pellet: 7 pellets point-blank = 70 */
         .cooldown    = 0.9f,
         .range       = 60.0f,

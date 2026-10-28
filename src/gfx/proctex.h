@@ -20,6 +20,8 @@ typedef enum {
     PTEX_PIPE,
     PTEX_BARREL,      /* sprite: 32x40, color-keyed */
     PTEX_GHOUL,       /* sprite sheet: 5 frames of 32x48, color-keyed */
+    PTEX_VIEW_PISTOL, /* viewmodel sheet: 2 frames (ViewFrame) of 64x48 */
+    PTEX_VIEW_SHOTGUN,
     PTEX_COUNT
 } ProceduralTextureID;
 
@@ -35,6 +37,16 @@ typedef enum {
 
 /* Name a level or map uses for a texture, e.g. "brick" */
 const char *proctex_name(ProceduralTextureID id);
+
+/* Viewmodel sheet frame order */
+typedef enum {
+    VIEW_FRAME_IDLE,
+    VIEW_FRAME_FIRE,
+    VIEW_FRAME_COUNT
+} ViewFrame;
+
+#define VIEW_FRAME_W 64
+#define VIEW_FRAME_H 48
 
 /* Look up texture ID by name string. Returns -1 if not found or "none". */
 int proctex_find(const char *name);
