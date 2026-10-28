@@ -54,6 +54,7 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
         case EV_WEAPON_EMPTY:  audio_play(audio, SND_DRY_FIRE, 0.6f);     break;
         case EV_FOOTSTEP:      audio_play(audio, SND_FOOTSTEP, 0.4f);     break;
         case EV_PICKUP:        audio_play(audio, SND_PICKUP, 0.6f);       break;
+        case EV_WEAPON_PICKUP: break; /* EV_PICKUP already plays the pickup sound */
         case EV_DOOR_OPENED:   audio_play(audio, SND_DOOR_OPEN, 0.7f);    break;
         case EV_DOOR_CLOSED:   audio_play(audio, SND_DOOR_CLOSE, 0.7f);   break;
         case EV_PLAYER_HURT:   audio_play(audio, SND_PLAYER_PAIN, 0.7f);  break;

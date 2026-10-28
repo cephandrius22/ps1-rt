@@ -359,6 +359,31 @@ TEST(test_player_blocked_by_solid_sprite) {
     scene_free(&s);
 }
 
+/* Ammo pickups give the named pool; owned weapon + full ammo stays put */
+TEST(test_player_named_pickups) {
+    Scene s;
+    Mesh m;
+    floor_scene(&s, &m);
+    entity_add(&s.entities, entity_spawn(ENTITY_PICKUP_AMMO, vec3(0, 0.5f, -0.5f), "ammo=shells amount=4"));
+    entity_add(&s.entities, entity_spawn(ENTITY_PICKUP_WEAPON, vec3(0, 0.5f, 0.5f), "give=shotgun amount=8"));
+
+    Player p = grounded_player();
+    PlayerCmd cmd = {0};
+    EventQueue q = {0};
+    player_update(&p, &cmd, 1.0f / 60.0f, &s, &q);
+    ASSERT_EQ_INT(p.inv.ammo[AMMO_SHELLS], 12);
+    ASSERT(inventory_has_weapon(&p.inv, 1));
+
+    /* Second shotgun with full shells is left in place */
+    p.inv.ammo[AMMO_SHELLS] = AMMO_SHELLS_MAX;
+    s.entities.items[1].active = true;
+    player_update(&p, &cmd, 1.0f / 60.0f, &s, &q);
+    ASSERT(s.entities.items[1].active);
+
+    mesh_free(&m);
+    scene_free(&s);
+}
+
 int main(void) {
     floor_scene(&floor_world, &floor_mesh);
 
@@ -387,5 +412,6 @@ int main(void) {
     RUN_TEST(test_player_damage_and_death);
     RUN_TEST(test_player_ammo_pickup);
     RUN_TEST(test_player_blocked_by_solid_sprite);
+    RUN_TEST(test_player_named_pickups);
     TEST_REPORT();
 }

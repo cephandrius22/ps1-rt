@@ -5,9 +5,65 @@
 #define TWO_PI 6.28318530718f
 
 Weapon weapon_create(WeaponType type) {
-    Weapon w = {.type = type};
+    Weapon w = {.type = type, .phase = WEAPON_READY, .pending = type};
     w.last_hit.hit = false;
     return w;
+}
+
+WeaponType weapon_target(const Weapon *w) {
+    return w->phase == WEAPON_LOWERING ? w->pending : w->type;
+}
+
+void weapon_request(Weapon *w, WeaponType type) {
+    if (type < 0 || type >= WEAPON_TYPE_COUNT || type == weapon_target(w)) {
+        return;
+    }
+
+    /* Mid-raise: drop straight back down from where it is */
+    float lowered = weapon_lowered(w);
+    float half = weapon_def(w->type)->switch_time * 0.5f;
+    w->pending = type;
+    w->phase = WEAPON_LOWERING;
+    w->phase_time = lowered * half;
+}
+
+float weapon_lowered(const Weapon *w) {
+    float half = weapon_def(w->type)->switch_time * 0.5f;
+    if (half <= 0) {
+        return 0;
+    }
+    float k = fminf(w->phase_time / half, 1.0f);
+    switch (w->phase) {
+    case WEAPON_READY:    return 0;
+    case WEAPON_LOWERING: return k;
+    case WEAPON_RAISING:  return 1 - k;
+    }
+    return 0;
+}
+
+/* Advance a switch in progress. Returns true once the weapon is ready. */
+static bool tick_switch(Weapon *w, float dt) {
+    if (w->phase == WEAPON_READY) {
+        return true;
+    }
+
+    w->phase_time += dt;
+    float half = weapon_def(w->type)->switch_time * 0.5f;
+    if (w->phase_time < half) {
+        return false;
+    }
+
+    /* Lowered: swap type, raise the new one (with its own timing) */
+    if (w->phase == WEAPON_LOWERING) {
+        w->type = w->pending;
+        w->phase = WEAPON_RAISING;
+        w->phase_time = 0;
+        w->cooldown_timer = 0;
+        return false;
+    }
+    w->phase = WEAPON_READY;
+    w->phase_time = 0;
+    return true;
 }
 
 /* Recover recoil and count down cooldown. Returns true if a shot may fire. */
@@ -28,7 +84,8 @@ static bool tick_ready(Weapon *w, const WeaponDef *def, const PlayerCmd *cmd, fl
         }
     }
 
-    return cmd_has(cmd, BTN_ATTACK) && w->cooldown_timer <= 0;
+    bool ready = tick_switch(w, dt);
+    return ready && cmd_has(cmd, BTN_ATTACK) && w->cooldown_timer <= 0;
 }
 
 /* Pellet i's ray. Deterministic pattern: pellet 0 dead center, the rest

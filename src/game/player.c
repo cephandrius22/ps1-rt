@@ -1,5 +1,6 @@
 #include "player.h"
 #include "scene.h"
+#include "weapon.h"
 #include <math.h>
 
 #define PLAYER_TOUCH_MAX  8        /* entities touched per tick */
@@ -140,6 +141,28 @@ static void track_footsteps(Player *p, Vec3 new_pos, EventQueue *ev) {
 
 /* --- Interaction --- */
 
+/* Weapon pickup: give the weapon and its ammo. Left in place only if
+ * the weapon is already owned and its ammo is full. EV_WEAPON_PICKUP's
+ * amount is 1 for a weapon the player didn't have (game switches to it). */
+static bool take_weapon(Player *p, const Entity *e, int i, EventQueue *ev) {
+    WeaponType type = weapon_type_by_name(e->pickup.item);
+    if (type == WEAPON_TYPE_COUNT) {
+        return false;
+    }
+
+    AmmoType ammo = weapon_def(type)->ammo;
+    bool owned = inventory_has_weapon(&p->inv, type);
+    if (owned && inventory_full(&p->inv, ammo)) {
+        return false;
+    }
+
+    inventory_give_weapon(&p->inv, type);
+    inventory_add(&p->inv, ammo, (int)e->pickup.amount);
+    events_push(ev, (GameEvent){.type = EV_WEAPON_PICKUP, .pos = p->view.pos,
+                                .entity = i, .amount = owned ? 0.0f : 1.0f});
+    return true;
+}
+
 /* Apply what touching entity i means to the player. Returns false to
  * leave it untouched (e.g. health pickup at full health stays put). */
 static bool apply_touch_effect(Player *p, const Entity *e, int i, EventQueue *ev) {
@@ -150,8 +173,12 @@ static bool apply_touch_effect(Player *p, const Entity *e, int i, EventQueue *ev
         }
         p->health = fminf(p->health + e->pickup.amount, PLAYER_MAX_HEALTH);
         return true;
-    case TOUCH_EFFECT_AMMO:
-        return inventory_add(&p->inv, AMMO_BULLETS, (int)e->pickup.amount) > 0;
+    case TOUCH_EFFECT_AMMO: {
+        AmmoType type = inventory_ammo_by_name(e->pickup.item);
+        return inventory_add(&p->inv, type, (int)e->pickup.amount) > 0;
+    }
+    case TOUCH_EFFECT_WEAPON:
+        return take_weapon(p, e, i, ev);
     case TOUCH_EFFECT_EXIT:
         events_push(ev, (GameEvent){.type = EV_LEVEL_EXIT, .pos = p->view.pos, .entity = i});
         return false;

@@ -1,25 +1,33 @@
 /*
- * inventory.h — Ammo pools carried by an actor.
+ * inventory.h — Ammo pools and owned weapons carried by an actor.
  *
  * Weapons draw from a pool by AmmoType; pickups refill it. Kept apart
- * from player.h and weapon.h so either can use it without the other.
+ * from player.h and weapon.h so either can use it without the other —
+ * which is why owned weapons are a bitmask of plain ints, not WeaponType
+ * (weapon.h includes this header). Bit n = WeaponType n.
  */
 #ifndef INVENTORY_H
 #define INVENTORY_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef enum {
     AMMO_NONE,    /* weapon needs no ammo (melee, enemy attacks) */
     AMMO_BULLETS,
+    AMMO_SHELLS,
     AMMO_TYPE_COUNT
 } AmmoType;
 
 #define AMMO_BULLETS_START 50
 #define AMMO_BULLETS_MAX   200
+#define AMMO_SHELLS_MAX    50
+
+#define INVENTORY_START_WEAPON 0 /* the pistol */
 
 typedef struct {
     int ammo[AMMO_TYPE_COUNT];
+    uint32_t weapons; /* owned: bit n = WeaponType n */
 } Inventory;
 
 /* Starting loadout */
@@ -32,5 +40,14 @@ bool inventory_has(const Inventory *inv, AmmoType type, int amount);
 
 /* Remove ammo; caller checks inventory_has() first */
 void inventory_take(Inventory *inv, AmmoType type, int amount);
+
+/* True if the pool is at its cap (pickups of it are refused) */
+bool inventory_full(const Inventory *inv, AmmoType type);
+
+/* Level-file name → type: "bullets", "shells"; AMMO_NONE if unknown */
+AmmoType inventory_ammo_by_name(const char *name);
+
+void inventory_give_weapon(Inventory *inv, int weapon);
+bool inventory_has_weapon(const Inventory *inv, int weapon);
 
 #endif

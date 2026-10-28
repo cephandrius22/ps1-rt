@@ -30,6 +30,7 @@ typedef enum {
     ENTITY_NONE = 0,
     ENTITY_PICKUP_HEALTH,
     ENTITY_PICKUP_AMMO,
+    ENTITY_PICKUP_WEAPON,
     ENTITY_DOOR,
     ENTITY_PROP,
     ENTITY_DECOR,         /* static sprite: barrels, candles, bodies */
@@ -56,7 +57,8 @@ typedef enum {
 typedef enum {
     TOUCH_EFFECT_NONE,
     TOUCH_EFFECT_HEALTH, /* amount = pickup.amount */
-    TOUCH_EFFECT_AMMO,   /* amount = pickup.amount (bullets, for now) */
+    TOUCH_EFFECT_AMMO,   /* pickup.item = ammo name, amount = pickup.amount */
+    TOUCH_EFFECT_WEAPON, /* pickup.item = weapon name, amount = ammo with it */
     TOUCH_EFFECT_EXIT,   /* end the level */
 } TouchEffect;
 
@@ -82,6 +84,8 @@ typedef enum {
     USE_CLOSED,
 } UseResult;
 
+#define ENTITY_ITEM_MAX 16
+
 typedef struct {
     EntityType type;
     Vec3 position;
@@ -93,6 +97,7 @@ typedef struct {
     union {
         struct {
             float amount;
+            char item[ENTITY_ITEM_MAX]; /* what it gives, by name: "shells", "shotgun" */
         } pickup;
         struct {
             float angle;        /* current swing angle in radians */
@@ -131,6 +136,7 @@ typedef enum {
     KEY_INT,
     KEY_BOOL,    /* 0 or 1 */
     KEY_LENGTH,
+    KEY_STRING,  /* a name; default in def_string */
     KEY_END,     /* terminates an EntityDef.keys list */
 } KeyType;
 
@@ -141,6 +147,7 @@ typedef struct {
     KeyType type;
     float def;          /* value when the key is absent */
     const char *desc;
+    const char *def_string; /* KEY_STRING default */
 } EntityKey;
 
 /* Per-type behavior. Any hook may be NULL (= type doesn't do that). */

@@ -2,6 +2,7 @@
  * weapon_types.c — WeaponDef table. Add a weapon = enum value + one row.
  */
 #include "weapon.h"
+#include <string.h>
 
 static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
     [WEAPON_PISTOL] = {
@@ -15,6 +16,20 @@ static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
         .kick_return = 0.3f,
         .ammo        = AMMO_BULLETS,
         .ammo_per_shot = 1,
+        .switch_time = 0.4f,
+    },
+    [WEAPON_SHOTGUN] = {
+        .name        = "shotgun",
+        .damage      = 10.0f,   /* per pellet: 7 pellets point-blank = 70 */
+        .cooldown    = 0.9f,
+        .range       = 60.0f,
+        .pellets     = 7,
+        .spread      = 0.07f,
+        .kick        = 0.09f,
+        .kick_return = 0.25f,
+        .ammo        = AMMO_SHELLS,
+        .ammo_per_shot = 1,
+        .switch_time = 0.5f,
     },
 };
 
@@ -23,4 +38,13 @@ const WeaponDef *weapon_def(WeaponType type) {
         return &weapon_defs[WEAPON_PISTOL];
     }
     return &weapon_defs[type];
+}
+
+WeaponType weapon_type_by_name(const char *name) {
+    for (int t = 0; t < WEAPON_TYPE_COUNT; t++) {
+        if (strcmp(weapon_defs[t].name, name) == 0) {
+            return (WeaponType)t;
+        }
+    }
+    return WEAPON_TYPE_COUNT;
 }

@@ -8,6 +8,12 @@
  *                    │                              └─> EV_WEAPON_IMPACT per hit
  *                    │                                  (amount = damage)
  *                    └─ no ammo in Inventory ──> EV_WEAPON_EMPTY (dry fire)
+ *
+ * Switching lowers the current weapon, swaps type at the midpoint, then
+ * raises the new one; only READY fires:
+ *
+ *   READY ──request──> LOWERING ──switch_time/2──> RAISING ──switch_time/2──> READY
+ *                                (type = pending)
  */
 #ifndef WEAPON_H
 #define WEAPON_H
@@ -19,10 +25,18 @@
 
 struct Scene;
 
+/* Order = selection slot: 1 = pistol, 2 = shotgun, ... */
 typedef enum {
     WEAPON_PISTOL,
+    WEAPON_SHOTGUN,
     WEAPON_TYPE_COUNT
 } WeaponType;
+
+typedef enum {
+    WEAPON_READY,
+    WEAPON_LOWERING,
+    WEAPON_RAISING,
+} WeaponPhase;
 
 typedef struct {
     const char *name;
@@ -35,6 +49,7 @@ typedef struct {
     float kick_return; /* recoil recovery per second */
     AmmoType ammo;     /* pool drawn from; AMMO_NONE = unlimited */
     int ammo_per_shot;
+    float switch_time; /* seconds to lower the old + raise this one */
 } WeaponDef;
 
 typedef struct {
@@ -43,13 +58,28 @@ typedef struct {
     float kick;             /* current recoil offset */
     bool fired_this_tick;
     HitRecord last_hit;     /* center pellet of last shot */
+    WeaponPhase phase;
+    float phase_time;       /* seconds into the current phase */
+    WeaponType pending;     /* type to switch to once lowered */
 } Weapon;
 
 /* Stats row for a type (weapon_types.c); out-of-range falls back to pistol */
 const WeaponDef *weapon_def(WeaponType type);
 
+/* Type by level/config name ("shotgun"); WEAPON_TYPE_COUNT if unknown */
+WeaponType weapon_type_by_name(const char *name);
+
 /* Ready to fire: no cooldown, no recoil */
 Weapon weapon_create(WeaponType type);
+
+/* Start switching to type (no-op if already holding or switching to it) */
+void weapon_request(Weapon *w, WeaponType type);
+
+/* How far the weapon is lowered: 0 = ready, 1 = fully down (mid-switch) */
+float weapon_lowered(const Weapon *w);
+
+/* The type being held or switched to (what a new request compares against) */
+WeaponType weapon_target(const Weapon *w);
 
 /* Ray for pellet i of a shot (0 = center). Exposed for tests and fx. */
 Ray weapon_pellet_ray(Pose aim, const WeaponDef *def, int i);

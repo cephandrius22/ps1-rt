@@ -67,6 +67,10 @@ static void write_key(FILE *out, const EntityKey *k) {
     case KEY_FLOAT:
         fprintf(out, "\t%s(float) : \"%s\" : \"%g\"\n", k->name, k->desc, k->def);
         break;
+    case KEY_STRING:
+        fprintf(out, "\t%s(string) : \"%s\" : \"%s\"\n", k->name, k->desc,
+                k->def_string ? k->def_string : "");
+        break;
     case KEY_END:
         break;
     }

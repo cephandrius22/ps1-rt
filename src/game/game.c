@@ -143,6 +143,49 @@ static bool has_event_since(const EventQueue *q, int first, GameEventType type) 
     return false;
 }
 
+/* Next owned weapon after `from` in direction step (±1), wrapping;
+ * `from` itself if nothing else is owned */
+static WeaponType cycle_owned(const Inventory *inv, WeaponType from, int step) {
+    int t = from;
+    for (int i = 0; i < WEAPON_TYPE_COUNT; i++) {
+        t = (t + step + WEAPON_TYPE_COUNT) % WEAPON_TYPE_COUNT;
+        if (inventory_has_weapon(inv, t)) {
+            return (WeaponType)t;
+        }
+    }
+    return from;
+}
+
+/* Number keys pick a slot (if owned); the wheel steps through owned ones */
+static void select_weapon(Game *g, const PlayerCmd *cmd) {
+    const Inventory *inv = &g->player.inv;
+    int slot_type = cmd->weapon_slot - 1;
+    if (cmd->weapon_slot > 0 && slot_type < WEAPON_TYPE_COUNT &&
+        inventory_has_weapon(inv, slot_type)) {
+        weapon_request(&g->weapon, (WeaponType)slot_type);
+    }
+
+    int steps = cmd->weapon_cycle;
+    int dir = steps > 0 ? 1 : -1;
+    WeaponType target = weapon_target(&g->weapon);
+    for (int i = 0; i < steps * dir; i++) {
+        target = cycle_owned(inv, target, dir);
+    }
+    weapon_request(&g->weapon, target);
+}
+
+/* Doom rule: picking up a weapon you didn't have switches to it */
+static void switch_to_new_weapons(Game *g, int first_event) {
+    for (int i = first_event; i < g->events.count; i++) {
+        const GameEvent *ev = &g->events.items[i];
+        if (ev->type != EV_WEAPON_PICKUP || ev->amount == 0) {
+            continue;
+        }
+        const Entity *e = &g->scene.entities.items[ev->entity];
+        weapon_request(&g->weapon, weapon_type_by_name(e->pickup.item));
+    }
+}
+
 static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     ai_update(&g->scene, &g->player, dt, &g->events);
 
@@ -152,6 +195,8 @@ static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
         set_mode(g, GAME_LEVEL_END);
         return;
     }
+    switch_to_new_weapons(g, first_event);
+    select_weapon(g, cmd);
 
     first_event = g->events.count;
     weapon_update(&g->weapon, cmd, game_view(g), &g->scene, dt,

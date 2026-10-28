@@ -25,6 +25,12 @@ InputStatus input_poll(PlayerCmd *cmd, UiCmd *ui) {
             continue;
         }
 
+        /* Wheel up = previous weapon, as in Quake */
+        if (e.type == SDL_MOUSEWHEEL && e.wheel.y != 0) {
+            cmd->weapon_cycle = (int8_t)(cmd->weapon_cycle + (e.wheel.y > 0 ? -1 : 1));
+            continue;
+        }
+
         if (e.type == SDL_MOUSEMOTION) {
             mouse_dx += e.motion.xrel;
             mouse_dy += e.motion.yrel;
@@ -37,6 +43,9 @@ InputStatus input_poll(PlayerCmd *cmd, UiCmd *ui) {
 
         if (e.key.keysym.sym == SDLK_ESCAPE) {
             status = INPUT_QUIT;
+        }
+        if (e.key.keysym.sym >= SDLK_1 && e.key.keysym.sym <= SDLK_9) {
+            cmd->weapon_slot = (int8_t)(e.key.keysym.sym - SDLK_0);
         }
         if (e.key.keysym.sym == SDLK_F3) {
             ui->toggle_debug = true;

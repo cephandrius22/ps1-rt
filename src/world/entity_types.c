@@ -8,6 +8,7 @@
 #include "proctex.h" /* GhoulFrame: sprite sheet layout */
 #include <math.h>
 #include <string.h>
+#include <stdio.h>
 
 /* --- Template meshes --- */
 
@@ -72,8 +73,25 @@ static void health_spawn(Entity *e, const char *args) {
     e->pickup.amount = kv_float(args, "amount", HEALTH_AMOUNT_DEF);
 }
 
+#define AMMO_NAME_DEF     "bullets"
+#define WEAPON_NAME_DEF   "shotgun"
+#define WEAPON_AMMO_DEF   8.0f   /* ammo that comes with a weapon pickup */
+
+/* Copy a name key into pickup.item (world never interprets it) */
+static void pickup_item(Entity *e, const char *args, const char *key, const char *def) {
+    if (!kv_string(args, key, e->pickup.item, sizeof(e->pickup.item))) {
+        snprintf(e->pickup.item, sizeof(e->pickup.item), "%s", def);
+    }
+}
+
 static void ammo_spawn(Entity *e, const char *args) {
     e->pickup.amount = kv_float(args, "amount", AMMO_AMOUNT_DEF);
+    pickup_item(e, args, "ammo", AMMO_NAME_DEF);
+}
+
+static void weapon_spawn(Entity *e, const char *args) {
+    e->pickup.amount = kv_float(args, "amount", WEAPON_AMMO_DEF);
+    pickup_item(e, args, "give", WEAPON_NAME_DEF);
 }
 
 static void pickup_update(Entity *e, float dt, float time) {
@@ -95,6 +113,18 @@ static void pickup_pose(const Entity *e, Vec3 *pos, float *rot_y) {
 
 static void pickup_mesh(Mesh *m) {
     make_diamond_mesh(m, PICKUP_SIZE);
+}
+
+/* Weapon pickups: a long dark box, spinning and bobbing like pickups */
+#define WEAPON_PICKUP_LENGTH 0.7f
+#define WEAPON_PICKUP_HEIGHT 0.15f
+#define WEAPON_PICKUP_DEPTH  0.2f
+
+static void weapon_pickup_mesh(Mesh *m) {
+    float hl = WEAPON_PICKUP_LENGTH * 0.5f;
+    float hh = WEAPON_PICKUP_HEIGHT * 0.5f;
+    float hd = WEAPON_PICKUP_DEPTH * 0.5f;
+    make_box_mesh(m, vec3(-hl, -hh, -hd), vec3(hl, hh, hd));
 }
 
 /* --- Doors: swing around a hinge toward a target angle --- */
@@ -259,30 +289,37 @@ static void exit_mesh(Mesh *m) {
 /* --- Level keys per type (defaults shared with the spawn hooks) --- */
 
 static const EntityKey health_keys[] = {
-    {"amount", KEY_FLOAT, HEALTH_AMOUNT_DEF, "Health restored"},
+    {"amount", KEY_FLOAT, HEALTH_AMOUNT_DEF, "Health restored", NULL},
     {.type = KEY_END},
 };
 
 static const EntityKey ammo_keys[] = {
-    {"amount", KEY_FLOAT, AMMO_AMOUNT_DEF, "Bullets given"},
+    {"amount", KEY_FLOAT, AMMO_AMOUNT_DEF, "Rounds given", NULL},
+    {"ammo", KEY_STRING, 0, "Ammo type: bullets, shells", AMMO_NAME_DEF},
+    {.type = KEY_END},
+};
+
+static const EntityKey weapon_keys[] = {
+    {"give", KEY_STRING, 0, "Weapon: shotgun", WEAPON_NAME_DEF},
+    {"amount", KEY_FLOAT, WEAPON_AMMO_DEF, "Ammo that comes with it", NULL},
     {.type = KEY_END},
 };
 
 static const EntityKey door_keys[] = {
-    {"hinge_x", KEY_FLOAT, 0, ".level only: hinge X (defaults to the door position)"},
-    {"hinge_z", KEY_FLOAT, 0, ".level only: hinge Z (defaults to the door position)"},
+    {"hinge_x", KEY_FLOAT, 0, ".level only: hinge X (defaults to the door position)", NULL},
+    {"hinge_z", KEY_FLOAT, 0, ".level only: hinge Z (defaults to the door position)", NULL},
     {.type = KEY_END},
 };
 
 static const EntityKey decor_keys[] = {
-    {"w", KEY_LENGTH, DECOR_WIDTH_DEF, "Sprite width"},
-    {"h", KEY_LENGTH, DECOR_HEIGHT_DEF, "Sprite height"},
-    {"solid", KEY_BOOL, 1, "1 = blocks movement and bullets"},
+    {"w", KEY_LENGTH, DECOR_WIDTH_DEF, "Sprite width", NULL},
+    {"h", KEY_LENGTH, DECOR_HEIGHT_DEF, "Sprite height", NULL},
+    {"solid", KEY_BOOL, 1, "1 = blocks movement and bullets", NULL},
     {.type = KEY_END},
 };
 
 static const EntityKey ghoul_keys[] = {
-    {"health", KEY_FLOAT, GHOUL_HEALTH, "Hit points (pistol does 25)"},
+    {"health", KEY_FLOAT, GHOUL_HEALTH, "Hit points (pistol does 25)", NULL},
     {.type = KEY_END},
 };
 
@@ -300,9 +337,16 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
     [ENTITY_PICKUP_AMMO] = {
         .name = "ammo", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_AMMO,
         .default_texture = "none", .default_color = {0.9f, 0.8f, 0.2f},
-        .desc = "Bullet pickup", .keys = ammo_keys,
+        .desc = "Ammo pickup", .keys = ammo_keys,
         .spawn = ammo_spawn, .update = pickup_update, .touch = pickup_touch,
         .pose = pickup_pose, .build_mesh = pickup_mesh,
+    },
+    [ENTITY_PICKUP_WEAPON] = {
+        .name = "weapon", .render = RENDER_MESH, .touch_effect = TOUCH_EFFECT_WEAPON,
+        .default_texture = "metal_panel", .default_color = {0.4f, 0.45f, 0.5f},
+        .desc = "Weapon pickup", .keys = weapon_keys,
+        .spawn = weapon_spawn, .update = pickup_update, .touch = pickup_touch,
+        .pose = pickup_pose, .build_mesh = weapon_pickup_mesh,
     },
     [ENTITY_DOOR] = {
         .name = "door", .render = RENDER_MESH,

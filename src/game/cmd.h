@@ -31,6 +31,8 @@ typedef struct {
     float yaw_delta;   /* radians, + = turn left */
     float pitch_delta; /* radians, + = look up */
     uint32_t buttons;  /* CmdButton bitmask */
+    int8_t weapon_slot;  /* impulse: 1..N selects that weapon, 0 = none */
+    int8_t weapon_cycle; /* impulse: +1 next owned weapon, -1 previous (summed) */
 } PlayerCmd;
 
 static inline int cmd_has(const PlayerCmd *cmd, CmdButton btn) {
@@ -48,6 +50,12 @@ static inline void cmd_accumulate(PlayerCmd *pending, const PlayerCmd *in) {
 
     uint32_t impulses = (pending->buttons | in->buttons) & CMD_IMPULSES;
     pending->buttons = (in->buttons & ~(uint32_t)CMD_IMPULSES) | impulses;
+
+    /* Weapon choice: the latest slot pressed wins; wheel steps add up */
+    if (in->weapon_slot != 0) {
+        pending->weapon_slot = in->weapon_slot;
+    }
+    pending->weapon_cycle = (int8_t)(pending->weapon_cycle + in->weapon_cycle);
 }
 
 /* After a tick used the command: one-shot parts must not repeat, held
@@ -56,6 +64,8 @@ static inline void cmd_consume(PlayerCmd *cmd) {
     cmd->yaw_delta = 0;
     cmd->pitch_delta = 0;
     cmd->buttons &= ~(uint32_t)CMD_IMPULSES;
+    cmd->weapon_slot = 0;
+    cmd->weapon_cycle = 0;
 }
 
 #endif

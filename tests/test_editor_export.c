@@ -65,10 +65,17 @@ TEST(test_tga_roundtrip) {
     remove(TGA_TMP);
 }
 
+TEST(test_fgd_string_keys) {
+    generate_fgd();
+    ASSERT(strstr(fgd, "give(string) : \"Weapon: shotgun\" : \"shotgun\"") != NULL);
+    ASSERT(strstr(fgd, "= weapon :") != NULL);
+}
+
 int main(void) {
     TEST_SUITE("editor_export");
     RUN_TEST(test_fgd_covers_entity_table);
     RUN_TEST(test_fgd_lengths_in_units);
     RUN_TEST(test_tga_roundtrip);
+    RUN_TEST(test_fgd_string_keys);
     TEST_REPORT();
 }

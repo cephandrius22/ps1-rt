@@ -236,6 +236,82 @@ TEST(test_weapon_dry_fire_when_empty) {
     ASSERT(q.count == 1);
 }
 
+/* Switching: lowered halfway → type swaps → raised; no firing meanwhile */
+TEST(test_weapon_switch_phases) {
+    Weapon w = weapon_create(WEAPON_PISTOL);
+    Pose aim = {.pos = vec3(0, 1, 0)};
+    PlayerCmd fire = {.buttons = BTN_ATTACK};
+    Inventory full = inventory_create();
+    inventory_add(&full, AMMO_SHELLS, 10);
+    float dt = 1.0f / 60.0f;
+    float half = weapon_def(WEAPON_PISTOL)->switch_time * 0.5f;
+
+    weapon_request(&w, WEAPON_SHOTGUN);
+    ASSERT(w.phase == WEAPON_LOWERING);
+    ASSERT_EQ_INT(weapon_target(&w), WEAPON_SHOTGUN);
+
+    int ticks_to_half = (int)(half / dt) + 1;
+    for (int i = 0; i < ticks_to_half; i++) {
+        weapon_update(&w, &fire, aim, &empty, dt, &full, &ev);
+        ASSERT(!w.fired_this_tick);
+    }
+    ASSERT_EQ_INT(w.type, WEAPON_SHOTGUN);
+    ASSERT(w.phase == WEAPON_RAISING);
+    ASSERT(weapon_lowered(&w) > 0.9f);
+
+    PlayerCmd idle = {0};
+    for (int i = 0; i < 60 && w.phase != WEAPON_READY; i++) {
+        weapon_update(&w, &idle, aim, &empty, dt, &full, &ev);
+    }
+    ASSERT(w.phase == WEAPON_READY);
+    ASSERT_NEAR(weapon_lowered(&w), 0.0f, 1e-6f);
+
+    /* Ready: the next tick fires the shotgun and spends a shell */
+    int shells = full.ammo[AMMO_SHELLS];
+    weapon_update(&w, &fire, aim, &empty, dt, &full, &ev);
+    ASSERT(w.fired_this_tick);
+    ASSERT_EQ_INT(full.ammo[AMMO_SHELLS], shells - 1);
+}
+
+TEST(test_weapon_request_same_is_noop) {
+    Weapon w = weapon_create(WEAPON_PISTOL);
+    weapon_request(&w, WEAPON_PISTOL);
+    ASSERT(w.phase == WEAPON_READY);
+    ASSERT_EQ_INT(weapon_type_by_name("shotgun"), WEAPON_SHOTGUN);
+    ASSERT_EQ_INT(weapon_type_by_name("bfg"), WEAPON_TYPE_COUNT);
+}
+
+/* The shotgun's 7 pellets all hit a wall straight ahead */
+TEST(test_weapon_shotgun_pellets) {
+    Mesh m;
+    mesh_init(&m);
+    Triangle tri = {
+        .v0 = vec3(-20, -20, -5), .v1 = vec3(20, -20, -5), .v2 = vec3(0, 20, -5),
+        .normal = vec3(0, 0, 1)
+    };
+    mesh_add_tri(&m, tri);
+    Scene s;
+    scene_init(&s);
+    scene_build_static(&s, m.tris, m.count);
+
+    Weapon w = weapon_create(WEAPON_SHOTGUN);
+    Pose aim = {.pos = vec3(0, 0, 0)};
+    PlayerCmd fire = {.buttons = BTN_ATTACK};
+    Inventory inv = {0};
+    inventory_add(&inv, AMMO_SHELLS, 5);
+    EventQueue q = {0};
+
+    weapon_update(&w, &fire, aim, &s, 1.0f / 60.0f, &inv, &q);
+    int impacts = 0;
+    for (int i = 0; i < q.count; i++) {
+        impacts += q.items[i].type == EV_WEAPON_IMPACT;
+    }
+    ASSERT_EQ_INT(impacts, weapon_def(WEAPON_SHOTGUN)->pellets);
+
+    scene_free(&s);
+    mesh_free(&m);
+}
+
 int main(void) {
     scene_init(&empty);
     inv = inventory_create();
@@ -255,6 +331,9 @@ int main(void) {
     RUN_TEST(test_weapon_pellet_spread);
     RUN_TEST(test_weapon_consumes_ammo);
     RUN_TEST(test_weapon_dry_fire_when_empty);
+    RUN_TEST(test_weapon_switch_phases);
+    RUN_TEST(test_weapon_request_same_is_noop);
+    RUN_TEST(test_weapon_shotgun_pellets);
     scene_free(&empty);
     TEST_REPORT();
 }

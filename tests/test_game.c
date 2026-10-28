@@ -225,6 +225,53 @@ TEST(test_game_reload_keeps_pose) {
     game_free(&g);
 }
 
+/* Number keys select only owned weapons; the wheel skips unowned ones */
+TEST(test_game_weapon_select) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    PlayerCmd two = {.weapon_slot = 2};
+
+    game_update(&g, &two, GAME_TICK_DT);
+    ASSERT_EQ_INT(weapon_target(&g.weapon), WEAPON_PISTOL); /* shotgun not owned */
+
+    inventory_give_weapon(&g.player.inv, WEAPON_SHOTGUN);
+    game_update(&g, &two, GAME_TICK_DT);
+    ASSERT_EQ_INT(weapon_target(&g.weapon), WEAPON_SHOTGUN);
+
+    PlayerCmd wheel = {.weapon_cycle = 1};
+    game_update(&g, &wheel, GAME_TICK_DT);
+    ASSERT_EQ_INT(weapon_target(&g.weapon), WEAPON_PISTOL); /* wraps past the end */
+    game_free(&g);
+}
+
+/* A slot pressed during a frame that runs no tick still applies, once */
+TEST(test_game_weapon_slot_impulse_once) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    inventory_give_weapon(&g.player.inv, WEAPON_SHOTGUN);
+
+    PlayerCmd two = {.weapon_slot = 2};
+    PlayerCmd idle = {0};
+    game_update(&g, &two, GAME_TICK_DT * 0.5f);
+    ASSERT_EQ_INT(weapon_target(&g.weapon), WEAPON_PISTOL); /* no tick yet */
+    game_update(&g, &idle, GAME_TICK_DT * 3.0f);
+    ASSERT_EQ_INT(weapon_target(&g.weapon), WEAPON_SHOTGUN);
+    ASSERT_EQ_INT(g.pending.weapon_slot, 0);
+    game_free(&g);
+}
+
+/* Picking up a new weapon switches to it */
+TEST(test_game_weapon_pickup_switches) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    Vec3 feet = vec3(g.player.view.pos.x, g.player.foot_y, g.player.view.pos.z);
+    entity_add(&g.scene.entities, entity_spawn(ENTITY_PICKUP_WEAPON, feet, "give=shotgun"));
+
+    PlayerCmd idle = {0};
+    game_tick(&g, &idle);
+    ASSERT(inventory_has_weapon(&g.player.inv, WEAPON_SHOTGUN));
+    ASSERT_EQ_INT(weapon_target(&g.weapon), WEAPON_SHOTGUN);
+    ASSERT(g.player.inv.ammo[AMMO_SHELLS] > 0);
+    game_free(&g);
+}
+
 int main(void) {
     TEST_SUITE("game");
     RUN_TEST(test_game_init_spawns_player);
@@ -239,5 +286,8 @@ int main(void) {
     RUN_TEST(test_game_shooting_kills_ghoul);
     RUN_TEST(test_game_exit_ends_level);
     RUN_TEST(test_game_reload_keeps_pose);
+    RUN_TEST(test_game_weapon_select);
+    RUN_TEST(test_game_weapon_slot_impulse_once);
+    RUN_TEST(test_game_weapon_pickup_switches);
     TEST_REPORT();
 }

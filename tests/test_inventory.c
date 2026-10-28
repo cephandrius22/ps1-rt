@@ -32,11 +32,36 @@ TEST(test_inventory_none_is_unlimited) {
     ASSERT_EQ_INT(inventory_add(&inv, AMMO_NONE, 5), 0);
 }
 
+TEST(test_inventory_ammo_names) {
+    ASSERT_EQ_INT(inventory_ammo_by_name("bullets"), AMMO_BULLETS);
+    ASSERT_EQ_INT(inventory_ammo_by_name("shells"), AMMO_SHELLS);
+    ASSERT_EQ_INT(inventory_ammo_by_name("plasma"), AMMO_NONE);
+}
+
+TEST(test_inventory_weapons) {
+    Inventory inv = inventory_create();
+    ASSERT(inventory_has_weapon(&inv, INVENTORY_START_WEAPON));
+    ASSERT(!inventory_has_weapon(&inv, 1));
+    inventory_give_weapon(&inv, 1);
+    ASSERT(inventory_has_weapon(&inv, 1));
+}
+
+TEST(test_inventory_full) {
+    Inventory inv = {0};
+    ASSERT(!inventory_full(&inv, AMMO_SHELLS));
+    inventory_add(&inv, AMMO_SHELLS, AMMO_SHELLS_MAX);
+    ASSERT(inventory_full(&inv, AMMO_SHELLS));
+    ASSERT(inventory_full(&inv, AMMO_NONE)); /* nothing to pick up */
+}
+
 int main(void) {
     TEST_SUITE("inventory");
     RUN_TEST(test_inventory_start);
     RUN_TEST(test_inventory_add_caps);
     RUN_TEST(test_inventory_has_and_take);
     RUN_TEST(test_inventory_none_is_unlimited);
+    RUN_TEST(test_inventory_ammo_names);
+    RUN_TEST(test_inventory_weapons);
+    RUN_TEST(test_inventory_full);
     TEST_REPORT();
 }

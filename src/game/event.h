@@ -28,6 +28,7 @@ typedef enum {
     EV_WEAPON_EMPTY,  /* pos = muzzle; attack pressed without ammo */
     EV_FOOTSTEP,      /* pos = feet */
     EV_PICKUP,        /* pos = collector, entity = pickup, amount = value */
+    EV_WEAPON_PICKUP, /* pos = collector, entity = pickup, amount = 1 if newly owned */
     EV_DOOR_OPENED,   /* pos = user, entity = door */
     EV_DOOR_CLOSED,   /* pos = user, entity = door */
     EV_PLAYER_HURT,   /* pos = player eye, amount = damage taken */
