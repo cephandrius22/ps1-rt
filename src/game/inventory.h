@@ -48,6 +48,7 @@ Inventory inventory_create(void);
 /* Add up to the type's cap. Returns how much was actually added. */
 int inventory_add(Inventory *inv, AmmoType type, int amount);
 
+/* At least amount in the pool (always true for AMMO_NONE) */
 bool inventory_has(const Inventory *inv, AmmoType type, int amount);
 
 /* Remove ammo; caller checks inventory_has() first */
@@ -63,6 +64,7 @@ AmmoType inventory_ammo_by_name(const char *name);
 Keycard keycard_by_name(const char *name);
 const char *keycard_name(Keycard card);
 
+/* Held keycards; KEYCARD_NONE is never held */
 void inventory_give_keycard(Inventory *inv, Keycard card);
 bool inventory_has_keycard(const Inventory *inv, Keycard card);
 

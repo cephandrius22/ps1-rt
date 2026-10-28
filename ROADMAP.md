@@ -84,8 +84,8 @@ One level that is fun to fight in.
 
 Carried forward:
 
-- Phase 3: enemies walk straight at the player on a fixed height (no
-  gravity, steps or pathing); only sight wakes them.
+- ~~Phase 3: enemies walk straight at the player on a fixed height;
+  only sight wakes them~~ (done in Phase 3)
 - Phase 5: exit replays the level instead of loading the next.
   (`mat=` by name: done in Phase 1.5.)
 - Phase 7: sprites are a linear scan per ray (~1.6 ms/frame for the six
@@ -173,12 +173,16 @@ Carried forward:
 
 Carried forward:
 
-- Doors don't fire their own `target` when opened (Quake does); no
-  `trigger_relay`, `delay`, or toggling doors yet.
-- Nav ignores jumps and dynamic obstacles (other monsters, crates as
-  entities); enemies can still bunch up in doorways.
+- Phase 5: doors don't fire their own `target` when opened (Quake
+  does); no `trigger_relay`, `delay`, or toggling doors yet.
 - Phase 5: e1m1 is still a `.level`; port it to `.map` when content work
   starts.
+- Phase 5: nav ignores jumps and other monsters; enemies can bunch up
+  in doorways.
+- Phase 7: door models are re-posed into the dynamic BVH every tick,
+  even when still.
+- Playtest: door speed/wait, hearing distances and ambush timing are set
+  from numbers, not long play sessions.
 
 ## Phase 4: Atmosphere
 
@@ -198,7 +202,12 @@ Carried forward:
 ## Phase 5: Content
 
 - Episode of 3–4 levels; exit loads the next level (it replays today)
-- Secrets, intermission screen (kills, secrets, time)
+- Secrets (a `trigger_secret` counted like kills), intermission screen
+  (kills, secrets, time)
+- Scripting extras as levels need them: doors that fire their `target`,
+  `trigger_relay` with `delay`, toggling doors, `trigger_hurt`
+- Monster movement as levels demand: avoid each other, jump-down links
+  in the nav grid
 - TGA textures from level materials (loader exists, not reachable from
   `.level` files)
 
@@ -210,7 +219,7 @@ Carried forward:
 
 ## Phase 7: Performance (when profiling demands)
 
-- Refit dynamic BVH instead of rebuilding
+- Refit dynamic BVH instead of rebuilding (still doors re-posed every tick)
 - Tile-based rendering
 - Cull sprites per frame (bounding check or put them in the dynamic BVH)
   instead of scanning all of them per ray

@@ -76,13 +76,13 @@ typedef struct {
     DebugLine debug[OVERLAY_DEBUG_LINES];
 } OverlayState;
 
-/* Draw over a finished frame: mode effect (tint/dim) first, then HUD */
 /* Texture cache for viewmodels; generated on first use */
 typedef struct {
     Texture views[PTEX_COUNT];
     bool generated[PTEX_COUNT];
 } Overlay;
 
+/* Empty cache; overlay_free releases the generated textures */
 void overlay_init(Overlay *o);
 void overlay_free(Overlay *o);
 

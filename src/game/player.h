@@ -49,6 +49,7 @@ void player_update(Player *p, const PlayerCmd *cmd, float dt, struct Scene *scen
  * reaches 0. Ignored once dead. */
 void player_damage(Player *p, float amount, EventQueue *ev);
 
+/* Health above zero */
 static inline bool player_alive(const Player *p) {
     return p->health > 0;
 }

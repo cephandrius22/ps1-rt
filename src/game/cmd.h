@@ -35,6 +35,7 @@ typedef struct {
     int8_t weapon_cycle; /* impulse: +1 next owned weapon, -1 previous (summed) */
 } PlayerCmd;
 
+/* Is the button held (or, for impulses, pressed this tick)? */
 static inline int cmd_has(const PlayerCmd *cmd, CmdButton btn) {
     return (cmd->buttons & btn) != 0;
 }

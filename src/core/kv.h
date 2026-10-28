@@ -1,7 +1,7 @@
 /*
  * kv.h — Read optional key=value pairs from a text line.
  *
- * Example: kv_float("entity door 0 0 -5 hinge_x=2", "hinge_x", 0) → 2.0
+ * Example: kv_float("entity ghoul 0 0 -5 health=40", "health", 60) → 40.0
  * Missing keys return the default.
  */
 #ifndef KV_H
@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+/* Number after "key=", or def if the key is absent */
 float kv_float(const char *line, const char *key, float def);
 int   kv_int(const char *line, const char *key, int def);
 
