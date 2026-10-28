@@ -5,12 +5,14 @@ static const int ammo_max[AMMO_TYPE_COUNT] = {
     [AMMO_NONE]    = 0,
     [AMMO_BULLETS] = AMMO_BULLETS_MAX,
     [AMMO_SHELLS]  = AMMO_SHELLS_MAX,
+    [AMMO_ROCKETS] = AMMO_ROCKETS_MAX,
 };
 
 static const char *ammo_names[AMMO_TYPE_COUNT] = {
     [AMMO_NONE]    = "none",
     [AMMO_BULLETS] = "bullets",
     [AMMO_SHELLS]  = "shells",
+    [AMMO_ROCKETS] = "rockets",
 };
 
 Inventory inventory_create(void) {

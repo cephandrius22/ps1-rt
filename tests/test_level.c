@@ -27,8 +27,9 @@ TEST(test_level_materials) {
     scene_init(&scene);
     LevelInfo info;
     level_load(&scene, "tests/test.level", &info);
-    /* 4 declared (stone, floor, ceil, red_flat) + the door's default "rust" */
-    ASSERT_EQ_INT(scene.material_count, 5);
+    /* 4 declared (stone, floor, ceil, red_flat) + the door's default "rust"
+     * + "projectiles", prepared for runtime spawns */
+    ASSERT_EQ_INT(scene.material_count, 6);
     /* stone has concrete texture */
     ASSERT(scene.materials[0].texture_id >= 0);
     /* ceil has no texture */
@@ -44,8 +45,9 @@ TEST(test_level_textures) {
     scene_init(&scene);
     LevelInfo info;
     level_load(&scene, "tests/test.level", &info);
-    /* 3 procedural textures: concrete, floor_tile, rust (door default) */
-    ASSERT_EQ_INT(scene.texture_count, 3);
+    /* 4 procedural textures: concrete, floor_tile, rust (door default),
+     * projectiles (runtime spawns) */
+    ASSERT_EQ_INT(scene.texture_count, 4);
     ASSERT(scene.textures[0].pixels != NULL);
     ASSERT(scene.textures[1].pixels != NULL);
     scene_free(&scene);

@@ -7,6 +7,7 @@
  *   PlayerCmd ──> weapon_update() ──> N pellet rays ──> EV_WEAPON_FIRED
  *                    │                              └─> EV_WEAPON_IMPACT per hit
  *                    │                                  (amount = damage)
+ *                    ├─ projectile weapon ──> launch request (game.c fires it)
  *                    └─ no ammo in Inventory ──> EV_WEAPON_EMPTY (dry fire)
  *
  * Switching lowers the current weapon, swaps type at the midpoint, then
@@ -22,6 +23,7 @@
 #include "cmd.h"
 #include "event.h"
 #include "inventory.h"
+#include "projectile.h"
 
 struct Scene;
 
@@ -29,6 +31,7 @@ struct Scene;
 typedef enum {
     WEAPON_PISTOL,
     WEAPON_SHOTGUN,
+    WEAPON_LAUNCHER,
     WEAPON_TYPE_COUNT
 } WeaponType;
 
@@ -59,6 +62,8 @@ typedef struct {
     float flash_time;    /* seconds; fades over this */
 
     float shake;         /* camera jolt per shot, radians (presentation) */
+
+    ProjectileKind projectile; /* PROJECTILE_NONE = hitscan */
 } WeaponDef;
 
 typedef struct {
@@ -70,6 +75,11 @@ typedef struct {
     WeaponPhase phase;
     float phase_time;       /* seconds into the current phase */
     WeaponType pending;     /* type to switch to once lowered */
+
+    /* Projectile weapons don't trace: they ask game.c to launch this ray
+     * (weapon_update only gets a read-only scene) */
+    bool launch_this_tick;
+    Ray launch;
 } Weapon;
 
 /* Stats row for a type (weapon_types.c); out-of-range falls back to pistol */

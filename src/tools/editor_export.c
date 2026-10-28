@@ -109,6 +109,9 @@ int editor_write_fgd(FILE *out) {
 
     for (int t = ENTITY_NONE + 1; t < ENTITY_TYPE_COUNT; t++) {
         const EntityDef *def = entity_def((EntityType)t);
+        if (def->runtime_only) {
+            continue;
+        }
         EditorBox box = point_box();
         if (def->render == RENDER_SPRITE && def->sprite) {
             box = sprite_box(def, (EntityType)t);

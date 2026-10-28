@@ -521,7 +521,7 @@ static void spawn_point_entity(MapLoader *ml, const KeyValues *kvs, const char *
     }
 
     EntityType type = entity_type_by_name(classname);
-    if (type == ENTITY_NONE) {
+    if (type == ENTITY_NONE || entity_def(type)->runtime_only) {
         fprintf(stderr, "map: unknown entity class '%s'\n", classname);
         return;
     }

@@ -27,6 +27,9 @@ typedef enum {
     SND_ENEMY_ATTACK,
     SND_ENEMY_PAIN,
     SND_ENEMY_DEATH,
+    SND_SHOTGUN_FIRE,
+    SND_ROCKET_LAUNCH,
+    SND_EXPLOSION,
     SND_COUNT
 } SoundID;
 

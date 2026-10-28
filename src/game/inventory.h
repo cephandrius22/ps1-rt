@@ -16,12 +16,14 @@ typedef enum {
     AMMO_NONE,    /* weapon needs no ammo (melee, enemy attacks) */
     AMMO_BULLETS,
     AMMO_SHELLS,
+    AMMO_ROCKETS,
     AMMO_TYPE_COUNT
 } AmmoType;
 
 #define AMMO_BULLETS_START 50
 #define AMMO_BULLETS_MAX   200
 #define AMMO_SHELLS_MAX    50
+#define AMMO_ROCKETS_MAX   25
 
 #define INVENTORY_START_WEAPON 0 /* the pistol */
 
@@ -44,7 +46,7 @@ void inventory_take(Inventory *inv, AmmoType type, int amount);
 /* True if the pool is at its cap (pickups of it are refused) */
 bool inventory_full(const Inventory *inv, AmmoType type);
 
-/* Level-file name → type: "bullets", "shells"; AMMO_NONE if unknown */
+/* Level-file name → type: "bullets", "shells", "rockets"; AMMO_NONE if unknown */
 AmmoType inventory_ammo_by_name(const char *name);
 
 void inventory_give_weapon(Inventory *inv, int weapon);

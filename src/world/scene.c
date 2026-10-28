@@ -28,6 +28,9 @@ void scene_init(Scene *s) {
     s->textures = NULL;
     s->material_count = 0;
     s->texture_count = 0;
+    for (int t = 0; t < ENTITY_TYPE_COUNT; t++) {
+        s->type_material[t] = 0;
+    }
 }
 
 void scene_free(Scene *s) {
@@ -201,4 +204,16 @@ bool scene_occluded(const Scene *s, Ray ray, float t_min, float t_max) {
     /* Sprites cast no shadows: a billboard re-faces every ray, so its
      * own shadow ray could clip it (and Doom sprites never did) */
     return false;
+}
+
+int scene_spawn(Scene *s, Entity e) {
+    e.material_id = s->type_material[e.type];
+    EntityList *list = &s->entities;
+    for (int i = 0; i < list->count; i++) {
+        if (!list->items[i].active && list->items[i].type == e.type) {
+            list->items[i] = e;
+            return i;
+        }
+    }
+    return entity_add(list, e);
 }

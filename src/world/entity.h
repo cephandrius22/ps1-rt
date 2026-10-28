@@ -36,6 +36,7 @@ typedef enum {
     ENTITY_DECOR,         /* static sprite: barrels, candles, bodies */
     ENTITY_GHOUL,         /* melee enemy; AI lives in game/ai.c */
     ENTITY_EXIT,          /* floor pad; touching it ends the level */
+    ENTITY_PROJECTILE,    /* rockets, spit: spawned at runtime, moved by game/projectile.c */
     ENTITY_TYPE_COUNT
 } EntityType;
 
@@ -85,6 +86,7 @@ typedef enum {
 } UseResult;
 
 #define ENTITY_ITEM_MAX 16
+#define PROJECTILE_OWNER_PLAYER (-2)
 
 typedef struct {
     EntityType type;
@@ -115,6 +117,14 @@ typedef struct {
             float state_time; /* seconds in the current state */
             float cooldown;   /* seconds until it may attack again */
         } enemy;
+        struct {
+            int kind;         /* game's ProjectileKind; opaque to world code */
+            int frame;        /* ProjectileFrame in the projectiles sheet */
+            float size;       /* sprite width = height, meters */
+            Vec3 velocity;    /* m/s */
+            int owner;        /* shooter's entity index, or PROJECTILE_OWNER_PLAYER */
+            float life;       /* seconds until it bursts on its own */
+        } projectile;
     };
 
     int material_id;  /* material for this entity's triangles or sprite */
@@ -167,6 +177,10 @@ typedef struct {
 
     const char *desc;          /* one line, shown in the editor */
     const EntityKey *keys;     /* type-specific keys, KEY_END-terminated; may be NULL */
+
+    /* Spawned by gameplay, never placed in levels: no FGD entry, and the
+     * loader prepares its default material for runtime spawns */
+    bool runtime_only;
 
     /* Fill type-specific fields from level key=values, e.g. "amount=25" */
     void (*spawn)(Entity *e, const char *args);

@@ -189,6 +189,52 @@ static void gen_vocal(Sound *s, VocalTone v) {
     }
 }
 
+/* Noise burst over a low thump, both decaying: shotgun, explosion.
+ * A one-pole low-pass makes the noise a muffled roar instead of hiss. */
+typedef struct {
+    float duration;   /* seconds */
+    float thump_hz;   /* low sine body */
+    float decay;      /* envelope e-folding rate, 1/s */
+    float lowpass;    /* 0..1: noise smoothing (higher = duller) */
+    float gain;
+} BlastTone;
+
+static void gen_blast(Sound *s, BlastTone b) {
+    *s = make_sound(AUDIO_SAMPLE_RATE, b.duration);
+    if (!s->samples) {
+        return;
+    }
+    float smooth = 0;
+    for (int i = 0; i < s->length; i++) {
+        float t = (float)i / s->sample_rate;
+        float noise = ((float)(rand() % 20000) - 10000) / 10000.0f;
+        smooth += (noise - smooth) * (1.0f - b.lowpass);
+        float thump = sinf(t * b.thump_hz * 6.28f);
+        float env = expf(-t * b.decay) * fminf(t / VOCAL_ATTACK, 1.0f);
+        s->samples[i] = (int16_t)((smooth * 0.7f + thump * 0.5f) * env * b.gain * PCM_MAX);
+    }
+}
+
+/* Whoosh: filtered noise swelling then fading, with a falling tone */
+static void gen_rocket_launch(Sound *s) {
+    float duration = 0.45f;
+    *s = make_sound(AUDIO_SAMPLE_RATE, duration);
+    if (!s->samples) {
+        return;
+    }
+    float smooth = 0;
+    float phase = 0;
+    for (int i = 0; i < s->length; i++) {
+        float t = (float)i / s->sample_rate;
+        float k = t / duration;
+        float noise = ((float)(rand() % 20000) - 10000) / 10000.0f;
+        smooth += (noise - smooth) * 0.3f;
+        phase += (300.0f - 200.0f * k) * 6.28f / s->sample_rate;
+        float env = sinf(k * 3.14159f);
+        s->samples[i] = (int16_t)((smooth * 0.6f + sinf(phase) * 0.3f) * env * 0.7f * PCM_MAX);
+    }
+}
+
 void audio_generate_sounds(Sound sounds[SND_COUNT]) {
     gen_weapon_fire(&sounds[SND_WEAPON_FIRE]);
     gen_weapon_impact(&sounds[SND_WEAPON_IMPACT]);
@@ -206,6 +252,11 @@ void audio_generate_sounds(Sound sounds[SND_COUNT]) {
     gen_vocal(&sounds[SND_ENEMY_ATTACK], (VocalTone){0.30f, 210.0f, 120.0f, 0.20f, 0.50f, 0.7f});
     gen_vocal(&sounds[SND_ENEMY_PAIN],   (VocalTone){0.20f, 320.0f, 230.0f, 0.10f, 0.30f, 0.6f});
     gen_vocal(&sounds[SND_ENEMY_DEATH],  (VocalTone){0.90f, 130.0f, 35.0f,  0.30f, 0.45f, 0.8f});
+
+    /*                                        dur    thump  decay lowpass gain */
+    gen_blast(&sounds[SND_SHOTGUN_FIRE], (BlastTone){0.35f, 70.0f, 12.0f, 0.2f, 0.9f});
+    gen_blast(&sounds[SND_EXPLOSION],    (BlastTone){1.20f, 45.0f, 3.5f,  0.8f, 1.0f});
+    gen_rocket_launch(&sounds[SND_ROCKET_LAUNCH]);
 }
 
 void sound_free(Sound *s) {

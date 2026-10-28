@@ -42,6 +42,10 @@ typedef struct Scene {
     Texture *textures;
     int material_count;
     int texture_count;
+
+    /* Default material per entity type, for entities spawned at runtime
+     * (projectiles); filled by level_finish() */
+    int type_material[ENTITY_TYPE_COUNT];
 } Scene;
 
 /* Empty scene (entity mesh templates built); scene_free releases
@@ -54,6 +58,11 @@ void scene_build_static(Scene *s, Triangle *tris, int count);
 
 /* Rebuild dynamic BVH from active entities (call each tick) */
 void scene_rebuild_dynamic(Scene *s);
+
+/* Add an entity during play: reuses an inactive slot of the same type,
+ * so indices stay stable but the list doesn't grow with every rocket.
+ * Uses the type's runtime material. Returns its index, or -1. */
+int scene_spawn(Scene *s, Entity e);
 
 typedef enum {
     TRACE_VISIBLE, /* everything drawn: rendering, shadows */

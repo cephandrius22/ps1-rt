@@ -22,6 +22,8 @@ typedef enum {
     PTEX_GHOUL,       /* sprite sheet: 5 frames of 32x48, color-keyed */
     PTEX_VIEW_PISTOL, /* viewmodel sheet: 2 frames (ViewFrame) of 64x48 */
     PTEX_VIEW_SHOTGUN,
+    PTEX_VIEW_LAUNCHER,
+    PTEX_PROJECTILES, /* sprite sheet: ProjectileFrame frames of 16x16 */
     PTEX_COUNT
 } ProceduralTextureID;
 
@@ -44,6 +46,15 @@ typedef enum {
     VIEW_FRAME_FIRE,
     VIEW_FRAME_COUNT
 } ViewFrame;
+
+/* Projectile sheet frame order */
+typedef enum {
+    PROJ_FRAME_ROCKET,
+    PROJ_FRAME_SPIT,
+    PROJ_FRAME_COUNT
+} ProjectileFrame;
+
+#define PROJ_FRAME_SIZE 16
 
 #define VIEW_FRAME_W 64
 #define VIEW_FRAME_H 48

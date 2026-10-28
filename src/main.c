@@ -50,6 +50,8 @@
 #define HURT_FLASH_PER_HP 0.03f  /* flash strength per point of damage taken */
 #define HURT_SHAKE        0.012f /* camera jolt when hit, radians */
 #define HURT_COLOR        vec3(0.8f, 0.05f, 0.02f)
+#define BLAST_SHAKE       0.06f  /* camera jolt at the center of an explosion */
+#define BLAST_SHAKE_RANGE 14.0f  /* felt out to this distance, meters */
 
 /* Presentation side of the event queue: camera jolts and color flashes */
 static void play_event_effects(ScreenFx *fx, const EventQueue *events, const Game *g) {
@@ -64,6 +66,12 @@ static void play_event_effects(ScreenFx *fx, const EventQueue *events, const Gam
         case EV_WEAPON_FIRED:
             screenfx_shake(fx, weapon_def(g->weapon.type)->shake);
             break;
+        case EV_EXPLOSION: {
+            /* Jolt fades with distance from the blast */
+            float dist = vec3_length(vec3_sub(ev->pos, g->player.view.pos));
+            screenfx_shake(fx, BLAST_SHAKE * fmaxf(0.0f, 1.0f - dist / BLAST_SHAKE_RANGE));
+            break;
+        }
         default:
             break;
         }
@@ -79,6 +87,9 @@ static void play_event_effects(ScreenFx *fx, const EventQueue *events, const Gam
 #define GIB_SPEED     3.0f
 #define GIB_BLOOD     16
 #define BODY_CENTER   0.9f  /* gibs burst from this high above an enemy's feet */
+#define DEBRIS_COUNT  24
+#define DEBRIS_SPEED  4.0f
+#define BLAST_SPARKS  16
 
 /* Presentation side of the event queue: blood, gibs and sparks. Particles
  * land at the player's floor height (levels are mostly flat). */
@@ -96,6 +107,11 @@ static void spawn_event_particles(ParticleSystem *ps, const EventQueue *events, 
         } else if (ev->type == EV_WEAPON_IMPACT) {
             particles_burst(ps, PARTICLE_BLOOD, ev->pos, vec3_mul(toward_eye, -1),
                             BLOOD_COUNT, BLOOD_SPEED, 0.6f, floor_y);
+        } else if (ev->type == EV_EXPLOSION && ev->amount > 0) {
+            particles_burst(ps, PARTICLE_DEBRIS, ev->pos, vec3(0, 1, 0), DEBRIS_COUNT,
+                            DEBRIS_SPEED, 1.0f, floor_y);
+            particles_burst(ps, PARTICLE_SPARK, ev->pos, vec3(0, 1, 0), BLAST_SPARKS,
+                            DEBRIS_SPEED * 2, 1.0f, floor_y);
         } else if (ev->type == EV_ENEMY_DIED) {
             Vec3 body = vec3_add(ev->pos, vec3(0, BODY_CENTER, 0));
             particles_burst(ps, PARTICLE_GIB, body, vec3(0, 1, 0), GIB_COUNT, GIB_SPEED, 1.0f, floor_y);
@@ -104,11 +120,21 @@ static void spawn_event_particles(ParticleSystem *ps, const EventQueue *events, 
     }
 }
 
-static void play_event_sounds(AudioSystem *audio, const EventQueue *events) {
+/* Fire sound per weapon (platform sound IDs can't live in WeaponDef) */
+static const SoundID weapon_fire_sounds[WEAPON_TYPE_COUNT] = {
+    [WEAPON_PISTOL]   = SND_WEAPON_FIRE,
+    [WEAPON_SHOTGUN]  = SND_SHOTGUN_FIRE,
+    [WEAPON_LAUNCHER] = SND_ROCKET_LAUNCH,
+};
+
+static void play_event_sounds(AudioSystem *audio, const EventQueue *events, const Game *g) {
     for (int i = 0; i < events->count; i++) {
         const GameEvent *ev = &events->items[i];
         switch (ev->type) {
-        case EV_WEAPON_FIRED:  audio_play(audio, SND_WEAPON_FIRE, 0.8f);  break;
+        case EV_WEAPON_FIRED:
+            audio_play(audio, weapon_fire_sounds[g->weapon.type], 0.8f);
+            break;
+        case EV_EXPLOSION:     audio_play(audio, SND_EXPLOSION, 0.9f);    break;
         case EV_WEAPON_IMPACT: audio_play(audio, SND_WEAPON_IMPACT, 0.5f); break;
         case EV_WEAPON_EMPTY:  audio_play(audio, SND_DRY_FIRE, 0.6f);     break;
         case EV_FOOTSTEP:      audio_play(audio, SND_FOOTSTEP, 0.4f);     break;
@@ -345,7 +371,7 @@ int main(int argc, char *argv[]) {
 
         hot_reload(&game, &level_watch, &since_poll, dt);
         game_update(&game, &cmd, dt);
-        play_event_sounds(&audio, &game.events);
+        play_event_sounds(&audio, &game.events, &game);
         play_event_effects(&fx, &game.events, &game);
         screenfx_update(&fx, dt);
         spawn_event_particles(&particles, &game.events, &game);

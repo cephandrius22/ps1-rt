@@ -32,6 +32,10 @@ TEST(test_fgd_covers_entity_table) {
         const EntityDef *def = entity_def((EntityType)t);
         char cls[64];
         snprintf(cls, sizeof(cls), "= %s :", def->name);
+        if (def->runtime_only) {
+            ASSERT(strstr(fgd, cls) == NULL); /* not placeable in the editor */
+            continue;
+        }
         ASSERT(strstr(fgd, cls) != NULL);
         for (const EntityKey *k = def->keys; k && k->type != KEY_END; k++) {
             char key[64];
@@ -67,7 +71,7 @@ TEST(test_tga_roundtrip) {
 
 TEST(test_fgd_string_keys) {
     generate_fgd();
-    ASSERT(strstr(fgd, "give(string) : \"Weapon: shotgun\" : \"shotgun\"") != NULL);
+    ASSERT(strstr(fgd, "give(string) : \"Weapon: shotgun, launcher\" : \"shotgun\"") != NULL);
     ASSERT(strstr(fgd, "= weapon :") != NULL);
 }
 

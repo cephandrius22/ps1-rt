@@ -257,7 +257,7 @@ static void parse_entity(const char *line, LevelParser *p) {
     }
 
     EntityType type = entity_type_by_name(type_str);
-    if (type == ENTITY_NONE) {
+    if (type == ENTITY_NONE || entity_def(type)->runtime_only) {
         fprintf(stderr, "level: unknown entity type '%s'\n", type_str);
         return;
     }
@@ -290,6 +290,13 @@ static void parse_light(const char *line, Scene *scene) {
 /* --- Public API --- */
 
 void level_finish(Scene *scene, MatLib *mats, Mesh *world, const char *name) {
+    /* Materials for types spawned during play (no level line to resolve) */
+    for (int t = ENTITY_NONE + 1; t < ENTITY_TYPE_COUNT; t++) {
+        const EntityDef *def = entity_def((EntityType)t);
+        if (def->runtime_only) {
+            scene->type_material[t] = matlib_entity(mats, def, "");
+        }
+    }
     matlib_finish(mats);
 
     /* PS1 vertex jitter on world geometry, before the BVH sees it */

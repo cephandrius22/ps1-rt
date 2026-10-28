@@ -43,6 +43,25 @@ static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
         .flash_time = 0.09f,
         .shake = 0.02f,
     },
+    [WEAPON_LAUNCHER] = {
+        .name        = "launcher",
+        .view_texture = "view_launcher",
+        .damage      = 0.0f,    /* the rocket carries the damage */
+        .cooldown    = 0.8f,
+        .range       = 0.0f,
+        .pellets     = 1,
+        .kick        = 0.07f,
+        .kick_return = 0.25f,
+        .ammo        = AMMO_ROCKETS,
+        .ammo_per_shot = 1,
+        .switch_time = 0.6f,
+        .flash_color = {1.0f, 0.6f, 0.3f},
+        .flash_intensity = 2.5f,
+        .flash_radius = 8.0f,
+        .flash_time = 0.1f,
+        .shake = 0.03f,
+        .projectile = PROJECTILE_ROCKET,
+    },
 };
 
 const WeaponDef *weapon_def(WeaponType type) {

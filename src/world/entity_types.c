@@ -286,6 +286,19 @@ static void exit_mesh(Mesh *m) {
                   vec3(EXIT_HALF_SIZE, EXIT_THICKNESS, EXIT_HALF_SIZE));
 }
 
+/* --- Projectile: a small glowing ball centered on its position. Ghost:
+ * collision traces never stop on it (rockets don't hit each other, and
+ * a shooter's aim ray passes through its own shot). --- */
+
+static void projectile_sprite(const Entity *e, Sprite *out) {
+    out->width = e->projectile.size;
+    out->height = e->projectile.size;
+    out->base.y -= e->projectile.size * 0.5f;
+    out->frame = e->projectile.frame;
+    out->frame_count = PROJ_FRAME_COUNT;
+    out->solidity = SPRITE_GHOST;
+}
+
 /* --- Level keys per type (defaults shared with the spawn hooks) --- */
 
 static const EntityKey health_keys[] = {
@@ -295,12 +308,12 @@ static const EntityKey health_keys[] = {
 
 static const EntityKey ammo_keys[] = {
     {"amount", KEY_FLOAT, AMMO_AMOUNT_DEF, "Rounds given", NULL},
-    {"ammo", KEY_STRING, 0, "Ammo type: bullets, shells", AMMO_NAME_DEF},
+    {"ammo", KEY_STRING, 0, "Ammo type: bullets, shells, rockets", AMMO_NAME_DEF},
     {.type = KEY_END},
 };
 
 static const EntityKey weapon_keys[] = {
-    {"give", KEY_STRING, 0, "Weapon: shotgun", WEAPON_NAME_DEF},
+    {"give", KEY_STRING, 0, "Weapon: shotgun, launcher", WEAPON_NAME_DEF},
     {"amount", KEY_FLOAT, WEAPON_AMMO_DEF, "Ammo that comes with it", NULL},
     {.type = KEY_END},
 };
@@ -372,6 +385,12 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
         .default_texture = "ghoul", .default_color = {1, 1, 1},
         .desc = "Melee enemy", .keys = ghoul_keys,
         .spawn = ghoul_spawn, .damage = ghoul_damage, .sprite = ghoul_sprite,
+    },
+    [ENTITY_PROJECTILE] = {
+        .name = "projectile", .render = RENDER_SPRITE, .runtime_only = true,
+        .default_texture = "projectiles", .default_color = {1, 1, 1},
+        .desc = "Rocket or spit (spawned by weapons and enemies)",
+        .sprite = projectile_sprite,
     },
     [ENTITY_EXIT] = {
         .name = "exit", .render = RENDER_MESH, .mesh_solidity = SPRITE_GHOST, .touch_effect = TOUCH_EFFECT_EXIT,

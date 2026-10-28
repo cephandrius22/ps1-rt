@@ -69,6 +69,7 @@ static bool tick_switch(Weapon *w, float dt) {
 /* Recover recoil and count down cooldown. Returns true if a shot may fire. */
 static bool tick_ready(Weapon *w, const WeaponDef *def, const PlayerCmd *cmd, float dt) {
     w->fired_this_tick = false;
+    w->launch_this_tick = false;
 
     if (w->kick > 0) {
         w->kick -= def->kick_return * dt;
@@ -116,6 +117,12 @@ static void fire(Weapon *w, Pose aim, const Scene *scene, EventQueue *ev) {
     w->fired_this_tick = true;
     events_push(ev, (GameEvent){.type = EV_WEAPON_FIRED, .pos = aim.pos,
                                 .entity = ENTITY_INDEX_NONE});
+
+    if (def->projectile != PROJECTILE_NONE) {
+        w->launch_this_tick = true;
+        w->launch = weapon_pellet_ray(aim, def, 0);
+        return;
+    }
 
     /* One impact event per pellet that hits; damage rides in amount */
     for (int i = 0; i < def->pellets; i++) {

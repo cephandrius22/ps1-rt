@@ -1,6 +1,8 @@
 #include "game.h"
 #include "level.h"
 #include "ai.h"
+#include "damage.h"
+#include "projectile.h"
 #include "levelcheck.h"
 #include <math.h>
 #include <stdio.h>
@@ -122,15 +124,14 @@ static void resolve_impacts(Game *g, int first_event) {
             continue;
         }
 
-        DamageResult res = entity_damage(&g->scene.entities, hit.entity, hit.amount);
-        if (res == DAMAGE_IGNORED) {
-            continue;
-        }
-        const Entity *e = &g->scene.entities.items[hit.entity];
-        GameEventType type = res == DAMAGE_KILLED ? EV_ENEMY_DIED : EV_ENEMY_PAIN;
-        g->kills += res == DAMAGE_KILLED;
-        events_push(&g->events, (GameEvent){.type = type, .pos = e->position,
-                                            .entity = hit.entity, .amount = hit.amount});
+        damage_entity(&g->scene, hit.entity, hit.amount, &g->events);
+    }
+}
+
+/* Kills are counted from death events, whatever caused them */
+static void count_kills(Game *g, int first_event) {
+    for (int i = first_event; i < g->events.count; i++) {
+        g->kills += g->events.items[i].type == EV_ENEMY_DIED;
     }
 }
 
@@ -208,6 +209,16 @@ static void spawn_muzzle_flash(Game *g) {
     light_add_temporary(&g->scene.lights, flash, def->flash_time);
 }
 
+#define LAUNCH_DROP 0.15f /* rockets leave a little below the eye, so you see them go */
+
+/* Fire the weapon's projectile along the requested aim ray */
+static void launch(Game *g) {
+    const Ray *aim = &g->weapon.launch;
+    Vec3 from = vec3_sub(aim->origin, vec3(0, LAUNCH_DROP, 0));
+    ProjectileKind kind = weapon_def(g->weapon.type)->projectile;
+    projectile_fire(&g->scene, kind, from, aim->dir, PROJECTILE_OWNER_PLAYER);
+}
+
 static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     ai_update(&g->scene, &g->player, dt, &g->events);
 
@@ -226,7 +237,11 @@ static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     if (g->weapon.fired_this_tick) {
         spawn_muzzle_flash(g);
     }
+    if (g->weapon.launch_this_tick) {
+        launch(g);
+    }
     resolve_impacts(g, first_event);
+    projectile_update(&g->scene, &g->player, dt, &g->events);
 
     if (!player_alive(&g->player)) {
         set_mode(g, GAME_DEAD);
@@ -244,6 +259,7 @@ static void continue_on_input(Game *g, const PlayerCmd *cmd) {
 /* Enemies keep prowling; the view sinks to the floor */
 static void tick_dead(Game *g, const PlayerCmd *cmd, float dt) {
     ai_update(&g->scene, &g->player, dt, &g->events);
+    projectile_update(&g->scene, &g->player, dt, &g->events); /* shots in flight still land */
 
     Player *p = &g->player;
     float floor_eye = p->foot_y + DEAD_EYE_HEIGHT;
@@ -261,6 +277,7 @@ void game_tick(Game *g, const PlayerCmd *cmd) {
     light_update(&g->scene.lights, g->time, dt);
     scene_rebuild_dynamic(&g->scene);
 
+    int first_event = g->events.count;
     switch (g->mode) {
     case GAME_PLAYING:
         tick_playing(g, cmd, dt);
@@ -271,6 +288,11 @@ void game_tick(Game *g, const PlayerCmd *cmd) {
     case GAME_LEVEL_END:
         continue_on_input(g, cmd);
         break;
+    }
+
+    /* A level reload empties the queue; nothing from before it counts */
+    if (first_event <= g->events.count) {
+        count_kills(g, first_event);
     }
 }
 

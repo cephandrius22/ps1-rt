@@ -481,18 +481,51 @@ static void gen_view_shotgun(Texture *tex) {
     muzzle_flash(&sh, 32, 4, 7);
 }
 
+static const Rgb VIEW_OLIVE  = {62, 70, 48};
+
+/* Fat tube on the shoulder: wide near end, rim and dark bore at the far
+ * end, a hand on the side grip */
+static void gen_view_launcher(Texture *tex) {
+    Sheet sh = sheet_alloc(tex, VIEW_FRAME_W, VIEW_FRAME_H, VIEW_FRAME_COUNT);
+    for (int f = 0; f < VIEW_FRAME_COUNT; f++) {
+        sheet_rect(&sh, f, 22, 28, 44, 48, VIEW_OLIVE, 0.25f);    /* near end */
+        sheet_rect(&sh, f, 25, 12, 41, 28, VIEW_OLIVE, 0.25f);    /* tube */
+        sheet_rect(&sh, f, 25, 12, 41, 15, VIEW_SHINE, 0.1f);     /* rim */
+        sheet_ellipse(&sh, f, 33, 14, 5, 2, VIEW_BORE, 0);
+        sheet_rect(&sh, f, 22, 34, 44, 36, VIEW_METAL, 0.1f);     /* band */
+        sheet_ellipse(&sh, f, 19, 42, 6, 5, VIEW_SKIN, 0.3f);     /* hand on the grip */
+    }
+    muzzle_flash(&sh, 33, 6, 9);
+}
+
+static const Rgb ROCKET_BODY  = {150, 150, 140};
+static const Rgb ROCKET_FIRE  = {255, 170, 60};
+static const Rgb SPIT_OUTER   = {90, 200, 40};
+static const Rgb SPIT_INNER   = {220, 255, 140};
+
+/* Small glowing projectiles seen head-on: a rocket (grey nose ringed by
+ * exhaust fire) and a spit glob */
+static void gen_projectiles(Texture *tex) {
+    Sheet sh = sheet_alloc(tex, PROJ_FRAME_SIZE, PROJ_FRAME_SIZE, PROJ_FRAME_COUNT);
+    float c = PROJ_FRAME_SIZE * 0.5f;
+    sheet_ellipse(&sh, PROJ_FRAME_ROCKET, c, c, 7, 7, ROCKET_FIRE, 0.4f);
+    sheet_ellipse(&sh, PROJ_FRAME_ROCKET, c, c, 4, 4, ROCKET_BODY, 0.2f);
+    sheet_ellipse(&sh, PROJ_FRAME_SPIT, c, c, 6, 6, SPIT_OUTER, 0.35f);
+    sheet_ellipse(&sh, PROJ_FRAME_SPIT, c, c, 3, 3, SPIT_INNER, 0.1f);
+}
+
 /* --- Public API --- */
 
 static const char *proctex_names[PTEX_COUNT] = {
     "concrete", "brick", "metal_panel", "metal_grate",
     "rust", "floor_tile", "pipe", "barrel", "ghoul",
-    "view_pistol", "view_shotgun"
+    "view_pistol", "view_shotgun", "view_launcher", "projectiles"
 };
 
 static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
     gen_concrete, gen_brick, gen_metal_panel, gen_metal_grate,
     gen_rust, gen_floor_tile, gen_pipe, gen_barrel, gen_ghoul,
-    gen_view_pistol, gen_view_shotgun
+    gen_view_pistol, gen_view_shotgun, gen_view_launcher, gen_projectiles
 };
 
 const char *proctex_name(ProceduralTextureID id) {

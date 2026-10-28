@@ -287,6 +287,29 @@ TEST(test_game_muzzle_flash) {
     game_free(&g);
 }
 
+/* The launcher fires a rocket entity with the runtime material */
+TEST(test_game_launcher_fires_rocket) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    inventory_give_weapon(&g.player.inv, WEAPON_LAUNCHER);
+    inventory_add(&g.player.inv, AMMO_ROCKETS, 3);
+    g.weapon = weapon_create(WEAPON_LAUNCHER);
+
+    PlayerCmd fire = {.buttons = BTN_ATTACK};
+    game_tick(&g, &fire);
+
+    int rockets = 0;
+    for (int i = 0; i < g.scene.entities.count; i++) {
+        const Entity *e = &g.scene.entities.items[i];
+        if (e->active && e->type == ENTITY_PROJECTILE) {
+            rockets++;
+            ASSERT_EQ_INT(e->material_id, g.scene.type_material[ENTITY_PROJECTILE]);
+        }
+    }
+    ASSERT_EQ_INT(rockets, 1);
+    ASSERT_EQ_INT(g.player.inv.ammo[AMMO_ROCKETS], 2);
+    game_free(&g);
+}
+
 int main(void) {
     TEST_SUITE("game");
     RUN_TEST(test_game_init_spawns_player);
@@ -305,5 +328,6 @@ int main(void) {
     RUN_TEST(test_game_weapon_slot_impulse_once);
     RUN_TEST(test_game_weapon_pickup_switches);
     RUN_TEST(test_game_muzzle_flash);
+    RUN_TEST(test_game_launcher_fires_rocket);
     TEST_REPORT();
 }
