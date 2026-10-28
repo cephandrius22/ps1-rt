@@ -9,6 +9,12 @@
  *        any hit ──> PAIN ──┘ after pain_time
  *        health 0 ──> DEAD (corpse, stays)
  *
+ * Idle enemies also wake to noise (ai_hear): a sound spreads through
+ * the nav grid's open floor, so walls and closed doors muffle it.
+ *
+ * Chasing walks straight at the player when nothing is in the way, else
+ * along the nav grid's A* path (world/nav.h).
+ *
  * Ranged enemies stop approaching once they can see you within
  * preferred_range; their "strike" is a projectile, fired only if they
  * still see you when the windup ends.
@@ -52,5 +58,9 @@ const EnemyDef *enemy_def(EntityType type);
 
 /* Advance every enemy one tick toward/against the player */
 void ai_update(Scene *scene, Player *player, float dt, EventQueue *ev);
+
+/* A noise at `from`: idle enemies within max_dist meters of walking
+ * distance wake up and chase (EV_ENEMY_ALERT each) */
+void ai_hear(Scene *scene, Vec3 from, float max_dist, EventQueue *ev);
 
 #endif

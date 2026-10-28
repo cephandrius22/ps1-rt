@@ -193,6 +193,23 @@ TEST(test_ai_paths_around_wall) {
     free_world();
 }
 
+TEST(test_ai_hears_around_walls) {
+    build_world(true);
+    nav_build(&s.nav, &s.static_bvh);
+    entity_add(&s.entities, entity_spawn(ENTITY_GHOUL, vec3(0, 0, -8), ""));
+    Vec3 shot = vec3(0, 0, 0);
+    events_clear(&ev);
+
+    /* 8 m as the crow flies, ~13 m walking round the wall: muffled */
+    ai_hear(&s, shot, 10.0f, &ev);
+    ASSERT(s.entities.items[0].enemy.state == ENEMY_IDLE);
+
+    ai_hear(&s, shot, 25.0f, &ev);
+    ASSERT(s.entities.items[0].enemy.state == ENEMY_CHASE);
+    ASSERT(has_event(&ev, EV_ENEMY_ALERT));
+    free_world();
+}
+
 /* Enemies fall onto the floor and chase across it */
 TEST(test_ai_enemy_falls_to_floor) {
     build_world(false);
@@ -212,6 +229,7 @@ int main(void) {
     RUN_TEST(test_ai_attacks_in_reach);
     RUN_TEST(test_ai_pain_then_death);
     RUN_TEST(test_ai_paths_around_wall);
+    RUN_TEST(test_ai_hears_around_walls);
     RUN_TEST(test_ai_enemy_falls_to_floor);
     RUN_TEST(test_ai_spitter_holds_and_spits);
     RUN_TEST(test_ai_spitter_approaches_from_afar);

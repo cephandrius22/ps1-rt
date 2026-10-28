@@ -219,6 +219,13 @@ static void launch(Game *g) {
     projectile_fire(&g->scene, kind, from, aim->dir, PROJECTILE_OWNER_PLAYER);
 }
 
+/* Gunfire wakes idle enemies within earshot (through open floor) */
+static void make_noise(Game *g) {
+    const Player *p = &g->player;
+    Vec3 feet = vec3(p->view.pos.x, p->foot_y, p->view.pos.z);
+    ai_hear(&g->scene, feet, weapon_def(g->weapon.type)->noise, &g->events);
+}
+
 static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     ai_update(&g->scene, &g->player, dt, &g->events);
 
@@ -236,6 +243,7 @@ static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
                   &g->player.inv, &g->events);
     if (g->weapon.fired_this_tick) {
         spawn_muzzle_flash(g);
+        make_noise(g);
     }
     if (g->weapon.launch_this_tick) {
         launch(g);

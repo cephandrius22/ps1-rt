@@ -239,3 +239,18 @@ void ai_update(Scene *scene, Player *player, float dt, EventQueue *ev) {
         tick_enemy(e, i, def, player, scene, dt, ev);
     }
 }
+
+void ai_hear(Scene *scene, Vec3 from, float max_dist, EventQueue *ev) {
+    nav_flood(&scene->nav, from, max_dist);
+
+    EntityList *list = &scene->entities;
+    for (int i = 0; i < list->count; i++) {
+        Entity *e = &list->items[i];
+        bool idle = e->active && enemy_def(e->type) && e->enemy.state == ENEMY_IDLE;
+        if (!idle || !nav_heard(&scene->nav, e->position)) {
+            continue;
+        }
+        enemy_set_state(e, ENEMY_CHASE);
+        push_event(ev, EV_ENEMY_ALERT, e, i);
+    }
+}

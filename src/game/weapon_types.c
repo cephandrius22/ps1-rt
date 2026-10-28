@@ -23,6 +23,7 @@ static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
         .flash_radius = 6.0f,
         .flash_time = 0.06f,
         .shake = 0.004f,
+        .noise = 25.0f,
     },
     [WEAPON_SHOTGUN] = {
         .name        = "shotgun",
@@ -42,6 +43,7 @@ static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
         .flash_radius = 9.0f,
         .flash_time = 0.09f,
         .shake = 0.02f,
+        .noise = 35.0f,
     },
     [WEAPON_LAUNCHER] = {
         .name        = "launcher",
@@ -60,6 +62,7 @@ static const WeaponDef weapon_defs[WEAPON_TYPE_COUNT] = {
         .flash_radius = 8.0f,
         .flash_time = 0.1f,
         .shake = 0.03f,
+        .noise = 35.0f,
         .projectile = PROJECTILE_ROCKET,
     },
 };
