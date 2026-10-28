@@ -31,6 +31,7 @@ void scene_init(Scene *s) {
     for (int t = 0; t < ENTITY_TYPE_COUNT; t++) {
         s->type_material[t] = 0;
     }
+    s->nav = (NavGrid){0};
 }
 
 void scene_free(Scene *s) {
@@ -49,6 +50,7 @@ void scene_free(Scene *s) {
     entity_list_free(&s->entities);
     entity_meshes_free(&s->entity_meshes);
     light_list_free(&s->lights);
+    nav_free(&s->nav);
 
     free(s->materials);
     s->materials = NULL;

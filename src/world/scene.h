@@ -12,6 +12,7 @@
 #include "bvh.h"
 #include "entity.h"
 #include "light.h"
+#include "nav.h"
 #include "texture.h"
 
 typedef struct Scene {
@@ -42,6 +43,9 @@ typedef struct Scene {
     Texture *textures;
     int material_count;
     int texture_count;
+
+    /* Walkable floors for enemy paths and sound (built by level_finish) */
+    NavGrid nav;
 
     /* Default material per entity type, for entities spawned at runtime
      * (projectiles); filled by level_finish() */

@@ -310,6 +310,10 @@ void level_finish(Scene *scene, MatLib *mats, Mesh *world, const char *name) {
 
     scene_build_static(scene, world->tris, world->count);
     printf("Static BVH: %d nodes\n", scene->static_bvh.node_count);
+
+    nav_build(&scene->nav, &scene->static_bvh);
+    printf("Nav grid: %dx%d cells, %d floors\n",
+           scene->nav.nx, scene->nav.nz, nav_floor_count(&scene->nav));
     mesh_free(world);
 }
 

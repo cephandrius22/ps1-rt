@@ -4,10 +4,13 @@
 #include <stddef.h>
 
 #define ENEMY_EYE_HEIGHT  1.5f  /* sight rays start here above the feet */
-#define ENEMY_STEP        0.6f  /* same ledges the player can walk up */
+#define ENEMY_STEP        NAV_STEP /* the steps the nav grid links */
 #define ENEMY_GRAVITY     18.0f
 #define ENEMY_GROUND_SEARCH 1.0f
 #define TRACE_EPS         0.001f
+#define REPATH_TIME       0.5f  /* seconds between path searches while chasing */
+#define WAYPOINT_REACHED  0.3f  /* meters: close enough, search the next one */
+#define WALK_PROBE        (ENEMY_STEP + 0.05f) /* straight-line check above steps */
 
 static const EnemyDef enemy_defs[ENTITY_TYPE_COUNT] = {
     [ENTITY_GHOUL] = {
@@ -75,16 +78,53 @@ static BodyShape enemy_shape(const EnemyDef *def) {
     return (BodyShape){def->radius, def->height, ENEMY_STEP};
 }
 
-/* Walk straight at the player, sliding along walls axis by axis */
-static void chase(Entity *e, const EnemyDef *def, const Player *p,
-                  const Scene *scene, float dt) {
-    Vec3 to = vec3(p->view.pos.x - e->position.x, 0, p->view.pos.z - e->position.z);
+/* Can it walk straight at the target: same floor height (within a step)
+ * and nothing solid between, just above step height */
+static bool straight_line(const Entity *e, Vec3 target, const Scene *scene) {
+    if (fabsf(target.y - e->position.y) > ENEMY_STEP) {
+        return false;
+    }
+    Vec3 from = vec3_add(e->position, vec3(0, WALK_PROBE, 0));
+    Vec3 to = vec3(target.x - e->position.x, 0, target.z - e->position.z);
+    float dist = vec3_length(to);
+    if (dist < 1e-4f) {
+        return true;
+    }
+    Ray ray = {from, vec3_mul(to, 1.0f / dist)};
+    return !scene_trace(scene, ray, TRACE_EPS, dist, TRACE_SOLID).hit;
+}
+
+/* Where to head for: the player when the way is straight, else the nav
+ * path's next waypoint, searched again every REPATH_TIME or on arrival.
+ * No path (no grid, unreachable): straight at the player, as before. */
+static Vec3 steer_target(Entity *e, const Player *p, Scene *scene, float dt) {
+    Vec3 feet = vec3(p->view.pos.x, p->foot_y, p->view.pos.z);
+    if (straight_line(e, feet, scene)) {
+        e->enemy.routed = false;
+        return feet;
+    }
+
+    e->enemy.repath -= dt;
+    bool arrived = e->enemy.routed &&
+                   flat_distance(e->position, e->enemy.waypoint) < WAYPOINT_REACHED;
+    if (!e->enemy.routed || arrived || e->enemy.repath <= 0) {
+        e->enemy.routed = nav_next_waypoint(&scene->nav, e->position, feet, &e->enemy.waypoint);
+        e->enemy.repath = REPATH_TIME;
+    }
+    return e->enemy.routed ? e->enemy.waypoint : feet;
+}
+
+/* Walk toward the steer target, sliding along walls axis by axis */
+static void chase(Entity *e, const EnemyDef *def, const Player *p, Scene *scene, float dt) {
+    Vec3 target = steer_target(e, p, scene, dt);
+    Vec3 to = vec3(target.x - e->position.x, 0, target.z - e->position.z);
     float dist = vec3_length(to);
     if (dist < 1e-4f) {
         return;
     }
 
-    Vec3 move = vec3_mul(to, def->speed * dt / dist);
+    float step = fminf(def->speed * dt, dist);
+    Vec3 move = vec3_mul(to, step / dist);
     e->position = movement_slide(scene, e->position, move, enemy_shape(def));
 }
 

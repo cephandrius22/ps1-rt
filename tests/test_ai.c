@@ -1,5 +1,6 @@
 #include "test_framework.h"
 #include "ai.h"
+#include <math.h>
 
 #define TICK (1.0f / 60.0f)
 
@@ -178,6 +179,20 @@ TEST(test_ai_spitter_needs_line_of_sight) {
     free_world();
 }
 
+TEST(test_ai_paths_around_wall) {
+    build_world(true);
+    nav_build(&s.nav, &s.static_bvh);
+    entity_add(&s.entities, entity_spawn(ENTITY_GHOUL, vec3(0, 0, -8), ""));
+    enemy_set_state(&s.entities.items[0], ENEMY_CHASE);
+    Player p = player_at_origin();
+
+    /* Straight at the player is into the wall; the path goes round it */
+    run_ai(&p, 600);
+    Vec3 at = s.entities.items[0].position;
+    ASSERT(sqrtf(at.x * at.x + at.z * at.z) < 1.5f);
+    free_world();
+}
+
 /* Enemies fall onto the floor and chase across it */
 TEST(test_ai_enemy_falls_to_floor) {
     build_world(false);
@@ -196,6 +211,7 @@ int main(void) {
     RUN_TEST(test_ai_wall_blocks_sight);
     RUN_TEST(test_ai_attacks_in_reach);
     RUN_TEST(test_ai_pain_then_death);
+    RUN_TEST(test_ai_paths_around_wall);
     RUN_TEST(test_ai_enemy_falls_to_floor);
     RUN_TEST(test_ai_spitter_holds_and_spits);
     RUN_TEST(test_ai_spitter_approaches_from_afar);
