@@ -99,7 +99,7 @@ static bool linked(const NavGrid *nav, int node, int d) {
 
 static bool hits(const BVH *world, Vec3 from, Vec3 dir, float len) {
     Ray ray = {from, dir};
-    return bvh_intersect(world, ray, SCAN_EPS, len).hit;
+    return bvh_occluded(world, ray, SCAN_EPS, len);
 }
 
 /* Walk one column top-down, keeping up-facing surfaces with headroom.

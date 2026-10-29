@@ -35,6 +35,17 @@ typedef struct {
  * rec is untouched on a miss. Hits both faces. */
 bool ray_triangle_intersect(Ray ray, const Triangle *tri, float t_min, float t_max, HitRecord *rec);
 
+/* Just where a ray meets a triangle: distance and barycentrics. BVH
+ * traversal tests many triangles and fills a HitRecord only for the one
+ * it keeps (triangle_record). */
+typedef struct {
+    float t;
+    float u, v;
+} TriHit;
+
+bool ray_triangle_hit(Ray ray, const Triangle *tri, float t_min, float t_max, TriHit *hit);
+HitRecord triangle_record(Ray ray, const Triangle *tri, TriHit hit);
+
 typedef struct {
     Triangle *tris;
     int count;

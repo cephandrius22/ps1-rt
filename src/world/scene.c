@@ -194,16 +194,11 @@ HitRecord scene_intersect(const Scene *s, Ray ray, float t_min, float t_max) {
 }
 
 bool scene_occluded(const Scene *s, Ray ray, float t_min, float t_max) {
-    HitRecord rec = bvh_intersect(&s->static_bvh, ray, t_min, t_max);
-    if (rec.hit) {
+    if (bvh_occluded(&s->static_bvh, ray, t_min, t_max)) {
         return true;
     }
-
-    if (s->has_dynamic) {
-        rec = bvh_intersect(&s->dynamic_bvh, ray, t_min, t_max);
-        if (rec.hit) {
-            return true;
-        }
+    if (s->has_dynamic && bvh_occluded(&s->dynamic_bvh, ray, t_min, t_max)) {
+        return true;
     }
 
     /* Sprites cast no shadows: a billboard re-faces every ray, so its

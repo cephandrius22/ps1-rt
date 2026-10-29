@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <float.h>
+#include <math.h>
 
 static Vec3 vec3_min(Vec3 a, Vec3 b) {
     return (Vec3){fminf(a.x, b.x), fminf(a.y, b.y), fminf(a.z, b.z)};
@@ -219,44 +220,133 @@ void bvh_free(BVH *bvh) {
     bvh->tris = NULL;
 }
 
-HitRecord bvh_intersect(const BVH *bvh, Ray ray, float t_min, float t_max) {
-    HitRecord closest = {.hit = false, .t = t_max};
+/* --- Traversal --- */
 
+#define BVH_STACK_MAX 64
+
+#define SLAB_DIR_MIN 1e-30f /* |dir| floor: keeps 1/dir finite */
+
+/* A ray prepared for box tests: 1/dir once per ray, not per box */
+typedef struct {
+    Vec3 origin;
+    Vec3 inv_dir;
+} SlabRay;
+
+/* 1/d, with d kept off zero: an infinite 1/d times a ray starting exactly
+ * on a box face (0 * inf) would be NaN and lose the box */
+static float safe_inv(float d) {
+    return 1.0f / (fabsf(d) > SLAB_DIR_MIN ? d : copysignf(SLAB_DIR_MIN, d));
+}
+
+static SlabRay slab_ray(Ray ray) {
+    return (SlabRay){ray.origin, vec3(safe_inv(ray.dir.x), safe_inv(ray.dir.y), safe_inv(ray.dir.z))};
+}
+
+/* Distance where the ray enters box within [t_min, t_max]; INFINITY on
+ * a miss. Each axis clips the interval to its slab:
+ *
+ *     t_min ──[ x slab ]──[ y slab ]──> entry = latest start,
+ *                                       exit  = earliest end
+ */
+static float box_entry(const AABB *b, const SlabRay *r, float t_min, float t_max) {
+    float x0 = (b->min.x - r->origin.x) * r->inv_dir.x;
+    float x1 = (b->max.x - r->origin.x) * r->inv_dir.x;
+    float y0 = (b->min.y - r->origin.y) * r->inv_dir.y;
+    float y1 = (b->max.y - r->origin.y) * r->inv_dir.y;
+    float z0 = (b->min.z - r->origin.z) * r->inv_dir.z;
+    float z1 = (b->max.z - r->origin.z) * r->inv_dir.z;
+    t_min = fmaxf(t_min, fmaxf(fminf(x0, x1), fmaxf(fminf(y0, y1), fminf(z0, z1))));
+    t_max = fminf(t_max, fminf(fmaxf(x0, x1), fminf(fmaxf(y0, y1), fmaxf(z0, z1))));
+    return t_min <= t_max ? t_min : INFINITY;
+}
+
+typedef enum {
+    HIT_CLOSEST,  /* camera rays, traces: the nearest triangle */
+    HIT_ANY,      /* shadow rays: any triangle will do, stop at the first */
+} HitMode;
+
+typedef struct {
+    int node;
+    float entry;  /* where the ray enters the node's box */
+} StackEntry;
+
+/* Walk the tree: the nearer child first, and skip any box the ray
+ * enters beyond the best hit so far. Returns the hit triangle's index
+ * (best filled), or -1. */
+static int traverse(const BVH *bvh, Ray ray, float t_min, float t_max, HitMode mode,
+                    TriHit *best) {
     if (bvh->node_count == 0) {
-        return closest;
+        return -1;
+    }
+    SlabRay slab = slab_ray(ray);
+    float root = box_entry(&bvh->nodes[0].bbox, &slab, t_min, t_max);
+    if (root == INFINITY) {
+        return -1;
     }
 
-    // Stack-based traversal
-    int stack[64];
+    StackEntry stack[BVH_STACK_MAX];
     int sp = 0;
-    stack[sp++] = 0;
+    stack[sp++] = (StackEntry){0, root};
+    int found = -1;
+    best->t = t_max;
 
     while (sp > 0) {
-        int idx = stack[--sp];
-        const BVHNode *node = &bvh->nodes[idx];
+        StackEntry top = stack[--sp];
+        if (top.entry > best->t) {
+            continue; /* a nearer hit was found since this was pushed */
+        }
+        const BVHNode *node = &bvh->nodes[top.node];
 
-        if (!aabb_hit(node->bbox, ray, t_min, closest.t)) {
+        if (node->tri_count > 0) {
+            for (int i = node->tri_start; i < node->tri_start + node->tri_count; i++) {
+                TriHit hit;
+                if (!ray_triangle_hit(ray, &bvh->tris[i], t_min, best->t, &hit)) {
+                    continue;
+                }
+                *best = hit;
+                found = i;
+                if (mode == HIT_ANY) {
+                    return found;
+                }
+            }
             continue;
         }
 
-        if (node->tri_count > 0) {
-            // Leaf
-            for (int i = 0; i < node->tri_count; i++) {
-                HitRecord rec;
-                if (ray_triangle_intersect(ray, &bvh->tris[node->tri_start + i],
-                                           t_min, closest.t, &rec)) {
-                    closest = rec;
-                }
-            }
-        } else {
-            if (node->left >= 0) {
-                stack[sp++] = node->left;
-            }
-            if (node->right >= 0) {
-                stack[sp++] = node->right;
-            }
+        /* Push the farther child first so the nearer one pops next */
+        float near_t = node->left >= 0 ? box_entry(&bvh->nodes[node->left].bbox, &slab, t_min, best->t) : INFINITY;
+        float far_t = node->right >= 0 ? box_entry(&bvh->nodes[node->right].bbox, &slab, t_min, best->t) : INFINITY;
+        int near = node->left;
+        int far = node->right;
+        if (far_t < near_t) {
+            float t = near_t;
+            near_t = far_t;
+            far_t = t;
+            near = node->right;
+            far = node->left;
+        }
+        if (sp + 2 > BVH_STACK_MAX) {
+            continue; /* deeper than any SAH tree we build */
+        }
+        if (far_t != INFINITY) {
+            stack[sp++] = (StackEntry){far, far_t};
+        }
+        if (near_t != INFINITY) {
+            stack[sp++] = (StackEntry){near, near_t};
         }
     }
+    return found;
+}
 
-    return closest;
+HitRecord bvh_intersect(const BVH *bvh, Ray ray, float t_min, float t_max) {
+    TriHit best;
+    int tri = traverse(bvh, ray, t_min, t_max, HIT_CLOSEST, &best);
+    if (tri < 0) {
+        return (HitRecord){.hit = false, .t = t_max};
+    }
+    return triangle_record(ray, &bvh->tris[tri], best);
+}
+
+bool bvh_occluded(const BVH *bvh, Ray ray, float t_min, float t_max) {
+    TriHit hit;
+    return traverse(bvh, ray, t_min, t_max, HIT_ANY, &hit) >= 0;
 }

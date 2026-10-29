@@ -8,7 +8,7 @@
  * and leave a crack (e.g. a floor diagonal the player falls through). */
 #define BARY_EPS 1e-5f
 
-bool ray_triangle_intersect(Ray ray, const Triangle *tri, float t_min, float t_max, HitRecord *rec) {
+bool ray_triangle_hit(Ray ray, const Triangle *tri, float t_min, float t_max, TriHit *hit) {
     Vec3 e1 = vec3_sub(tri->v1, tri->v0);
     Vec3 e2 = vec3_sub(tri->v2, tri->v0);
     Vec3 h = vec3_cross(ray.dir, e2);
@@ -36,20 +36,33 @@ bool ray_triangle_intersect(Ray ray, const Triangle *tri, float t_min, float t_m
         return false;
     }
 
-    rec->t = t;
-    rec->u = u;
-    rec->v = v;
-    rec->point = vec3_add(ray.origin, vec3_mul(ray.dir, t));
-    rec->normal = tri->normal;
-    rec->material_id = tri->material_id;
-    rec->owner = tri->owner;
-    rec->tri = tri;
-    rec->hit = true;
+    *hit = (TriHit){t, u, v};
+    return true;
+}
 
-    float w = 1.0f - u - v;
-    rec->uv.u = w * tri->uv0.u + u * tri->uv1.u + v * tri->uv2.u;
-    rec->uv.v = w * tri->uv0.v + u * tri->uv1.v + v * tri->uv2.v;
+HitRecord triangle_record(Ray ray, const Triangle *tri, TriHit hit) {
+    float w = 1.0f - hit.u - hit.v;
+    return (HitRecord){
+        .t = hit.t,
+        .u = hit.u,
+        .v = hit.v,
+        .point = vec3_add(ray.origin, vec3_mul(ray.dir, hit.t)),
+        .normal = tri->normal,
+        .material_id = tri->material_id,
+        .owner = tri->owner,
+        .tri = tri,
+        .hit = true,
+        .uv = {w * tri->uv0.u + hit.u * tri->uv1.u + hit.v * tri->uv2.u,
+               w * tri->uv0.v + hit.u * tri->uv1.v + hit.v * tri->uv2.v},
+    };
+}
 
+bool ray_triangle_intersect(Ray ray, const Triangle *tri, float t_min, float t_max, HitRecord *rec) {
+    TriHit hit;
+    if (!ray_triangle_hit(ray, tri, t_min, t_max, &hit)) {
+        return false;
+    }
+    *rec = triangle_record(ray, tri, hit);
     return true;
 }
 
