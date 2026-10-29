@@ -153,6 +153,21 @@ TEST(test_proctex_church_tiles_seamlessly) {
     }
 }
 
+/* Church sprites: their sizes, and a color-keyed corner (holes) */
+TEST(test_proctex_church_sprites) {
+    struct { ProceduralTextureID id; int w, h; } sprites[] = {
+        {PTEX_CANDELABRA, 24, 64}, {PTEX_GRAVESTONE, 32, 40}, {PTEX_STATUE, 32, 88},
+    };
+    for (size_t i = 0; i < sizeof(sprites) / sizeof(sprites[0]); i++) {
+        Texture tex = {0};
+        proctex_generate(&tex, sprites[i].id);
+        ASSERT_EQ_INT(tex.width, sprites[i].w);
+        ASSERT_EQ_INT(tex.height, sprites[i].h);
+        ASSERT(!texture_opaque(&tex, 0.0f, 0.0f));
+        texture_free(&tex);
+    }
+}
+
 int main(void) {
     TEST_SUITE("proctex");
     RUN_TEST(test_proctex_find_concrete);
@@ -168,5 +183,6 @@ int main(void) {
     RUN_TEST(test_proctex_names_round_trip);
     RUN_TEST(test_proctex_church_sizes);
     RUN_TEST(test_proctex_church_tiles_seamlessly);
+    RUN_TEST(test_proctex_church_sprites);
     TEST_REPORT();
 }

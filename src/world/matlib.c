@@ -106,6 +106,7 @@ static const TextureMotion texture_motions[] = {
     {"screen",        {0.0f, 0.0f},    0.6f,  6.0f},
     {"stained_glass", {0.0f, 0.0f},    0.5f,  0.0f}, /* lit from outside */
     {"rose_window",   {0.0f, 0.0f},    0.5f,  0.0f},
+    {"candelabra",    {0.0f, 0.0f},    0.5f,  0.0f}, /* flames show in the dark */
 };
 
 static void apply_texture_motion(Material *mat, const char *texture) {

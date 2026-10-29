@@ -220,10 +220,6 @@ static void gen_pipe(Texture *tex) {
 
 /* --- Sprites (color-keyed) --- */
 
-static void tex_set_key(Texture *tex, int x, int y) {
-    tex_set(tex, x, y, TEXTURE_KEY_R, TEXTURE_KEY_G, TEXTURE_KEY_B);
-}
-
 #define BARREL_W      32
 #define BARREL_H      40
 #define BARREL_LEFT   5   /* body spans [LEFT, W - LEFT) */
@@ -282,55 +278,6 @@ static const Rgb GHOUL_CLAW  = {210, 200, 170}; /* bone-white fingertips */
 static const Rgb GHOUL_EYE   = {255, 220, 60};  /* glowing yellow */
 static const Rgb GHOUL_MOUTH = {40, 6, 6};
 static const Rgb GHOUL_BLOOD = {150, 12, 10};
-
-/* A texture holding equal-size frames side by side (sprite sheets) */
-typedef struct {
-    Texture *tex;
-    int frame_w;
-    int frame_h;
-} Sheet;
-
-/* Allocate a frames-wide sheet, every pixel the color key */
-static Sheet sheet_alloc(Texture *tex, int frame_w, int frame_h, int frames) {
-    tex_alloc(tex, frame_w * frames, frame_h);
-    for (int y = 0; y < frame_h; y++) {
-        for (int x = 0; x < tex->width; x++) {
-            tex_set_key(tex, x, y);
-        }
-    }
-    return (Sheet){tex, frame_w, frame_h};
-}
-
-/* Paint into frame `f` of a sheet; out-of-frame pixels are clipped.
- * Skin gets per-pixel noise so flat shapes read as flesh. */
-static void sheet_px(const Sheet *sh, int f, int x, int y, Rgb c, float noise) {
-    if (x < 0 || x >= sh->frame_w || y < 0 || y >= sh->frame_h) {
-        return;
-    }
-    float k = 1.0f - noise * noise01(f * 97 + x * 7, y * 13);
-    tex_set(sh->tex, f * sh->frame_w + x, y, clamp8(c.r * k), clamp8(c.g * k), clamp8(c.b * k));
-}
-
-static void sheet_rect(const Sheet *sh, int f, int x0, int y0, int x1, int y1, Rgb c, float noise) {
-    for (int y = y0; y < y1; y++) {
-        for (int x = x0; x < x1; x++) {
-            sheet_px(sh, f, x, y, c, noise);
-        }
-    }
-}
-
-static void sheet_ellipse(const Sheet *sh, int f, float cx, float cy, float rx, float ry,
-                          Rgb c, float noise) {
-    for (int y = (int)(cy - ry); y <= (int)(cy + ry); y++) {
-        for (int x = (int)(cx - rx); x <= (int)(cx + rx); x++) {
-            float dx = (x + 0.5f - cx) / rx;
-            float dy = (y + 0.5f - cy) / ry;
-            if (dx * dx + dy * dy <= 1.0f) {
-                sheet_px(sh, f, x, y, c, noise);
-            }
-        }
-    }
-}
 
 /* Head with glowing eyes and mouth; tilt shifts it sideways (pain) */
 static void ghoul_head(const Sheet *sh, int f, int tilt, bool mouth_open) {
@@ -607,6 +554,9 @@ static const char *proctex_names[PTEX_COUNT] = {
     [PTEX_IRON]          = "iron",
     [PTEX_STAINED_GLASS] = "stained_glass",
     [PTEX_ROSE_WINDOW]   = "rose_window",
+    [PTEX_CANDELABRA]    = "candelabra",
+    [PTEX_GRAVESTONE]    = "gravestone",
+    [PTEX_STATUE]        = "statue",
 };
 
 static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
@@ -640,6 +590,9 @@ static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
     [PTEX_IRON]          = church_iron,
     [PTEX_STAINED_GLASS] = church_stained_glass,
     [PTEX_ROSE_WINDOW]   = church_rose_window,
+    [PTEX_CANDELABRA]    = church_candelabra,
+    [PTEX_GRAVESTONE]    = church_gravestone,
+    [PTEX_STATUE]        = church_statue,
 };
 
 const char *proctex_name(ProceduralTextureID id) {

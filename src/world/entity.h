@@ -45,6 +45,9 @@ typedef enum {
     ENTITY_DOOR,          /* func_door: brush that slides open (game/logic.c runs it) */
     ENTITY_PROP,
     ENTITY_DECOR,         /* static sprite: barrels, candles, bodies */
+    ENTITY_CANDELABRA,    /* decor with its own size and texture; brings a light */
+    ENTITY_GRAVESTONE,
+    ENTITY_STATUE,
     ENTITY_GHOUL,         /* melee enemy; AI lives in game/ai.c */
     ENTITY_SPITTER,       /* ranged enemy (spits projectiles) */
     ENTITY_EXIT,          /* floor pad; touching it ends the level */

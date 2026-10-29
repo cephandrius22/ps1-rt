@@ -37,7 +37,7 @@ where it's heading.
 - **PS1 look** — vertex jitter, 4x4 Bayer dithering, 15-bit color, 320x240 upscaled 3x
 - **Level editing** — build levels in TrenchBroom (`.map`, Quake-style brushes) or a simple text format (`.level`); the game reloads on save and warns about mistakes and budget overruns
 - **Procedural textures** — an industrial set (concrete, brick, metal, grate, rust, tile, pipe), a church set (dressed stone, crypt rubble, flagstones, tomb slabs, plaster, oak panelling and boards, marble, carpet, studded iron, glowing stained glass and a rose window), plus animated slime, water and flickering screens; generated in code
-- **Sprites** — Doom-style billboards with color-keyed holes and frame sheets (ghouls, spitters, rockets, toxic barrels)
+- **Sprites** — Doom-style billboards with color-keyed holes and frame sheets (ghouls, spitters, rockets, toxic barrels; candelabras that light their surroundings, gravestones, a weeping angel statue)
 - **Weapons** — pistol, shotgun and rocket launcher (splash damage, including to you), each with its own viewmodel, ammo, muzzle flash that lights the room, recoil and screen shake
 - **Enemies** — ghouls that rush you, spitters that hold their distance and spit dodgeable acid; they path around walls and up stairs, jump down ledges, spread out instead of queueing, open doors, and come running when they hear gunfire
 - **Level logic** — Doom-style doors, red/blue/yellow keycards, buttons, triggers, hidden monster ambushes and switchable lights, wired Quake-style with `target`/`targetname`
@@ -187,7 +187,9 @@ Quake level editor:
 2. In TrenchBroom: Preferences → RT → Game Path = `<this repo>/editor/game`.
 3. New Map → RT. Build with brushes (32 units = 1 m); place an
    `info_player_start`, lights, enemies (`ghoul`, `spitter`), pickups
-   (`health`, `ammo`, `weapon`, `keycard`) and an `exit`. Doors, buttons
+   (`health`, `ammo`, `weapon`, `keycard`), decor (`decor_candelabra`,
+   which lights itself, `decor_gravestone`, `decor_statue`, or `decor`
+   with any texture) and an `exit`. Doors, buttons
    and triggers are brush entities (`func_door`, `func_button`,
    `trigger_once`, `trigger_multiple`, `trigger_hurt`), and a
    `trigger_relay` chains or delays a firing; wire them with `target` →

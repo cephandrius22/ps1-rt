@@ -1,5 +1,8 @@
 #include "test_framework.h"
 #include "level.h"
+#include <stdio.h>
+
+#define LEVEL_TMP "build/tests/level_tmp.level"
 
 TEST(test_level_load_success) {
     Scene scene;
@@ -136,6 +139,32 @@ TEST(test_level_entity_materials) {
     scene_free(&scene);
 }
 
+/* Each candelabra brings one flickering light at its flames, drawn by
+ * the sprite (no bulb); neighbors don't flicker in step. Other decor
+ * brings none. */
+TEST(test_level_candelabra_lights) {
+    FILE *f = fopen(LEVEL_TMP, "w");
+    fputs("spawn 0 0 0 0\nentity decor_candelabra 1 0 -2\n"
+          "entity decor_candelabra -1 0 -2 h=2\nentity decor_gravestone 0 0 -4\n", f);
+    fclose(f);
+    Scene scene;
+    scene_init(&scene);
+    LevelInfo info;
+    ASSERT_EQ_INT(level_load(&scene, LEVEL_TMP, &info), 0);
+    remove(LEVEL_TMP);
+
+    ASSERT_EQ_INT(scene.lights.count, 2);
+    const Light *a = &scene.lights.items[0];
+    const Light *b = &scene.lights.items[1];
+    ASSERT(a->no_bulb && b->no_bulb);
+    ASSERT(a->flicker_amount > 0);
+    ASSERT(a->flicker_speed != b->flicker_speed);
+    ASSERT_NEAR(a->position.x, 1.0f, 1e-6f);
+    ASSERT(a->position.y > 1.0f && a->position.y < 1.6f);   /* near the top */
+    ASSERT(b->position.y > a->position.y);                   /* follows h= */
+    scene_free(&scene);
+}
+
 int main(void) {
     TEST_SUITE("level");
     RUN_TEST(test_level_load_success);
@@ -148,5 +177,6 @@ int main(void) {
     RUN_TEST(test_level_lights);
     RUN_TEST(test_level_missing_file);
     RUN_TEST(test_level_entity_materials);
+    RUN_TEST(test_level_candelabra_lights);
     TEST_REPORT();
 }

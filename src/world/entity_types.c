@@ -234,20 +234,68 @@ static void prop_mesh(Mesh *m) {
 
 /* --- Decor: static sprite (barrel, candle, corpse) --- */
 
-#define DECOR_WIDTH_DEF  0.8f
-#define DECOR_HEIGHT_DEF 1.0f
+/* Default sizes are the texture's at 40 px = 1 m: barrel 32x40,
+ * candelabra 24x64, gravestone 32x40, statue 32x88 */
+#define DECOR_WIDTH_DEF       0.8f
+#define DECOR_HEIGHT_DEF      1.0f
+#define CANDELABRA_WIDTH_DEF  0.6f
+#define CANDELABRA_HEIGHT_DEF 1.6f
+#define GRAVESTONE_WIDTH_DEF  0.8f
+#define GRAVESTONE_HEIGHT_DEF 1.0f
+#define STATUE_WIDTH_DEF      0.8f
+#define STATUE_HEIGHT_DEF     2.2f
 
 /* Keys: w=, h= (world units), solid=0 to let the player walk through */
-static void decor_spawn(Entity *e, const char *args) {
-    e->decor.width = kv_float(args, "w", DECOR_WIDTH_DEF);
-    e->decor.height = kv_float(args, "h", DECOR_HEIGHT_DEF);
+static void decor_init(Entity *e, const char *args, float width, float height) {
+    e->decor.width = kv_float(args, "w", width);
+    e->decor.height = kv_float(args, "h", height);
     e->decor.solidity = kv_int(args, "solid", 1) ? SPRITE_SOLID : SPRITE_GHOST;
+}
+
+static void decor_spawn(Entity *e, const char *args) {
+    decor_init(e, args, DECOR_WIDTH_DEF, DECOR_HEIGHT_DEF);
+}
+
+static void candelabra_spawn(Entity *e, const char *args) {
+    decor_init(e, args, CANDELABRA_WIDTH_DEF, CANDELABRA_HEIGHT_DEF);
+}
+
+static void gravestone_spawn(Entity *e, const char *args) {
+    decor_init(e, args, GRAVESTONE_WIDTH_DEF, GRAVESTONE_HEIGHT_DEF);
+}
+
+static void statue_spawn(Entity *e, const char *args) {
+    decor_init(e, args, STATUE_WIDTH_DEF, STATUE_HEIGHT_DEF);
 }
 
 static void decor_sprite(const Entity *e, Sprite *out) {
     out->width = e->decor.width;
     out->height = e->decor.height;
     out->solidity = e->decor.solidity;
+}
+
+#define CANDLE_FLAME_Y      0.85f  /* flames' height, fraction of the sprite */
+#define CANDLE_COLOR        vec3(1.0f, 0.62f, 0.3f)
+#define CANDLE_INTENSITY    1.6f
+#define CANDLE_RADIUS       7.0f
+#define CANDLE_FLICKER      7.0f   /* Hz, varied per candelabra */
+#define CANDLE_FLICKER_VARY 0.3f   /* ±15% so neighbors don't flicker in step */
+#define CANDLE_FLICKER_AMT  0.2f
+
+/* Warm flickering light at the flames. Its glow is the sprite's own
+ * flames, so no bulb is drawn. */
+static bool candelabra_light(const Entity *e, Light *out) {
+    float h = e->decor.height;
+    float seed = fabsf(sinf(e->position.x * 12.9898f + e->position.z * 78.233f));
+    *out = (Light){
+        .position = vec3_add(e->position, vec3(0, h * CANDLE_FLAME_Y, 0)),
+        .color = CANDLE_COLOR, .intensity = CANDLE_INTENSITY, .radius = CANDLE_RADIUS,
+        .cast_shadows = true,
+        .flicker_speed = CANDLE_FLICKER * (1.0f - CANDLE_FLICKER_VARY / 2 + seed * CANDLE_FLICKER_VARY),
+        .flicker_amount = CANDLE_FLICKER_AMT,
+        .no_bulb = true,
+    };
+    return true;
 }
 
 /* --- Enemies: shared body logic. Behavior (sight, chase, attack) is in
@@ -478,12 +526,18 @@ static const EntityKey keycard_keys[] = {
     {.type = KEY_END},
 };
 
-static const EntityKey decor_keys[] = {
-    {"w", KEY_LENGTH, DECOR_WIDTH_DEF, "Sprite width", NULL},
-    {"h", KEY_LENGTH, DECOR_HEIGHT_DEF, "Sprite height", NULL},
-    {"solid", KEY_BOOL, 1, "1 = blocks movement and bullets", NULL},
-    {.type = KEY_END},
-};
+/* Sprite size and solidity, with this type's default size */
+#define DECOR_KEYS(width, height) {                                      \
+    {"w", KEY_LENGTH, width, "Sprite width", NULL},                       \
+    {"h", KEY_LENGTH, height, "Sprite height", NULL},                     \
+    {"solid", KEY_BOOL, 1, "1 = blocks movement and bullets", NULL},      \
+    {.type = KEY_END},                                                    \
+}
+
+static const EntityKey decor_keys[] = DECOR_KEYS(DECOR_WIDTH_DEF, DECOR_HEIGHT_DEF);
+static const EntityKey candelabra_keys[] = DECOR_KEYS(CANDELABRA_WIDTH_DEF, CANDELABRA_HEIGHT_DEF);
+static const EntityKey gravestone_keys[] = DECOR_KEYS(GRAVESTONE_WIDTH_DEF, GRAVESTONE_HEIGHT_DEF);
+static const EntityKey statue_keys[] = DECOR_KEYS(STATUE_WIDTH_DEF, STATUE_HEIGHT_DEF);
 
 #define HIDDEN_DESC "Name; a named monster stays hidden until triggered"
 
@@ -541,6 +595,24 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
         .default_texture = "barrel", .default_color = {1, 1, 1},
         .desc = "Decoration sprite (barrel by default; set mat=)", .keys = decor_keys,
         .spawn = decor_spawn, .sprite = decor_sprite,
+    },
+    [ENTITY_CANDELABRA] = {
+        .name = "decor_candelabra", .render = RENDER_SPRITE,
+        .default_texture = "candelabra", .default_color = {1, 1, 1},
+        .desc = "Three-candle candelabra; lights itself (warm, flickering)", .keys = candelabra_keys,
+        .spawn = candelabra_spawn, .sprite = decor_sprite, .light = candelabra_light,
+    },
+    [ENTITY_GRAVESTONE] = {
+        .name = "decor_gravestone", .render = RENDER_SPRITE,
+        .default_texture = "gravestone", .default_color = {1, 1, 1},
+        .desc = "Headstone in a tuft of grass", .keys = gravestone_keys,
+        .spawn = gravestone_spawn, .sprite = decor_sprite,
+    },
+    [ENTITY_STATUE] = {
+        .name = "decor_statue", .render = RENDER_SPRITE,
+        .default_texture = "statue", .default_color = {1, 1, 1},
+        .desc = "Weeping angel on a plinth", .keys = statue_keys,
+        .spawn = statue_spawn, .sprite = decor_sprite,
     },
     [ENTITY_GHOUL] = {
         .name = "ghoul", .render = RENDER_SPRITE,

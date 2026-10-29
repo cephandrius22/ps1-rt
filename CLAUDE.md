@@ -98,9 +98,9 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `particles` | Blood, gibs, sparks, debris, spit: projected and splatted after the raytrace, depth-tested; presentation only |
 | `screenfx` | Screen shake (camera only, never aim) and full-screen color flash; decays with frame time |
 | `environment` | Level mood on `Scene.env`: ambient, sun (direction, color, intensity; 0 = no sun and no sun shadow rays), fog (start/end/color), sky gradient; set by `.level` lines or `.map` worldspawn keys (`environment_set()`). Zones (`Scene.zones`, `EnvZone` boxes) override ambient per surface and fog per eye |
-| `light` | One light model (`Light`): point or spot (`LIGHT_SPOT`: `aim`, cone), radius window + `falloff`; attenuation, flicker, swing; temporary lights with a lifetime and fade (`light_add_temporary()`), swap-removed; `targetname` + `off` (toggled by triggers) |
+| `light` | One light model (`Light`): point or spot (`LIGHT_SPOT`: `aim`, cone), radius window + `falloff`; attenuation, flicker, swing; temporary lights with a lifetime and fade (`light_add_temporary()`), swap-removed; `no_bulb` (source drawn by an entity); `targetname` + `off` (toggled by triggers) |
 | `texture` | Nearest-neighbor sampling; TGA load (level textures from `textures/`) and save (editor export) |
-| `proctex` | Procedural textures: concrete, brick, metal_panel, metal_grate, rust, floor_tile, pipe; seamless animated surfaces slime, water, screen; church set in `proctex_church.c` (64x64 tiles: ashlar, rubble, flagstone, plaster, oak_panel, oak_planks, marble, carpet, iron, stained_glass; single pieces: tomb_slab 32x64, rose_window; the glass glows); color-keyed sprite sheets (`Sheet` helpers): barrel, ghoul + spitter (`EnemyFrame`), projectiles (`ProjectileFrame`), keycards (`KeycardFrame`), viewmodels `view_*` (`ViewFrame`) |
+| `proctex` | Procedural textures: concrete, brick, metal_panel, metal_grate, rust, floor_tile, pipe; seamless animated surfaces slime, water, screen; church set in `proctex_church.c` (64x64 tiles: ashlar, rubble, flagstone, plaster, oak_panel, oak_planks, marble, carpet, iron, stained_glass; single pieces: tomb_slab 32x64, rose_window; the glass glows; sprites candelabra, gravestone, statue at 40 px = 1 m); color-keyed sprite sheets (`Sheet` helpers): barrel, ghoul + spitter (`EnemyFrame`), projectiles (`ProjectileFrame`), keycards (`KeycardFrame`), viewmodels `view_*` (`ViewFrame`) |
 | `level` | `level_load()` dispatches by extension; `.level` text loader; `level_add_brush_entity()` and `level_finish()` (jitter, textures, BVH, nav grid) shared by both loaders |
 | `mapfile` | TrenchBroom/Quake `.map` loader: brushes → triangles (plane clipping), Standard + Valve 220 UVs, point and brush entities |
 | `matlib` | Named material registry shared by both loaders; resolves texture names (procedural, else `textures/<name>.tga`, or a `.tga` path), generating/loading on first use; entity default materials; default motion per texture (`texture_motions[]`: slime/water scroll, slime/screen glow) and `matlib_motion()` overrides |
@@ -144,6 +144,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 - **Animated materials:** `Material.scroll` (UV/s), `glow` (self-lit, added to ambient, so it shows in the dark; fog still applies) and `pulse` (Hz). Textures bring defaults through `matlib.c:texture_motions[]`, so `.map` faces animate without setup; `.level` material keys override.
 - **PS1 affine warp (F4):** `RenderView.affine` swaps a hit's UVs for ones interpolated across the screen (`render.c:affine_uv()`, needs `HitRecord.tri`), skipping triangles with a vertex behind the camera. Presentation toggle via `UiCmd`, like F3.
 - **Shootable lights:** a hitscan pellet that passes a lit `breakable` bulb (`light_bulb_hit()`, bulb radius = what render draws) before hitting anything stops there: `EV_LIGHT_SHOT` (entity = light index, valid that tick) → `game.c:break_lights()` sets `off` + `broken`; triggers skip broken lights.
+- **Entity lights:** a type with an `EntityDef.light` hook (the candelabra) brings a light, added once by `level_finish()` as an ordinary scene light. `Light.no_bulb` skips the glowing dot when the sprite draws the source itself.
 - **Temporary lights:** muzzle flashes, projectile glows and explosions are `light_add_temporary()` lights (no shadows, no billboard); they fade and are swap-removed, so never hold a light index.
 - **Runtime spawns:** `scene_spawn()` reuses a spent slot of the same type and uses `scene.type_material[type]` (prepared by `level_finish()` for `runtime_only` types). Spawning can grow the entity array: re-fetch any `Entity *` held across a spawn (see `spit()` in `ai.c`).
 - **Weapon switching:** `PlayerCmd.weapon_slot` / `weapon_cycle` are impulses (applied once, see `cmd_accumulate`); `game.c:select_weapon()` → `weapon_request()`; only `WEAPON_READY` fires. Projectile weapons set `Weapon.launch_this_tick`; `game.c` fires (weapon only gets a read-only scene).
@@ -205,6 +206,9 @@ Entity types (all take `rot=` (radians) and `mat=<material or texture name>`; wi
 | `keycard` | `color` (`red`/`blue`/`yellow`) | sprite; opens doors/buttons with that `key` |
 | `prop` | — | static cube |
 | `decor` | `w` (0.8), `h` (1.0), `solid` (1) | sprite; default texture `barrel` |
+| `decor_candelabra` | `w` (0.6), `h` (1.6), `solid` (1) | sprite; brings its own flickering candle light (counts toward the light budget) |
+| `decor_gravestone` | `w` (0.8), `h` (1.0), `solid` (1) | sprite |
+| `decor_statue` | `w` (0.8), `h` (2.2), `solid` (1) | sprite: weeping angel on a plinth |
 | `ghoul` | `health` (60), `targetname` | melee enemy sprite; named = hidden until triggered |
 | `spitter` | `health` (45), `targetname` | ranged enemy sprite (spits); named = hidden until triggered |
 | `exit` | — | floor pad; touching it ends the level |

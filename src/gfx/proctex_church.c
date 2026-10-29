@@ -9,6 +9,8 @@
  *   tiling:   ashlar rubble flagstone plaster oak_panel oak_planks
  *             marble carpet iron stained_glass
  *   pieces:   tomb_slab (1 x 2 m)   rose_window (2 x 2 m)
+ *   sprites:  candelabra gravestone statue (color-keyed, one frame;
+ *             40 px = 1 m, the barrel's scale)
  */
 #include "proctex_internal.h"
 #include <math.h>
@@ -676,6 +678,232 @@ void church_rose_window(Texture *tex) {
             }
             Rgb c = fd < ROSE_FOIL ? GLASS[petal % 2 ? GLASS_GREEN : GLASS_AMBER] : GLASS[GLASS_VIOLET];
             put(tex, x, y, c, glass_k);
+        }
+    }
+}
+
+/* --- Sprites (color-keyed, one frame; 40 px = 1 m) --- */
+
+static const Rgb BRONZE     = {92, 68, 34};
+static const Rgb BRONZE_LIT = {156, 118, 58};
+static const Rgb WAX        = {226, 216, 190};
+static const Rgb WAX_SHADE  = {168, 156, 128};
+static const Rgb WICK       = {30, 24, 20};
+static const Rgb FLAME_OUT  = {255, 150, 40};
+static const Rgb FLAME_IN   = {255, 240, 180};
+static const Rgb GRAVE      = {116, 116, 110};
+static const Rgb ENGRAVED   = {46, 46, 44};
+static const Rgb LICHEN     = {128, 126, 88};
+static const Rgb GRASS      = {44, 70, 30};
+static const Rgb GRASS_LIT  = {70, 102, 44};
+static const Rgb EARTH      = {52, 40, 28};
+static const Rgb STATUE     = {154, 150, 140};
+
+/* c scaled by k, for shading flat sprite shapes */
+static Rgb scaled(Rgb c, float k) {
+    return (Rgb){clamp8(c.r * k), clamp8(c.g * k), clamp8(c.b * k)};
+}
+
+#define CANDELABRA_W 24
+#define CANDELABRA_H 64
+
+/* A candle: wax column, wick, and a teardrop flame above it. x0 is the
+ * wax's left column, top its first row. */
+static void candle(const Sheet *sh, int x0, int top, int bottom) {
+    sheet_rect(sh, 0, x0, top, x0 + 4, bottom, WAX, 0.1f);
+    sheet_rect(sh, 0, x0 + 3, top, x0 + 4, bottom, WAX_SHADE, 0.1f);
+    sheet_px(sh, 0, x0 + 1, top + 2, WAX_SHADE, 0);          /* a drip */
+    sheet_px(sh, 0, x0 + 1, top + 3, WAX_SHADE, 0);
+    sheet_px(sh, 0, x0 + 2, top - 1, WICK, 0);
+
+    float cx = x0 + 2.5f;
+    sheet_ellipse(sh, 0, cx, top - 4.0f, 1.8f, 3.2f, FLAME_OUT, 0);
+    sheet_ellipse(sh, 0, cx, top - 3.5f, 0.9f, 1.8f, FLAME_IN, 0);
+}
+
+/* Bronze three-branch candelabra on a tripod; the flames are lit by the
+ * entity's own light (decor_candelabra). Rows, top down:
+ *
+ *        )            flames      y 2-12
+ *    )  |#|  (        candles     side 13-20, center 8-16
+ *   |#|=====|#|       drip pans, arms
+ *        ||           shaft with two knops
+ *       /||\          tripod      y 56-63
+ */
+void church_candelabra(Texture *tex) {
+    Sheet sh = sheet_alloc(tex, CANDELABRA_W, CANDELABRA_H, 1);
+
+    /* Tripod, shaft and knops */
+    sheet_rect(&sh, 0, 6, 57, 18, 59, BRONZE, 0.2f);
+    sheet_rect(&sh, 0, 3, 59, 7, 64, BRONZE, 0.2f);
+    sheet_rect(&sh, 0, 17, 59, 21, 64, BRONZE, 0.2f);
+    sheet_rect(&sh, 0, 11, 59, 13, 64, BRONZE, 0.2f);
+    sheet_rect(&sh, 0, 11, 27, 13, 57, BRONZE, 0.2f);
+    sheet_rect(&sh, 0, 11, 27, 12, 57, BRONZE_LIT, 0.2f);
+    sheet_ellipse(&sh, 0, 12.0f, 35.5f, 2.5f, 1.6f, BRONZE, 0.2f);
+    sheet_ellipse(&sh, 0, 12.0f, 47.5f, 3.0f, 2.0f, BRONZE, 0.2f);
+    sheet_px(&sh, 0, 10, 47, BRONZE_LIT, 0);
+
+    /* Arms: a crossbar, ends and center rising to the drip pans */
+    sheet_rect(&sh, 0, 3, 26, 21, 28, BRONZE, 0.2f);
+    sheet_rect(&sh, 0, 3, 26, 21, 27, BRONZE_LIT, 0.2f);
+    sheet_rect(&sh, 0, 3, 22, 5, 27, BRONZE, 0.2f);
+    sheet_rect(&sh, 0, 19, 22, 21, 27, BRONZE, 0.2f);
+    sheet_rect(&sh, 0, 11, 18, 13, 27, BRONZE, 0.2f);
+    sheet_rect(&sh, 0, 1, 21, 8, 23, BRONZE_LIT, 0.2f);
+    sheet_rect(&sh, 0, 16, 21, 23, 23, BRONZE_LIT, 0.2f);
+    sheet_rect(&sh, 0, 8, 17, 16, 19, BRONZE_LIT, 0.2f);
+
+    candle(&sh, 2, 13, 21);
+    candle(&sh, 18, 13, 21);
+    candle(&sh, 10, 8, 17);
+}
+
+#define GRAVE_W   32
+#define GRAVE_H   40
+#define GRAVE_TOP 2    /* top of the rounded head */
+#define GRAVE_FOOT 36  /* stone meets the ground */
+
+/* Is (x, y) inside the headstone's outline (round-topped slab)? */
+static bool grave_inside(int x, int y) {
+    if (x < 4 || x > 27 || y > GRAVE_FOOT || y < GRAVE_TOP) {
+        return false;
+    }
+    float dx = (x + 0.5f - 16.0f) / 12.0f;
+    float dy = (y + 0.5f - 11.0f) / 9.0f;
+    return y >= 11 || dx * dx + dy * dy <= 1.0f;
+}
+
+/* Is (x, y) cut into the face: a cross, then three lines of lettering? */
+static bool grave_engraved(int x, int y) {
+    bool cross = ((x == 15 || x == 16) && y >= 6 && y <= 17) ||
+                 ((y == 9 || y == 10) && x >= 12 && x <= 19);
+    bool text = (y == 21 || y == 24 || y == 27) && x >= 9 && x <= 22 &&
+                x % 2 == 1 && noise01(x / 2, y) > 0.3f;
+    return cross || text;
+}
+
+/* Weathered headstone in a tuft of grass, lichen creeping up */
+void church_gravestone(Texture *tex) {
+    Sheet sh = sheet_alloc(tex, GRAVE_W, GRAVE_H, 1);
+    for (int y = 0; y < GRAVE_H; y++) {
+        for (int x = 0; x < GRAVE_W; x++) {
+            if (!grave_inside(x, y)) {
+                continue;
+            }
+
+            /* Rounded edges: lit on the left, shaded on the right */
+            float k = 0.85f;
+            if (!grave_inside(x - 1, y)) {
+                k = 1.1f;
+            } else if (!grave_inside(x + 1, y) || !grave_inside(x + 2, y)) {
+                k = 0.6f;
+            }
+            Rgb c = GRAVE;
+            if (grave_engraved(x, y)) {
+                c = ENGRAVED;
+                k = 1.0f;
+            } else if (noise01(x / 2 + 40, y / 2 + 40) > 0.92f - y * 0.004f) {
+                c = LICHEN; /* thicker toward the ground */
+            }
+            sheet_px(&sh, 0, x, y, scaled(c, k), 0.2f);
+        }
+    }
+
+    /* Earth mound and grass blades of random height */
+    sheet_rect(&sh, 0, 2, GRAVE_FOOT + 1, 30, GRAVE_H, EARTH, 0.3f);
+    for (int x = 1; x < GRAVE_W - 1; x++) {
+        int blade = 1 + (int)(noise01(x, 401) * 5);
+        Rgb c = x % 3 == 0 ? GRASS_LIT : GRASS;
+        sheet_rect(&sh, 0, x, GRAVE_H - 2 - blade, x + 1, GRAVE_H - 1, c, 0.2f);
+    }
+}
+
+#define STATUE_W      32
+#define STATUE_H      88
+#define STATUE_PLINTH 72   /* plinth from this row down */
+#define STATUE_CX     16.0f
+
+/* Weeping angel on a plinth: wings folded behind, head bowed into its
+ * hands, robe falling to the plinth. Light from the upper left.
+ *
+ *     \ (o) /     wings behind the head and shoulders
+ *     |\/^\/|    hands to the face
+ *     | /   \ |   robe widening to the hem
+ *      /_____\
+ *     [_______]   plinth
+ */
+void church_statue(Texture *tex) {
+    Sheet sh = sheet_alloc(tex, STATUE_W, STATUE_H, 1);
+
+    /* Wings: tall ovals either side, tips above the head, narrowing
+     * toward the top; feather rows in shadow */
+    for (int side = -1; side <= 1; side += 2) {
+        float wx = STATUE_CX + side * 9.5f;
+        for (int y = 4; y < 66; y++) {
+            for (int x = 0; x < STATUE_W; x++) {
+                float narrow = y < 30 ? 0.55f + (y - 4) * 0.017f : 1.0f;
+                float dx = (x + 0.5f - wx) / (6.0f * narrow);
+                float dy = (y + 0.5f - 36.0f) / 31.0f;
+                if (dx * dx + dy * dy > 1.0f) {
+                    continue;
+                }
+                float k = side < 0 ? 0.85f : 0.6f;
+                if (y % 5 == 0 && y > 24) {
+                    k -= 0.2f;
+                }
+                sheet_px(&sh, 0, x, y, scaled(STATUE, k), 0.15f);
+            }
+        }
+    }
+
+    /* Robe: widens from the shoulders to the hem, folds as darker lines */
+    for (int y = 28; y < STATUE_PLINTH; y++) {
+        float half = 5.0f + (y - 28) * 0.15f;
+        for (int x = 0; x < STATUE_W; x++) {
+            float u = (x + 0.5f - STATUE_CX) / half;
+            if (u < -1.0f || u > 1.0f) {
+                continue;
+            }
+            float k = 1.0f - (u + 1.0f) * 0.22f;
+            if (x % 3 == 0 && y > 40) {
+                k -= 0.15f;
+            }
+            sheet_px(&sh, 0, x, y, scaled(STATUE, k), 0.15f);
+        }
+    }
+
+    /* Bowed head (set off from the wings by a shadow) and hands raised
+     * to the face */
+    sheet_ellipse(&sh, 0, STATUE_CX, 22.0f, 5.5f, 6.5f, scaled(STATUE, 0.35f), 0.1f);
+    sheet_ellipse(&sh, 0, STATUE_CX, 22.0f, 4.0f, 5.0f, scaled(STATUE, 0.95f), 0.15f);
+    sheet_ellipse(&sh, 0, STATUE_CX + 1.0f, 24.0f, 2.5f, 2.5f, scaled(STATUE, 0.55f), 0.1f);
+    sheet_ellipse(&sh, 0, STATUE_CX, 27.0f, 3.5f, 2.0f, scaled(STATUE, 1.05f), 0.1f);
+
+    /* Rain streaks down from the top */
+    for (int x = 0; x < STATUE_W; x++) {
+        if (noise01(x, 503) < 0.8f) {
+            continue;
+        }
+        int len = 10 + (int)(noise01(x, 509) * 30);
+        for (int y = 14; y < 14 + len && y < STATUE_PLINTH; y++) {
+            int i = (y * tex->width + x) * 3;
+            bool key = tex->pixels[i] == TEXTURE_KEY_R && tex->pixels[i + 1] == TEXTURE_KEY_G &&
+                       tex->pixels[i + 2] == TEXTURE_KEY_B;
+            if (!key) {
+                sheet_px(&sh, 0, x, y, scaled(STATUE, 0.5f), 0.15f);
+            }
+        }
+    }
+
+    /* Plinth: cornice, panel, base course; moss at the foot */
+    sheet_rect(&sh, 0, 5, STATUE_PLINTH + 3, 27, STATUE_H - 3, scaled(GRAVE, 0.85f), 0.2f);
+    sheet_rect(&sh, 0, 8, STATUE_PLINTH + 6, 24, STATUE_H - 6, scaled(GRAVE, 0.65f), 0.2f);
+    sheet_rect(&sh, 0, 3, STATUE_PLINTH, 29, STATUE_PLINTH + 3, scaled(GRAVE, 1.1f), 0.2f);
+    sheet_rect(&sh, 0, 3, STATUE_H - 3, 29, STATUE_H, scaled(GRAVE, 0.75f), 0.2f);
+    for (int x = 3; x < 29; x++) {
+        if (noise01(x, 521) > 0.5f) {
+            sheet_px(&sh, 0, x, STATUE_H - 4, MOSS, 0.2f);
         }
     }
 }

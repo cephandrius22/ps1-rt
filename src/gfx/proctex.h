@@ -42,6 +42,9 @@ typedef enum {
     PTEX_IRON,
     PTEX_STAINED_GLASS, /* glows (matlib) */
     PTEX_ROSE_WINDOW,   /*   64x64, one window per face; glows */
+    PTEX_CANDELABRA,    /* church sprites: 24x64, color-keyed; glows */
+    PTEX_GRAVESTONE,    /*   32x40 */
+    PTEX_STATUE,        /*   32x88 */
     PTEX_COUNT
 } ProceduralTextureID;
 

@@ -210,6 +210,28 @@ TEST(test_entity_keycard_sprite) {
     ASSERT(sp.base.y > 0); /* floats above the floor */
 }
 
+/* Church decor types bring their own size (texture at 40 px = 1 m);
+ * w= and h= still override it */
+TEST(test_entity_decor_type_sizes) {
+    struct { EntityType type; float w, h; } sizes[] = {
+        {ENTITY_DECOR, 0.8f, 1.0f}, {ENTITY_CANDELABRA, 0.6f, 1.6f},
+        {ENTITY_GRAVESTONE, 0.8f, 1.0f}, {ENTITY_STATUE, 0.8f, 2.2f},
+    };
+    for (size_t i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
+        Entity e = entity_spawn(sizes[i].type, vec3(0, 0, 0), "");
+        Sprite sp = {.frame_count = 1};
+        entity_def(sizes[i].type)->sprite(&e, &sp);
+        ASSERT_NEAR(sp.width, sizes[i].w, 1e-6f);
+        ASSERT_NEAR(sp.height, sizes[i].h, 1e-6f);
+        ASSERT_EQ_INT(sp.solidity, SPRITE_SOLID);
+    }
+
+    Entity tall = entity_spawn(ENTITY_STATUE, vec3(0, 0, 0), "h=3");
+    Sprite sp = {.frame_count = 1};
+    entity_def(ENTITY_STATUE)->sprite(&tall, &sp);
+    ASSERT_NEAR(sp.height, 3.0f, 1e-6f);
+}
+
 TEST(test_entity_hookless_type_is_inert) {
     EntityList list;
     entity_list_init(&list);
@@ -240,6 +262,7 @@ int main(void) {
     RUN_TEST(test_entity_inactive_skipped);
     RUN_TEST(test_entity_type_by_name);
     RUN_TEST(test_entity_spawn_reads_args);
+    RUN_TEST(test_entity_decor_type_sizes);
     RUN_TEST(test_entity_keycard_sprite);
     RUN_TEST(test_entity_hookless_type_is_inert);
     TEST_REPORT();

@@ -54,6 +54,61 @@ static inline uint8_t clamp8(float v) {
     return (uint8_t)v;
 }
 
+static inline void tex_set_key(Texture *tex, int x, int y) {
+    tex_set(tex, x, y, TEXTURE_KEY_R, TEXTURE_KEY_G, TEXTURE_KEY_B);
+}
+
+/* --- Sprite sheets (color-keyed) --- */
+
+/* A texture holding equal-size frames side by side (sprite sheets) */
+typedef struct {
+    Texture *tex;
+    int frame_w;
+    int frame_h;
+} Sheet;
+
+/* Allocate a frames-wide sheet, every pixel the color key */
+static inline Sheet sheet_alloc(Texture *tex, int frame_w, int frame_h, int frames) {
+    tex_alloc(tex, frame_w * frames, frame_h);
+    for (int y = 0; y < frame_h; y++) {
+        for (int x = 0; x < tex->width; x++) {
+            tex_set_key(tex, x, y);
+        }
+    }
+    return (Sheet){tex, frame_w, frame_h};
+}
+
+/* Paint into frame `f` of a sheet; out-of-frame pixels are clipped.
+ * Skin gets per-pixel noise so flat shapes read as flesh. */
+static inline void sheet_px(const Sheet *sh, int f, int x, int y, Rgb c, float noise) {
+    if (x < 0 || x >= sh->frame_w || y < 0 || y >= sh->frame_h) {
+        return;
+    }
+    float k = 1.0f - noise * noise01(f * 97 + x * 7, y * 13);
+    tex_set(sh->tex, f * sh->frame_w + x, y, clamp8(c.r * k), clamp8(c.g * k), clamp8(c.b * k));
+}
+
+static inline void sheet_rect(const Sheet *sh, int f, int x0, int y0, int x1, int y1, Rgb c, float noise) {
+    for (int y = y0; y < y1; y++) {
+        for (int x = x0; x < x1; x++) {
+            sheet_px(sh, f, x, y, c, noise);
+        }
+    }
+}
+
+static inline void sheet_ellipse(const Sheet *sh, int f, float cx, float cy, float rx, float ry,
+                          Rgb c, float noise) {
+    for (int y = (int)(cy - ry); y <= (int)(cy + ry); y++) {
+        for (int x = (int)(cx - rx); x <= (int)(cx + rx); x++) {
+            float dx = (x + 0.5f - cx) / rx;
+            float dy = (y + 0.5f - cy) / ry;
+            if (dx * dx + dy * dy <= 1.0f) {
+                sheet_px(sh, f, x, y, c, noise);
+            }
+        }
+    }
+}
+
 /* --- Church set (proctex_church.c) --- */
 
 void church_ashlar(Texture *tex);
@@ -68,5 +123,8 @@ void church_carpet(Texture *tex);
 void church_iron(Texture *tex);
 void church_stained_glass(Texture *tex);
 void church_rose_window(Texture *tex);
+void church_candelabra(Texture *tex);   /* sprites */
+void church_gravestone(Texture *tex);
+void church_statue(Texture *tex);
 
 #endif
