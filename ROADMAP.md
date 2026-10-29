@@ -233,7 +233,14 @@ Carried forward:
   line to its `.map` form (rooms become wall slabs); e1m1 is now
   `levels/e1m1.map`, edited in TrenchBroom. A round-trip test checks
   entities, keys, lights, zones and geometry survive.
-- Episode of 3–4 levels (has e1m1 + arena so far)
+- ✅ Step 7 — **Episode 1, *Descent*: three maps.** e1m2 Pumping Station
+  (slime channel, gallery spitters drop from, filter room, blue-locked
+  control room) and e1m3 Reactor (slime moat around the core, coolant
+  wing, yellow-locked control room whose shutdown springs a six-monster
+  ambush and, via a relay, opens the escape). Authored as `.level` text
+  and converted; the arena stays a test map outside the episode. Found
+  and fixed on the way: the nav grid treated the floor under a thin slab
+  (a 2 cm pool) as a separate floor, cutting off pickups inside it.
 - ✅ Step 2 — **Secrets and intermission.** `trigger_secret` brushes
   (chime, "A secret area!"); the level end shows map title, kills,
   secrets, time and the next map. e1m1 has a crate-top stash.

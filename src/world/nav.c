@@ -7,7 +7,8 @@
 #define SCAN_LIFT         1.0f   /* column scans start this far above the world */
 #define SCAN_EPS          1e-3f
 #define SCAN_MAX_HITS     32     /* surfaces looked at per column */
-#define HEADROOM_START    0.05f  /* headroom probe starts just above the floor */
+#define HEADROOM_START    0.002f /* headroom probe starts just above the floor, below
+                                    * any thin slab lying on it (a 2 cm pool) */
 #define PROBE_LOW         0.1f   /* link probe above the higher floor of the pair */
 #define PROBE_HIGH        (NAV_HEADROOM - 0.1f)
 #define HOLE_DEPTH        0.2f   /* ground between nodes may dip this far */

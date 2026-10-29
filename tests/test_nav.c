@@ -170,6 +170,21 @@ TEST(test_nav_no_drop_from_height) {
     free_world();
 }
 
+/* A thin slab lying on the floor (a 2 cm pool) is one floor, walkable
+ * onto: the floor under it must not count as a second, separate floor */
+TEST(test_nav_thin_slab) {
+    scene_init(&s);
+    mesh_init(&m);
+    add_box(vec3(-10, -1, -10), vec3(10, 0, 10));
+    add_box(vec3(2, 0.01f, -2), vec3(6, 0.03f, 2));
+    scene_build_static(&s, m.tris, m.count);
+    nav_build(&s.nav, &s.static_bvh);
+
+    Vec3 wp;
+    ASSERT(nav_next_waypoint(&s.nav, vec3(-5, 0, 0), vec3(4, 0, 0), &wp));
+    free_world();
+}
+
 TEST(test_nav_empty_world) {
     scene_init(&s);
     nav_build(&s.nav, &s.static_bvh);
@@ -189,6 +204,7 @@ int main(void) {
     RUN_TEST(test_nav_locked_door_blocks_path);
     RUN_TEST(test_nav_drop_links);
     RUN_TEST(test_nav_no_drop_from_height);
+    RUN_TEST(test_nav_thin_slab);
     RUN_TEST(test_nav_empty_world);
     TEST_REPORT();
 }

@@ -7,21 +7,23 @@ optional affine texture warping.
 
 ## Playing
 
-Run `./rt` to play the episode (`levels/episode1.txt`), or `./rt <level>`
-for a single map. You start in an underground processing plant (`levels/e1m1.map`)
-with a pistol and 50 rounds. Ghouls lurk in the dark and rush you once
+Run `./rt` to play episode 1, *Descent* (`levels/episode1.txt`), or
+`./rt <level>` for a single map. Three maps lead down through an
+underground processing plant (`e1m1`), a flooded pumping station (`e1m2`)
+and the reactor at the bottom (`e1m3`). You start with a pistol and 50
+rounds. Ghouls lurk in the dark and rush you once
 they see you; spitters keep their distance and lob glowing acid you can
-dodge; gunfire wakes anything that can hear it. A shotgun lies just left
-of the start. The storage room to the east is locked: its blue keycard is
-somewhere in the west corridor. The exit gate at the back opens from
-inside the storage room — and opening it has consequences. The flashlight
+dodge; gunfire wakes anything that can hear it. In the plant, a shotgun lies just left of the start;
+the storage room to the east is locked, its blue keycard somewhere in the
+west corridor, and the exit gate opens from inside the storage room —
+which has consequences. Each map hides at least one secret. The flashlight
 (F) helps more than you'd like, until its battery runs low; the bare bulbs
 can be shot out if you'd rather hide in the dark. Weapons, ammo and health
 carry over to the next map; dying restarts the map with what you brought
-into it. Between maps a tally shows kills, secrets found and your time. Die, or reach the red exit pad, and click
-to play again.
+into it. Between maps a tally shows kills, secrets found and your time;
+click to go on.
 
-For a straight fight, try `./rt levels/arena.map`. See `ROADMAP.md` for
+For a straight fight outside the episode, try `./rt levels/arena.map`. See `ROADMAP.md` for
 where it's heading.
 
 ## Features

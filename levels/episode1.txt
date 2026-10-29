@@ -2,4 +2,5 @@
 # map <path> <title shown between maps>
 title Descent
 map levels/e1m1.map Processing Plant
-map levels/arena.map Arena
+map levels/e1m2.map Pumping Station
+map levels/e1m3.map Reactor
