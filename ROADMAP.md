@@ -13,7 +13,11 @@ playable soonest. Each phase ends in something you can play.
 - Two-level BVH plus sprites; data-driven entities: pickups, weapons,
   keycards, props, decor sprites, ghoul and spitter enemies, projectiles,
   exit pad; brush entities: doors, buttons, triggers
-- Enemies path over a nav grid, climb steps, fall, and hear gunfire
+- Enemies path over a nav grid, climb steps, jump down ledges, spread
+  out, and hear gunfire
+- Episode 1, three maps, Doom carry-over between them, secrets,
+  intermission tally; scripted levels (relays, delays, hurt zones);
+  `.level` → `.map` converter; hand-made TGA textures
 - Particles, temporary lights, damage flash
 - Health, death, respawn, level end; HUD
 - One light model (point and spot), shadows, flicker, swinging and
@@ -90,7 +94,7 @@ Carried forward:
 
 - ~~Phase 3: enemies walk straight at the player on a fixed height;
   only sight wakes them~~ (done in Phase 3)
-- Phase 5: exit replays the level instead of loading the next.
+- ~~Phase 5: exit replays the level instead of loading the next~~ (episodes, Phase 5).
   (`mat=` by name: done in Phase 1.5.)
 - Phase 7: sprites are a linear scan per ray (~1.6 ms/frame for the six
   in e1m1).
@@ -176,11 +180,11 @@ Carried forward:
 
 Carried forward:
 
-- Phase 5: doors don't fire their own `target` when opened (Quake
-  does); no `trigger_relay`, `delay`, or toggling doors yet.
+- ~~Phase 5: doors don't fire their own `target`; no `trigger_relay`,
+  `delay`, or toggling doors~~ (done in Phase 5).
 - ~~Phase 5: e1m1 is still a `.level`~~ (ported in Phase 5 step 6).
-- Phase 5: nav ignores jumps and other monsters; enemies can bunch up
-  in doorways.
+- ~~Phase 5: nav ignores jumps and other monsters~~ (drop links and
+  separation, Phase 5); monsters still can't jump *up*.
 - Phase 7: door models are re-posed into the dynamic BVH every tick,
   even when still.
 - Playtest: door speed/wait, hearing distances and ambush timing are set
@@ -223,24 +227,12 @@ Carried forward:
 - Playtest: fog, zone and battery numbers are set by eye on a few
   screenshots, not long play sessions.
 
-## Phase 5: Content (in progress, in steps)
+## Phase 5: Content ✅
 
 - ✅ Step 1 — **Episodes.** `levels/episode1.txt` lists the maps; the exit
   loads the next one, Doom carry-over (health, ammo, weapons; not
   keycards), death restarts the map with its entry loadout, an episode
   end screen after the last. A test keeps every shipped map checker-clean.
-- ✅ Step 6 — **`.level` → `.map` converter.** `./rt --convert` maps each
-  line to its `.map` form (rooms become wall slabs); e1m1 is now
-  `levels/e1m1.map`, edited in TrenchBroom. A round-trip test checks
-  entities, keys, lights, zones and geometry survive.
-- ✅ Step 7 — **Episode 1, *Descent*: three maps.** e1m2 Pumping Station
-  (slime channel, gallery spitters drop from, filter room, blue-locked
-  control room) and e1m3 Reactor (slime moat around the core, coolant
-  wing, yellow-locked control room whose shutdown springs a six-monster
-  ambush and, via a relay, opens the escape). Authored as `.level` text
-  and converted; the arena stays a test map outside the episode. Found
-  and fixed on the way: the nav grid treated the floor under a thin slab
-  (a 2 cm pool) as a separate floor, cutting off pickups inside it.
 - ✅ Step 2 — **Secrets and intermission.** `trigger_secret` brushes
   (chime, "A secret area!"); the level end shows map title, kills,
   secrets, time and the next map. e1m1 has a crate-top stash.
@@ -253,6 +245,29 @@ Carried forward:
 - ✅ Step 5 — **TGA textures.** A texture name that isn't procedural loads
   `textures/<name>.tga` (or a `.tga` path); `make editor` copies them
   for TrenchBroom; unknown names warn and fall back to flat color.
+- ✅ Step 6 — **`.level` → `.map` converter.** `./rt --convert` maps each
+  line to its `.map` form (rooms become wall slabs); e1m1 is now
+  `levels/e1m1.map`, edited in TrenchBroom. A round-trip test checks
+  entities, keys, lights, zones and geometry survive.
+- ✅ Step 7 — **Episode 1, *Descent*: three maps.** e1m2 Pumping Station
+  (slime channel, gallery spitters drop from, filter room, blue-locked
+  control room) and e1m3 Reactor (slime moat around the core, coolant
+  wing, yellow-locked control room whose shutdown springs a six-monster
+  ambush and, via a relay, opens the escape). Authored as `.level` text
+  and converted; the arena stays a test map outside the episode. Found
+  and fixed on the way: the nav grid treated the floor under a thin slab
+  (a 2 cm pool) as a separate floor, cutting off pickups inside it.
+
+Carried forward:
+
+- Content: more episodes; arena could become a deathmatch-style bonus map.
+- Monster movement: no climbing (only drop links), no infighting, no
+  flying or ranged dodging.
+- Level authoring: generated maps are plain boxes; real detail (trim,
+  arches, varied ceilings) comes from editing them in TrenchBroom.
+- Playtest: the three maps were verified by scripted runs (reachability,
+  keys, buttons, ambushes, exits) and screenshots, not played through by
+  hand; difficulty and pacing are unknown.
 
 ## Phase 6: Shell
 

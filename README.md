@@ -191,7 +191,9 @@ Quake level editor:
    fog, echo and ambient loop (a dark, dripping crypt; a humming machine
    room); they fade in as you enter.
 4. Save as `levels/<name>.map` and run `./rt levels/<name>.map`. Keep it
-   running: every save reloads the level where you stand.
+   running: every save reloads the level where you stand. To put it in
+   the episode, add a `map levels/<name>.map <Title>` line to
+   `levels/episode1.txt`.
 
 The terminal prints `check:` warnings (missing exit, an exit you can't
 walk to, enemies stuck in walls, typo'd keys, targets naming nothing,
