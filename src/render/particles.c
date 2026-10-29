@@ -100,7 +100,8 @@ static void splat(Framebuffer *fb, int cx, int cy, int px, float dist, uint32_t 
     }
 }
 
-void particles_draw(const ParticleSystem *ps, Framebuffer *fb, const Camera *cam) {
+void particles_draw(const ParticleSystem *ps, Framebuffer *fb, const Camera *cam,
+                    const Environment *env) {
     float focal = camera_focal_px(cam);
     for (int i = 0; i < ps->count; i++) {
         const Particle *p = &ps->items[i];
@@ -115,8 +116,7 @@ void particles_draw(const ParticleSystem *ps, Framebuffer *fb, const Camera *cam
         px = px < SPLAT_MIN_PX ? SPLAT_MIN_PX : px > SPLAT_MAX_PX ? SPLAT_MAX_PX : px;
 
         /* Fade into the dark like the world's fog does */
-        float fade = 1.0f - clampf((dist - RENDER_FOG_START) /
-                                   (RENDER_FOG_END - RENDER_FOG_START), 0, 1);
+        float fade = 1.0f - environment_fog(env, dist);
         uint32_t color = ps1_dither_color((uint8_t)(look->r * fade), (uint8_t)(look->g * fade),
                                           (uint8_t)(look->b * fade), x, y);
         splat(fb, x, y, px, dist, color);

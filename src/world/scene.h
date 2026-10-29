@@ -14,6 +14,7 @@
 #include "entity.h"
 #include "light.h"
 #include "nav.h"
+#include "environment.h"
 #include "texture.h"
 
 typedef struct Scene {
@@ -47,6 +48,9 @@ typedef struct Scene {
 
     /* Walkable floors for enemy paths and sound (built by level_finish) */
     NavGrid nav;
+
+    /* Sun, ambient, fog, sky: defaults until the level sets them */
+    Environment env;
 
     /* Default material per entity type, for entities spawned at runtime
      * (projectiles); filled by level_finish() */

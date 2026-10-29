@@ -20,13 +20,6 @@ uint32_t color_rgb(uint8_t r, uint8_t g, uint8_t b) {
     return (uint32_t)0xFF000000 | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
 }
 
-Vec3 sky_color(Vec3 dir) {
-    float t = 0.5f * (dir.y + 1.0f);
-    Vec3 sky_top = vec3(0.02f, 0.01f, 0.04f);
-    Vec3 sky_bot = vec3(0.08f, 0.06f, 0.03f);
-    return vec3_lerp(sky_bot, sky_top, t);
-}
-
 static Vec3 checkerboard(float u, float v) {
     int cu = (int)(u * 4.0f) % 2;
     int cv = (int)(v * 4.0f) % 2;
@@ -55,10 +48,7 @@ static Vec3 get_surface_color(const HitRecord *rec,
 /* --- Shared shading logic for lit rendering --- */
 
 typedef struct {
-    Vec3 sun_dir;
-    float ambient;
-    float fog_start, fog_end;
-    Vec3 fog_color;
+    const Environment *env;
     const Material *materials;
     const Texture *textures;
     int mat_count, tex_count;
@@ -88,14 +78,15 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
             normal = vec3_mul(normal, -1.0f);
         }
 
-        Vec3 lighting = vec3(params->ambient, params->ambient, params->ambient);
+        const Environment *env = params->env;
+        Vec3 lighting = vec3(env->ambient, env->ambient, env->ambient);
 
-        /* Directional sun light with shadow */
-        float sun_ndl = vec3_dot(normal, params->sun_dir);
-        if (sun_ndl > 0) {
-            Ray shadow_ray = {vec3_add(hit_pos, vec3_mul(normal, 0.01f)), params->sun_dir};
+        /* Directional sun light with shadow; no sun, no shadow ray */
+        float sun_ndl = vec3_dot(normal, env->sun_dir);
+        if (env->sun_intensity > 0 && sun_ndl > 0) {
+            Ray shadow_ray = {vec3_add(hit_pos, vec3_mul(normal, 0.01f)), env->sun_dir};
             if (!scene_occluded(scene, shadow_ray, 0.001f, 100.0f)) {
-                lighting = vec3_add(lighting, vec3_mul(vec3(1, 0.95f, 0.7f), sun_ndl * 0.15f));
+                lighting = vec3_add(lighting, vec3_mul(env->sun_color, sun_ndl * env->sun_intensity));
             }
         }
 
@@ -161,11 +152,9 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
         col.y = surface_col.y * lighting.y;
         col.z = surface_col.z * lighting.z;
 
-        float fog_t = clampf((rec.t - params->fog_start) /
-                             (params->fog_end - params->fog_start), 0, 1);
-        col = vec3_lerp(col, params->fog_color, fog_t);
+        col = vec3_lerp(col, params->env->fog_color, environment_fog(params->env, rec.t));
     } else {
-        col = sky_color(ray.dir);
+        col = environment_sky(params->env, ray.dir);
     }
 
     /* Light source billboards — draw visible glowing dots at lamp positions.
@@ -205,16 +194,10 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
     return ps1_dither_color(cr, cg, cb, x, y);
 }
 
-#define AMBIENT_LIGHT 0.04f /* light everywhere, before sun and lamps */
-
 static RenderParams make_render_params(const Scene *scene, const Camera *cam,
                                        bool flashlight) {
     RenderParams p = {
-        .sun_dir   = vec3_normalize(vec3(0.5f, 1.0f, -0.3f)),
-        .ambient   = AMBIENT_LIGHT,
-        .fog_start = RENDER_FOG_START,
-        .fog_end   = RENDER_FOG_END,
-        .fog_color = vec3(0.04f, 0.03f, 0.02f),
+        .env       = &scene->env,
         .materials = scene->materials,
         .textures  = scene->textures,
         .mat_count = scene->material_count,
@@ -232,7 +215,7 @@ static RenderParams make_render_params(const Scene *scene, const Camera *cam,
 #define FLASHLIGHT_SELF_LIGHT 0.35f /* flashlight's spill on what you hold */
 
 float render_light_at(const Scene *scene, Vec3 p, float time, bool flashlight) {
-    float light = AMBIENT_LIGHT;
+    float light = scene->env.ambient;
     for (int i = 0; i < scene->lights.count; i++) {
         const PointLight *pl = &scene->lights.items[i];
         float dist = vec3_length(vec3_sub(pl->position, p));

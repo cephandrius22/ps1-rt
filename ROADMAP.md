@@ -184,11 +184,12 @@ Carried forward:
 - Playtest: door speed/wait, hearing distances and ambush timing are set
   from numbers, not long play sessions.
 
-## Phase 4: Atmosphere
+## Phase 4: Atmosphere (in progress, in stages)
 
-- **Environment in the level.** Move sun, ambient, fog out of
-  `make_render_params()` into an `Environment` on `Scene`, set by level
-  directives (`fog`, `ambient`, `sun`).
+- ✅ Stage 1 — **Environment in the level.** `Environment` on `Scene`:
+  ambient, sun, fog, sky; `.level` lines and `.map` worldspawn keys.
+  Sun intensity 0 skips the sun's shadow ray: e1m1 and arena turned it
+  off (invisible underground, ~15% faster single-threaded).
 - **One light model.** Fold the flashlight into the light list as a
   spot light (`Light.kind` = point | spot). Muzzle flash and enemy glow
   reuse it.

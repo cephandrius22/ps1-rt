@@ -16,6 +16,7 @@
 #define PARTICLES_H
 
 #include "render.h"
+#include "environment.h"
 
 typedef enum {
     PARTICLE_BLOOD,
@@ -53,7 +54,9 @@ void particles_burst(ParticleSystem *ps, ParticleKind kind, Vec3 at, Vec3 dir,
 /* Gravity, landing, aging; dead particles are swap-removed */
 void particles_update(ParticleSystem *ps, float dt);
 
-/* Splat into fb behind the depth buffer, darker with distance (fog) */
-void particles_draw(const ParticleSystem *ps, Framebuffer *fb, const Camera *cam);
+/* Splat into fb behind the depth buffer, darker with distance (the
+ * level's fog distances) */
+void particles_draw(const ParticleSystem *ps, Framebuffer *fb, const Camera *cam,
+                    const Environment *env);
 
 #endif

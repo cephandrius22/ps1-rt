@@ -32,6 +32,7 @@ void scene_init(Scene *s) {
         s->type_material[t] = 0;
     }
     s->nav = (NavGrid){0};
+    s->env = environment_default();
 }
 
 void scene_free(Scene *s) {

@@ -317,6 +317,26 @@ static void parse_light(const char *line, Scene *scene) {
     light_add(&scene->lights, pl);
 }
 
+/* ambient / fog / sun / sky <numbers>: the level's environment */
+static void parse_environment(const char *line, Scene *scene) {
+    char key[16];
+    int skip = 0;
+    if (sscanf(line, "%15s %n", key, &skip) < 1 ||
+        !environment_set(&scene->env, key, line + skip)) {
+        fprintf(stderr, "level: bad environment line: %.60s\n", line);
+    }
+}
+
+static bool is_environment(const char *line) {
+    static const char *keys[] = {"ambient ", "fog ", "sun ", "sky "};
+    for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) {
+        if (strncmp(line, keys[i], strlen(keys[i])) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /* --- Public API --- */
 
 void level_add_brush_entity(Scene *scene, EntityType type, Vec3 lo, Vec3 hi,
@@ -434,6 +454,8 @@ int level_load(Scene *scene, const char *filename, LevelInfo *info) {
             parse_entity(p, &parser);
         } else if (strncmp(p, "light ", 6) == 0) {
             parse_light(p, scene);
+        } else if (is_environment(p)) {
+            parse_environment(p, scene);
         } else {
             fprintf(stderr, "level: unknown directive: %.40s\n", p);
         }

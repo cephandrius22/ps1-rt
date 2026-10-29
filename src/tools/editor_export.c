@@ -106,7 +106,11 @@ static void write_solid_class(FILE *out, const EntityDef *def) {
 
 /* Built-in classes the map loader handles itself */
 static void write_builtin_classes(FILE *out) {
-    fputs("@SolidClass = worldspawn : \"World\" []\n"
+    fputs("@SolidClass = worldspawn : \"World\"\n[\n"
+          "\tambient(float) : \"Light everywhere\" : \"0.04\"\n"
+          "\tfog(string) : \"Fog: start end (units) r g b\" : \"256 704 0.04 0.03 0.02\"\n"
+          "\tsun(string) : \"Sun: direction (map axes) r g b intensity; 0 = none\" : \"0.5 0.3 1 1 0.95 0.7 0.15\"\n"
+          "\tsky(string) : \"Sky: top r g b, horizon r g b\" : \"0.02 0.01 0.04 0.08 0.06 0.03\"\n]\n"
           "@SolidClass = func_group : \"Group (static geometry)\" []\n"
           "@SolidClass = func_detail : \"Detail (static geometry)\" []\n\n", out);
 

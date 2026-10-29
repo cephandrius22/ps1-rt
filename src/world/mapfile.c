@@ -441,6 +441,43 @@ static bool is_world_geometry(const char *classname) {
            strcmp(classname, "func_detail") == 0;
 }
 
+/* worldspawn's environment keys (environment.h), converted to engine
+ * units: fog distances from units to meters, the sun from map axes */
+static void apply_environment(MapLoader *ml, const KeyValues *kvs) {
+    Environment *env = &ml->scene->env;
+    char value[MAP_VALUE_MAX];
+
+    const char *ambient = kv_get(kvs, "ambient", NULL);
+    const char *sky = kv_get(kvs, "sky", NULL);
+    bool ok = (!ambient || environment_set(env, "ambient", ambient)) &&
+              (!sky || environment_set(env, "sky", sky));
+
+    const char *fog = kv_get(kvs, "fog", NULL);
+    float start, end, r, g, b;
+    if (fog && sscanf(fog, "%f %f %f %f %f", &start, &end, &r, &g, &b) == 5) {
+        snprintf(value, sizeof(value), "%g %g %g %g %g", start / MAP_UNITS_PER_METER,
+                 end / MAP_UNITS_PER_METER, r, g, b);
+        ok &= environment_set(env, "fog", value);
+    } else {
+        ok &= !fog;
+    }
+
+    const char *sun = kv_get(kvs, "sun", NULL);
+    float dx, dy, dz, intensity;
+    if (sun && sscanf(sun, "%f %f %f %f %f %f %f", &dx, &dy, &dz, &r, &g, &b, &intensity) == 7) {
+        Vec3 dir = map_to_engine(vec3(dx, dy, dz));
+        snprintf(value, sizeof(value), "%g %g %g %g %g %g %g", dir.x, dir.y, dir.z, r, g, b,
+                 intensity);
+        ok &= environment_set(env, "sun", value);
+    } else {
+        ok &= !sun;
+    }
+
+    if (!ok) {
+        fprintf(stderr, "map: worldspawn has a malformed ambient/fog/sun/sky key\n");
+    }
+}
+
 /* Keys the loader handles itself or that TrenchBroom adds for its own use */
 static bool is_reserved_key(const char *key) {
     return strcmp(key, "classname") == 0 || strcmp(key, "origin") == 0 ||
@@ -633,6 +670,9 @@ static bool read_entity(Lexer *lx, MapLoader *ml) {
 
     const char *classname = kv_get(&kvs, "classname", "");
     EntityType type = brush_type(classname);
+    if (ok && strcmp(classname, "worldspawn") == 0) {
+        apply_environment(ml, &kvs);
+    }
     if (!ok || is_world_geometry(classname)) {
         mesh_free(&model.tris);
     } else if (type != ENTITY_NONE) {

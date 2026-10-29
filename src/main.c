@@ -429,7 +429,7 @@ int main(int argc, char *argv[]) {
         Camera cam = camera_from_pose(view, VIEW_FOV);
         render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool,
                             game.player.flashlight_on);
-        particles_draw(&particles, &fb, &cam);
+        particles_draw(&particles, &fb, &cam, &game.scene.env);
         OverlayState overlay = {
             .mode = overlay_mode(game.mode),
             .health = (int)ceilf(game.player.health),

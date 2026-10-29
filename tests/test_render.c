@@ -51,29 +51,6 @@ TEST(test_framebuffer_bounds_check) {
     ASSERT(fb.pixels[(SCREEN_H - 1) * SCREEN_W] == 0);
 }
 
-TEST(test_sky_color_up) {
-    Vec3 col = sky_color(vec3(0, 1, 0));
-    // Looking straight up should give sky_top color
-    ASSERT_NEAR(col.x, 0.02f, 0.01f);
-    ASSERT_NEAR(col.y, 0.01f, 0.01f);
-    ASSERT_NEAR(col.z, 0.04f, 0.01f);
-}
-
-TEST(test_sky_color_down) {
-    Vec3 col = sky_color(vec3(0, -1, 0));
-    // Looking straight down should give sky_bot color
-    ASSERT_NEAR(col.x, 0.08f, 0.01f);
-    ASSERT_NEAR(col.y, 0.06f, 0.01f);
-    ASSERT_NEAR(col.z, 0.03f, 0.01f);
-}
-
-TEST(test_sky_color_horizon) {
-    Vec3 col = sky_color(vec3(1, 0, 0));
-    // Horizon (y=0, t=0.5) should be midpoint
-    float expected_r = (0.08f + 0.02f) * 0.5f;
-    ASSERT_NEAR(col.x, expected_r, 0.01f);
-}
-
 int main(void) {
     TEST_SUITE("color");
     RUN_TEST(test_color_rgb);
@@ -86,8 +63,5 @@ int main(void) {
     RUN_TEST(test_framebuffer_bounds_check);
 
     TEST_SUITE("sky");
-    RUN_TEST(test_sky_color_up);
-    RUN_TEST(test_sky_color_down);
-    RUN_TEST(test_sky_color_horizon);
     TEST_REPORT();
 }

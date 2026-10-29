@@ -170,6 +170,8 @@ Quake level editor:
    `trigger_once`, `trigger_multiple`); wire them with `target` →
    `targetname` (TrenchBroom draws the links). `levels/arena.map` is an
    example to open.
+   The level's mood (ambient light, fog distance and color, sun, sky)
+   is set on worldspawn: `ambient`, `fog`, `sun`, `sky`.
 4. Save as `levels/<name>.map` and run `./rt levels/<name>.map`. Keep it
    running: every save reloads the level where you stand.
 

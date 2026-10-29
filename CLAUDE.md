@@ -47,7 +47,7 @@ on the include path, so headers are included by bare name (`"scene.h"`).
   main.c          wires platform + game + render, owns the loop
   game/  render/  game, player, movement, weapon, ai, logic, projectile, damage,
                   inventory, cmd, events | shading, overlay, font, particles, screenfx
-  world/          scene, entity, sprite, light, nav grid, level loader
+  world/          scene, entity, sprite, light, environment, nav grid, level loader
   gfx/            camera, mesh, bvh, texture, proctex, ps1_effects
   core/           math3d (Vec3, Ray, Pose), threadpool, kv
   platform/       SDL input + audio, file watch; talks to game via PlayerCmd only
@@ -84,11 +84,12 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `entity_types` | `EntityDef` table: per-type name, `RenderKind`, `TouchEffect`, `mesh_solidity`, `runtime_only`, `brush`, `usable`, hooks (spawn/update/touch/damage/pose/build_mesh/sprite); shared enemy hooks (`enemy_damage`, `enemy_sprite`); movers (`func_door`, `func_button`), triggers, keycard |
 | `nav` | Walkable grid built at load from static geometry (0.5 m cells, up to 4 floors each, 8-way links over steps ≤ `NAV_STEP`); A* `nav_next_waypoint()`, sound `nav_flood()`/`nav_heard()`, closed/locked doors (`nav_set_door()`) |
 | `kv` | `key=value` lookup in a text line (level args): float, int, string (`"quoted"` values may hold spaces) |
-| `render` | Shading: directional sun + point lights + shadows + fog + light billboards; writes a depth buffer; `render_light_at()` (viewmodel light probe) |
+| `render` | Shading: ambient + sun + point lights + shadows + fog + sky from `scene->env`, light billboards; writes a depth buffer; `render_light_at()` (viewmodel light probe) |
 | `overlay` | Viewmodel (weapon sheet, bob/recoil/switch offsets, lit + dithered), damage flash, HUD (health, ammo, keycard icons), message line, death tint, level-end kill count, F3 text. Caches viewmodel textures (`Overlay`); fed an `OverlayState` by `main.c` |
 | `font` | 5x7 pixel text (`font_draw()`, `font_width()`) for messages; HUD numbers and F3 lines keep overlay's 3x5 font |
 | `particles` | Blood, gibs, sparks, debris, spit: projected and splatted after the raytrace, depth-tested; presentation only |
 | `screenfx` | Screen shake (camera only, never aim) and full-screen color flash; decays with frame time |
+| `environment` | Level mood on `Scene.env`: ambient, sun (direction, color, intensity; 0 = no sun and no sun shadow rays), fog (start/end/color), sky gradient; set by `.level` lines or `.map` worldspawn keys (`environment_set()`) |
 | `light` | Point lights: attenuation, flicker, swing; temporary lights with a lifetime and fade (`light_add_temporary()`), swap-removed; `targetname` + `off` (toggled by triggers) |
 | `texture` | Nearest-neighbor sampling; TGA load (levels can't reference TGA files yet) and save (editor export) |
 | `proctex` | Procedural textures: concrete, brick, metal_panel, metal_grate, rust, floor_tile, pipe; color-keyed sprite sheets (`Sheet` helpers): barrel, ghoul + spitter (`EnemyFrame`), projectiles (`ProjectileFrame`), keycards (`KeycardFrame`), viewmodels `view_*` (`ViewFrame`) |
@@ -155,7 +156,13 @@ quad <12 floats> <mat>
 obj <filename> <x> <y> <z> <rot_y> <scale> <mat>
 entity <type> <x> <y> <z> [key=value ...]
 light <x> <y> <z> <r> <g> <b> <intensity> <radius> [key=value ...]
+ambient <level>
+fog <start_m> <end_m> <r> <g> <b>
+sun <dx> <dy> <dz> <r> <g> <b> <intensity>   # direction toward the sun; 0 = none
+sky <top r g b> <horizon r g b>
 ```
+
+Environment lines are optional; anything left out keeps `environment_default()`. Indoor levels should set the sun's intensity to 0: it can't reach them and its shadow ray costs ~15% of a frame. In `.map` files the same four are worldspawn keys (fog distances in units, sun direction in map axes).
 
 Entity types (all take `rot=` (radians) and `mat=<material or texture name>`; without `mat=` the type's default material is used; values with spaces go in quotes, `message="Like this"`):
 

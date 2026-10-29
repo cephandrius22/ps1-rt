@@ -59,16 +59,17 @@ TEST(test_particles_sparks_float) {
 
 /* A particle 3 m ahead draws over a far wall but not behind a near one */
 TEST(test_particles_depth_test) {
+    Environment env = environment_default();
     Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
     particles_init(&ps, 4);
     particles_burst(&ps, PARTICLE_GIB, vec3(0, 0, -3), vec3(0, 1, 0), 1, 0, 0, -10);
 
     clear_frame(10.0f);
-    particles_draw(&ps, &fb, &cam);
+    particles_draw(&ps, &fb, &cam, &env);
     ASSERT(changed_pixels() > 0);
 
     clear_frame(1.0f);
-    particles_draw(&ps, &fb, &cam);
+    particles_draw(&ps, &fb, &cam, &env);
     ASSERT_EQ_INT(changed_pixels(), 0);
 }
 

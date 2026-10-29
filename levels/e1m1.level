@@ -3,6 +3,12 @@
 
 spawn 0 0 3 0
 
+# --- Environment: underground, so no sun (saves a shadow ray per pixel);
+# thick brown fog from 8 m, fully opaque by 22 m ---
+ambient 0.04
+sun 0.5 1 -0.3 1 0.95 0.7 0
+fog 8 22 0.04 0.03 0.02
+
 # --- Materials (darker, grittier) ---
 material concrete    concrete     0.3 0.25 0.2
 material dark_metal  metal_panel  0.2 0.2 0.22
