@@ -98,6 +98,32 @@ TEST(test_render_affine_warp) {
     scene_free(&s);
 }
 
+/* Brightest channel at the screen center */
+static int center_peak(const Framebuffer *fb) {
+    uint32_t p = fb->pixels[(SCREEN_H / 2) * SCREEN_W + SCREEN_W / 2];
+    int r = (p >> 16) & 0xFF, g = (p >> 8) & 0xFF, b = p & 0xFF;
+    return r > g ? (r > b ? r : b) : (g > b ? g : b);
+}
+
+/* A lamp straight ahead shows as a glowing dot; one whose source is
+ * drawn by something else (no_bulb) doesn't */
+TEST(test_render_no_bulb) {
+    Scene s;
+    scene_init(&s);
+    Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
+    Light lamp = {.position = vec3(0, 0, -3), .color = vec3(1, 1, 1),
+                  .intensity = 1.0f, .radius = 5.0f};
+
+    light_add(&s.lights, lamp);
+    render_scene_lit(&frame_a, &cam, &s, 0, NULL);
+    s.lights.items[0].no_bulb = true;
+    render_scene_lit(&frame_b, &cam, &s, 0, NULL);
+
+    ASSERT(center_peak(&frame_a) > 200);
+    ASSERT(center_peak(&frame_b) < 100);
+    scene_free(&s);
+}
+
 int main(void) {
     TEST_SUITE("color");
     RUN_TEST(test_color_rgb);
@@ -111,5 +137,6 @@ int main(void) {
 
     TEST_SUITE("render");
     RUN_TEST(test_render_affine_warp);
+    RUN_TEST(test_render_no_bulb);
     TEST_REPORT();
 }

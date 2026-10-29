@@ -64,6 +64,10 @@ typedef struct {
     /* Shootable: a bullet through the bulb puts it out for good */
     bool breakable;
     bool broken;       /* shot out; triggers can't switch it back on */
+
+    /* No glowing dot drawn at it: something else shows the source
+     * (a candelabra's flames) */
+    bool no_bulb;
 } Light;
 
 typedef struct {

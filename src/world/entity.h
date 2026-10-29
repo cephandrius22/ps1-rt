@@ -34,6 +34,7 @@
 #include "mesh.h"
 #include "sprite.h"
 #include "math3d.h"
+#include "light.h"
 #include <stdbool.h>
 
 typedef enum {
@@ -257,6 +258,10 @@ typedef struct {
     /* Size, frame and solidity this tick (RENDER_SPRITE only). Generic
      * code fills base, material and owner beforehand. */
     void (*sprite)(const Entity *e, Sprite *out);
+
+    /* A light the entity brings (candle flames), added once at level
+     * load. False = none this time. */
+    bool (*light)(const Entity *e, Light *out);
 } EntityDef;
 
 typedef struct {

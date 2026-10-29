@@ -395,6 +395,16 @@ void level_finish(Scene *scene, MatLib *mats, Mesh *world, const char *name) {
     }
     matlib_finish(mats);
 
+    /* Lights entities bring with them (candelabra flames) */
+    for (int i = 0; i < scene->entities.count; i++) {
+        const Entity *e = &scene->entities.items[i];
+        const EntityDef *def = entity_def(e->type);
+        Light light;
+        if (e->active && def->light && def->light(e, &light)) {
+            light_add(&scene->lights, light);
+        }
+    }
+
     /* PS1 vertex jitter on world geometry, before the BVH sees it */
     for (int i = 0; i < world->count; i++) {
         world->tris[i] = ps1_jitter_triangle(&world->tris[i]);

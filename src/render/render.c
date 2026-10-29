@@ -202,11 +202,12 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
     }
 
     /* Light source billboards — draw visible glowing dots at lamp positions.
-     * Temporary lights (muzzle flashes, explosions) have no bulb to show. */
+     * Temporary lights (muzzle flashes, explosions) have no bulb to show,
+     * nor do lights whose source is drawn otherwise (candle flames). */
     float hit_t = rec.hit ? rec.t : RENDER_FAR;
     for (int i = 0; i < scene->lights.count; i++) {
         const Light *pl = &scene->lights.items[i];
-        if (pl->ttl_total > 0 || pl->off) {
+        if (pl->ttl_total > 0 || pl->off || pl->no_bulb) {
             continue;
         }
         Vec3 to_light = vec3_sub(pl->position, ray.origin);
