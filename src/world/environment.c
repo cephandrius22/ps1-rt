@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define AMBIENT_DEF       0.04f
+#define AMBIENT_DEF       0.06f
 #define SUN_INTENSITY_DEF 0.15f
 #define FOG_START_DEF     8.0f
 #define FOG_END_DEF       22.0f
