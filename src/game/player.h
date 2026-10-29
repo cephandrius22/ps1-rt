@@ -29,6 +29,8 @@ struct Scene;
 
 typedef struct {
     Pose view;            /* eye position + look direction */
+    Vec3 prev_eye;        /* eye at the start of this tick: frames drawn
+                           * between ticks ease from it to view.pos */
     Vec3 velocity;
     float foot_y;
     bool on_ground;

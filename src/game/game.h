@@ -113,9 +113,14 @@ GameLoadResult game_reload(Game *g);
 /* One fixed tick; appends to g->events. Exposed for tests. */
 void game_tick(Game *g, const PlayerCmd *cmd);
 
-/* Where the player is looking right now: view plus weapon recoil.
- * Used both to aim shots and to place the render camera. */
+/* Where the player is looking as of the last tick: view plus weapon
+ * recoil. Shots aim with it. */
 Pose game_view(const Game *g);
+
+/* The view to draw this frame: game_view() with the eye eased between
+ * the last two ticks and look input not yet simulated already applied.
+ * Smooth on displays faster than the tick rate. Presentation only. */
+Pose game_frame_view(const Game *g);
 
 /* Ammo left for the current weapon (for the HUD) */
 int game_ammo(const Game *g);

@@ -107,6 +107,28 @@ static void run_ticks(const PlayerCmd *cmd, int n) {
     }
 }
 
+/* Frames between ticks: the eye eases from the last tick's spot (the
+ * test level drops the player, so the eye moves every tick), and look
+ * input shows before the tick that applies it */
+TEST(test_game_frame_view_between_ticks) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    PlayerCmd idle = {0};
+    run_ticks(&idle, 10);
+
+    game_update(&g, &idle, GAME_TICK_DT * 1.5f);   /* one tick, half left over */
+    Pose frame = game_frame_view(&g);
+    float mid = (g.player.prev_eye.y + g.player.view.pos.y) / 2;
+    ASSERT(g.player.prev_eye.y != g.player.view.pos.y);
+    ASSERT_NEAR(frame.pos.y, mid, 1e-3f);
+
+    PlayerCmd turn = {.yaw_delta = 0.3f};
+    float yaw = g.player.view.yaw;
+    game_update(&g, &turn, GAME_TICK_DT * 0.25f);  /* no tick yet */
+    ASSERT_NEAR(g.player.view.yaw, yaw, 1e-6f);
+    ASSERT_NEAR(game_frame_view(&g).yaw, yaw + 0.3f, 1e-6f);
+    game_free(&g);
+}
+
 TEST(test_game_death_and_respawn) {
     ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
     PlayerCmd idle = {0};
@@ -445,6 +467,7 @@ int main(void) {
     RUN_TEST(test_game_update_tick_count);
     RUN_TEST(test_game_update_look_applies_once);
     RUN_TEST(test_game_update_impulse_once);
+    RUN_TEST(test_game_frame_view_between_ticks);
     RUN_TEST(test_game_death_and_respawn);
     RUN_TEST(test_game_recoil_kicks_view);
     RUN_TEST(test_game_shooting_kills_ghoul);

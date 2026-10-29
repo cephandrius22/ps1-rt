@@ -11,6 +11,7 @@ Player player_create(Vec3 pos) {
     Player p;
     p.foot_y = pos.y - PLAYER_HEIGHT - PLAYER_EYE_OFFSET;
     p.view = (Pose){.pos = pos, .yaw = 0.0f, .pitch = 0.0f};
+    p.prev_eye = pos;
     p.velocity = vec3(0, 0, 0);
     p.on_ground = false;
     p.flashlight_on = false;

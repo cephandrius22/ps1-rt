@@ -158,6 +158,30 @@ Pose game_view(const Game *g) {
     return view;
 }
 
+Pose game_frame_view(const Game *g) {
+    const Player *p = &g->player;
+    Pose view = p->view;
+
+    /* Ticks run at 60 Hz; a faster display draws between them. Ease the
+     * eye from the last tick's spot by the time since:
+     *
+     *   tick n-1      frame      tick n
+     *   prev_eye ────────●─────── view.pos     alpha = tick_accum / tick
+     */
+    float alpha = fminf(g->tick_accum / GAME_TICK_DT, 1.0f);
+    view.pos = vec3_lerp(p->prev_eye, p->view.pos, alpha);
+
+    /* Turn by look input the next tick will apply, so the mouse answers
+     * every frame (aim catches up on that tick) */
+    if (g->mode == GAME_PLAYING) {
+        view.yaw += g->pending.yaw_delta;
+        view.pitch = fmaxf(-PLAYER_PITCH_MAX,
+                           fminf(PLAYER_PITCH_MAX, view.pitch + g->pending.pitch_delta));
+    }
+    view.pitch += g->weapon.kick;
+    return view;
+}
+
 int game_ammo(const Game *g) {
     AmmoType type = weapon_def(g->weapon.type)->ammo;
     return g->player.inv.ammo[type];
@@ -394,6 +418,7 @@ static void tick_dead(Game *g, const PlayerCmd *cmd, float dt) {
 
 void game_tick(Game *g, const PlayerCmd *cmd) {
     const float dt = GAME_TICK_DT;
+    g->player.prev_eye = g->player.view.pos; /* a map load this tick resets it */
     g->time += dt;
     g->mode_time += dt;
     g->message_time = fmaxf(g->message_time - dt, 0.0f);

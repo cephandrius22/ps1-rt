@@ -7,9 +7,9 @@
  *        │                  (while a menu is open the game is paused)
  *        └──PlayerCmd──> game_update() ──events──> play_event_sounds()
  *                             │                     (placed by play_at)
- *                             └──> game_view() ──> camera ──> fade_view_env()
- *                                                  │   (zone fog, reverb, ambience)
- *                                                  └──> render_scene_lit_mt()
+ *                             └──> game_frame_view() ──> camera ──> fade_view_env()
+ *                                                        │   (zone fog, reverb, ambience)
+ *                                                        └──> render_scene_lit_mt()
  *   Game fields, menu view ──> OverlayState ──> overlay_draw() ──> display_present()
  *
  * The level file is watched: saving it in an editor reloads it in place.
@@ -693,7 +693,7 @@ int main(int argc, char *argv[]) {
 
         /* Render: scene lights + flashlight, shadow rays (multithreaded) */
         /* Shake moves only what we see, never where shots go */
-        Pose view = game_view(&game);
+        Pose view = game_frame_view(&game);
         float shake_yaw, shake_pitch;
         screenfx_camera_offset(&fx, game.time, &shake_yaw, &shake_pitch);
         view.yaw += shake_yaw;
