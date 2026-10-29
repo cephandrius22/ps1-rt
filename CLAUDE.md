@@ -127,7 +127,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `clock` | High-resolution seconds for frame timing; a per-run seed |
 | `files` | Portable `files_make_dir()` (POSIX `mkdir` / Windows `_mkdir`) |
 | `settings` | Player preferences in `rt.cfg` (git-ignored): mouse sensitivity, master volume, vertical FOV; ranges (`SENSITIVITY_*`, `VOLUME_*`, `FOV_*`), clamped on load |
-| `audio` | 8-voice stereo mixer via SDL2 audio callback (`audio_mix()`, testable without a device): per-voice pan, volume changes, reverb (two cross-fed delay lines); procedural sounds incl. ambient loops (drone, drip, hum); WAV loader ready |
+| `audio` | 8-voice stereo mixer via SDL2 audio callback (`audio_mix()`, testable without a device): per-voice pan, volume changes, reverb (two cross-fed delay lines); procedural sounds incl. ambient loops (drone, drip, hum; church: wind, organ, bell, which repeat exactly with no fade at the seam); WAV loader ready |
 | `threadpool` | pthread fork-join pool, generation-based sync, splits scanlines across workers |
 
 ### Key Patterns
@@ -181,7 +181,7 @@ fog <start_m> <end_m> <r> <g> <b>
 sun <dx> <dy> <dz> <r> <g> <b> <intensity>   # direction toward the sun; 0 = none
 sky <top r g b> <horizon r g b>
 reverb <0..1>
-ambience <drone|drip|hum|none>
+ambience <drone|drip|hum|wind|organ|bell|none>
 zone <x1> <y1> <z1> <x2> <y2> <z2> [ambient=<a>] [fog="<start> <end> <r> <g> <b>"] [reverb=<r>] [ambience=<name>]
 ```
 

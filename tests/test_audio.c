@@ -91,9 +91,66 @@ TEST(test_sounds_have_nonzero_samples) {
 }
 
 TEST(test_sound_id_count) {
-    ASSERT(SND_COUNT == 29);
+    ASSERT(SND_COUNT == 32);
     ASSERT(SND_WEAPON_FIRE == 0);
-    ASSERT(SND_FLESH_HIT == SND_COUNT - 1);
+    ASSERT(SND_AMBIENT_BELL == SND_COUNT - 1);
+}
+
+/* Largest jump between neighboring samples inside the sound */
+static int max_step(const Sound *s) {
+    int big = 0;
+    for (int i = 1; i < s->length; i++) {
+        int d = abs(s->samples[i] - s->samples[i - 1]);
+        big = d > big ? d : big;
+    }
+    return big;
+}
+
+/* Church loops join without a click: the step from the last sample back
+ * to the first is no bigger than steps inside the loop. They are the
+ * same every run (seeded noise). */
+TEST(test_church_loops_seamless) {
+    static Sound a[SND_COUNT], b[SND_COUNT];
+    audio_generate_sounds(a);
+    audio_generate_sounds(b);
+
+    SoundID loops[] = {SND_AMBIENT_WIND, SND_AMBIENT_ORGAN, SND_AMBIENT_BELL};
+    for (size_t k = 0; k < sizeof(loops) / sizeof(loops[0]); k++) {
+        const Sound *s = &a[loops[k]];
+        float seconds = (float)s->length / s->sample_rate;
+        ASSERT(seconds >= 5.0f && seconds <= 15.0f);
+        ASSERT(abs(s->samples[s->length - 1] - s->samples[0]) <= max_step(s));
+        ASSERT(memcmp(s->samples, b[loops[k]].samples, sizeof(int16_t) * (size_t)s->length) == 0);
+    }
+
+    for (int i = 0; i < SND_COUNT; i++) {
+        sound_free(&a[i]);
+        sound_free(&b[i]);
+    }
+}
+
+/* The bell tolls twice per loop: two loud onsets, quiet between */
+TEST(test_church_bell_tolls) {
+    static Sound sounds[SND_COUNT];
+    audio_generate_sounds(sounds);
+    const Sound *s = &sounds[SND_AMBIENT_BELL];
+
+    int window = s->sample_rate / 4;
+    int onsets = 0;
+    int prev = 0;
+    for (int w = 0; w + window <= s->length; w += window) {
+        int peak = 0;
+        for (int i = w; i < w + window; i++) {
+            peak = abs(s->samples[i]) > peak ? abs(s->samples[i]) : peak;
+        }
+        onsets += peak > 2 * prev + 1000;
+        prev = peak;
+    }
+    ASSERT_EQ_INT(onsets, 2);
+
+    for (int i = 0; i < SND_COUNT; i++) {
+        sound_free(&sounds[i]);
+    }
 }
 
 /* --- AudioSystem struct tests (no SDL init) --- */
@@ -195,6 +252,8 @@ int main(void) {
     RUN_TEST(test_ambient_is_long);
     RUN_TEST(test_sounds_have_nonzero_samples);
     RUN_TEST(test_sound_id_count);
+    RUN_TEST(test_church_loops_seamless);
+    RUN_TEST(test_church_bell_tolls);
     RUN_TEST(test_audio_play_without_init);
     RUN_TEST(test_audio_play_invalid_id);
     RUN_TEST(test_audio_stop_without_init);

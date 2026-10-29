@@ -252,6 +252,222 @@ static void gen_ambient_hum(Sound *s) {
     }
 }
 
+/* --- Church loops. Unlike the fades above, these repeat exactly: every
+ * tone completes whole cycles per loop, filters run over the loop twice
+ * (the second pass starts in the state the end leaves), and bell tails
+ * wrap around to the start. No dip or click at the seam. --- */
+
+#define TAU         6.2831853f
+#define WIND_LEN    6.0f
+#define ORGAN_LEN   8.0f
+#define BELL_LEN    12.0f
+#define FILTER_PASSES 2     /* settle pass, then the pass that's kept */
+
+/* Repeatable white noise in -1..1: loops sound the same every run */
+static float lcg_noise(uint32_t *state) {
+    *state = *state * 1664525u + 1013904223u;
+    return (float)(*state >> 8) / 8388608.0f - 1.0f;
+}
+
+/* freq rounded to whole cycles per loop of len seconds, so it joins */
+static float loop_hz(float freq, float len) {
+    return roundf(freq * len) / len;
+}
+
+/* Allocate s and a zeroed float work buffer of the same length */
+static float *loop_alloc(Sound *s, float len) {
+    *s = make_sound(AUDIO_SAMPLE_RATE, len);
+    if (!s->samples) {
+        return NULL;
+    }
+    return calloc((size_t)s->length, sizeof(float));
+}
+
+/* Scale buf so its loudest sample reaches peak, into s; frees buf */
+static void loop_finish(Sound *s, float *buf, float peak) {
+    float max = 1e-6f;
+    for (int i = 0; i < s->length; i++) {
+        max = fmaxf(max, fabsf(buf[i]));
+    }
+    for (int i = 0; i < s->length; i++) {
+        s->samples[i] = (int16_t)(buf[i] / max * peak);
+    }
+    free(buf);
+}
+
+/* Wind through a high window: low rumble plus a whistle from a resonant
+ * band-pass whose pitch rises with each gust. Gusts are slow sines with
+ * whole cycles per loop:
+ *
+ *   noise ──┬─> one-pole low-pass ────────── rumble ─┐
+ *           └─> band-pass (fc = 250..700 Hz) ─ whistle ┴─> × gust
+ */
+static void gen_ambient_wind(Sound *s) {
+    float *buf = loop_alloc(s, WIND_LEN);
+    if (!buf) {
+        return;
+    }
+    uint32_t seed = 0x5eed1u;
+    for (int i = 0; i < s->length; i++) {
+        buf[i] = lcg_noise(&seed);
+    }
+
+    float low = 0, band = 0, rumble = 0;
+    for (int pass = 0; pass < FILTER_PASSES; pass++) {
+        for (int i = 0; i < s->length; i++) {
+            float t = (float)i / s->sample_rate;
+            float gust = 0.55f + 0.3f * sinf(TAU * t / WIND_LEN) +
+                         0.15f * sinf(TAU * t * 3 / WIND_LEN + 1.3f);
+            float fc = 250.0f + 450.0f * gust;
+            float f = 2.0f * sinf(TAU / 2 * fc / s->sample_rate);
+
+            /* State-variable filter; small damping = whistly resonance */
+            float noise = buf[i];
+            low += f * band;
+            band += f * (noise - low - 0.12f * band);
+            rumble += (noise - rumble) * 0.02f;
+            if (pass == FILTER_PASSES - 1) {
+                buf[i] = (band * 0.12f * gust + rumble * 2.0f) * gust;
+            }
+        }
+    }
+    loop_finish(s, buf, 9000.0f);
+}
+
+#define ORGAN_TABLE 1024  /* one cycle of the pipe waveform */
+#define ORGAN_NOTES 4
+
+/* Pipe tone: a fundamental and fading harmonics (an open diapason) */
+static const float ORGAN_HARMONICS[] = {1.0f, 0.5f, 0.35f, 0.2f, 0.12f, 0.08f};
+
+/* D minor, then B-flat major, low in the pedal range */
+static const float ORGAN_CHORDS[2][ORGAN_NOTES] = {
+    {73.42f, 110.0f, 146.83f, 174.61f},
+    {58.27f, 87.31f, 116.54f, 146.83f},
+};
+
+/* Distant organ: two chords swelling into each other over the loop.
+ * Each note plays a precomputed pipe cycle (cheap), plus a copy 0.2%
+ * sharp so the pipes beat slowly like a real rank. Every pipe starts at
+ * its own phase: all in step at once would thump at each loop start. */
+static void gen_ambient_organ(Sound *s) {
+    float *buf = loop_alloc(s, ORGAN_LEN);
+    if (!buf) {
+        return;
+    }
+    float table[ORGAN_TABLE];
+    for (int k = 0; k < ORGAN_TABLE; k++) {
+        float v = 0;
+        for (size_t h = 0; h < sizeof(ORGAN_HARMONICS) / sizeof(ORGAN_HARMONICS[0]); h++) {
+            v += ORGAN_HARMONICS[h] * sinf(TAU * (h + 1) * k / ORGAN_TABLE);
+        }
+        table[k] = v;
+    }
+
+    uint32_t seed = 0x0f9a1u;
+    for (int c = 0; c < 2; c++) {
+        for (int n = 0; n < ORGAN_NOTES; n++) {
+            for (int detune = 0; detune < 2; detune++) {
+                double hz = loop_hz(ORGAN_CHORDS[c][n] * (detune ? 1.002f : 1.0f), ORGAN_LEN);
+                double start = lcg_noise(&seed) * 0.5 + 0.5;
+                for (int i = 0; i < s->length; i++) {
+                    double t = (double)i / s->sample_rate;
+                    double phase = hz * t + start;
+                    float wave = table[(int)((phase - floor(phase)) * ORGAN_TABLE)];
+
+                    /* Chord 0 full at the start, chord 1 halfway */
+                    float w = 0.5f + 0.5f * cosf(TAU * (float)t / ORGAN_LEN);
+                    buf[i] += wave * (c == 0 ? w : 1.0f - w);
+                }
+            }
+        }
+    }
+
+    /* Slow swell, and the breath of the pipes (low-passed noise) */
+    float breath = 0;
+    float *air = calloc((size_t)s->length, sizeof(float));
+    if (air) {
+        for (int i = 0; i < s->length; i++) {
+            air[i] = lcg_noise(&seed);
+        }
+        for (int pass = 0; pass < FILTER_PASSES; pass++) {
+            for (int i = 0; i < s->length; i++) {
+                breath += (air[i] - breath) * 0.05f;
+                if (pass == FILTER_PASSES - 1) {
+                    buf[i] += breath * 4.0f;
+                }
+            }
+        }
+        free(air);
+    }
+    for (int i = 0; i < s->length; i++) {
+        float t = (float)i / s->sample_rate;
+        buf[i] *= 0.8f + 0.2f * sinf(TAU * t * 2 / ORGAN_LEN);
+    }
+    loop_finish(s, buf, 7000.0f);
+}
+
+/* Church bell partials relative to the strike note: hum (an octave
+ * below), prime, minor-third tierce, quint, nominal and upper partials.
+ * Low ones ring longest. */
+typedef struct {
+    float ratio;
+    float gain;
+    float decay;  /* per second */
+} BellPartial;
+
+static const BellPartial BELL_PARTIALS[] = {
+    {0.5f, 0.35f, 0.35f}, {1.0f, 0.5f, 0.6f}, {1.19f, 0.3f, 0.8f}, {1.5f, 0.2f, 1.0f},
+    {2.0f, 0.45f, 0.9f}, {2.51f, 0.15f, 1.6f}, {3.01f, 0.12f, 2.0f}, {4.1f, 0.08f, 3.0f},
+};
+
+#define BELL_NOTE   196.0f  /* G3 */
+#define BELL_RING   9.0f    /* seconds each strike is rendered */
+#define BELL_STRIKE_1 0.5f  /* a slow toll: twice per loop */
+#define BELL_STRIKE_2 6.5f
+
+/* One strike, added into the loop at `at`; the tail wraps to the start */
+static void bell_strike(Sound *s, float *buf, float at) {
+    int start = (int)(at * s->sample_rate);
+    int len = (int)(BELL_RING * s->sample_rate);
+    uint32_t seed = 0xbe11u;
+    for (int j = 0; j < len; j++) {
+        float t = (float)j / s->sample_rate;
+        float v = lcg_noise(&seed) * expf(-t * 60.0f) * 0.3f; /* clapper */
+        for (size_t p = 0; p < sizeof(BELL_PARTIALS) / sizeof(BELL_PARTIALS[0]); p++) {
+            const BellPartial *b = &BELL_PARTIALS[p];
+            v += sinf(TAU * BELL_NOTE * b->ratio * t) * b->gain * expf(-t * b->decay);
+        }
+        buf[(start + j) % s->length] += v;
+    }
+}
+
+/* A distant church bell tolling, muffled by the walls (low-passed) */
+static void gen_ambient_bell(Sound *s) {
+    float *buf = loop_alloc(s, BELL_LEN);
+    if (!buf) {
+        return;
+    }
+    bell_strike(s, buf, BELL_STRIKE_1);
+    bell_strike(s, buf, BELL_STRIKE_2);
+
+    float *dry = malloc(sizeof(float) * (size_t)s->length);
+    if (dry) {
+        memcpy(dry, buf, sizeof(float) * (size_t)s->length);
+        float muffled = 0;
+        for (int pass = 0; pass < FILTER_PASSES; pass++) {
+            for (int i = 0; i < s->length; i++) {
+                muffled += (dry[i] - muffled) * 0.25f;
+                if (pass == FILTER_PASSES - 1) {
+                    buf[i] = muffled;
+                }
+            }
+        }
+        free(dry);
+    }
+    loop_finish(s, buf, 10000.0f);
+}
+
 /* Three rising notes, each a soft bell */
 static void gen_secret(Sound *s) {
     static const float notes[] = {523.0f, 659.0f, 784.0f}; /* C5 E5 G5 */
@@ -386,6 +602,9 @@ void audio_generate_sounds(Sound sounds[SND_COUNT]) {
     gen_ambient(&sounds[SND_AMBIENT]);
     gen_ambient_drip(&sounds[SND_AMBIENT_DRIP]);
     gen_ambient_hum(&sounds[SND_AMBIENT_HUM]);
+    gen_ambient_wind(&sounds[SND_AMBIENT_WIND]);
+    gen_ambient_organ(&sounds[SND_AMBIENT_ORGAN]);
+    gen_ambient_bell(&sounds[SND_AMBIENT_BELL]);
     gen_secret(&sounds[SND_SECRET]);
     gen_dry_fire(&sounds[SND_DRY_FIRE]);
 

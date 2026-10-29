@@ -45,7 +45,7 @@ where it's heading.
 - **Gameplay** — fixed 60 Hz simulation, first-person movement with collision, pickups, death/respawn, exit pad with kill count
 - **Menus and saves** — title, pause and options menus (mouse speed, volume, field of view); save anywhere to five slots or F5/F9 quicksave
 - **HUD** — color drains from the screen at low health; health and ammo in bitmap digits, held keycards, on-screen messages, held weapon, red death tint, kill count at the exit
-- **Procedural sound** — weapons, explosions, footsteps, pickups, doors, locked-door buzz, switches, breaking glass, a voice per enemy type; stereo and distance-placed; per-area echo and ambient loops (drone, dripping water, machinery hum) that crossfade as you move
+- **Procedural sound** — weapons, explosions, footsteps, pickups, doors, locked-door buzz, switches, breaking glass, a voice per enemy type; stereo and distance-placed; per-area echo and ambient loops (drone, dripping water, machinery hum, wind, a distant organ, a tolling bell) that crossfade as you move
 
 ## Building
 

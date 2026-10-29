@@ -14,7 +14,8 @@
  *   sky 0.02 0.01 0.04 0.08 0.06 0.03          top color, horizon color
  *   reverb 0.15                  "reverb" "0.15"  echo: 0 dry .. 1 cavernous
  *   ambience drone               "ambience" "drone"  background loop by name
- *                                (drone, drip, hum, none; main.c plays it)
+ *                                (drone, drip, hum, wind, organ, bell,
+ *                                none; main.c plays it)
  *
  *   fog: start ──────── end
  *        clear  blends   fully fog_color

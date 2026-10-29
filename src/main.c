@@ -265,6 +265,9 @@ static const AmbienceSound ambience_sounds[] = {
     {"drone", SND_AMBIENT},
     {"drip",  SND_AMBIENT_DRIP},
     {"hum",   SND_AMBIENT_HUM},
+    {"wind",  SND_AMBIENT_WIND},
+    {"organ", SND_AMBIENT_ORGAN},
+    {"bell",  SND_AMBIENT_BELL},
 };
 
 #define AMBIENCE_COUNT ((int)(sizeof(ambience_sounds) / sizeof(ambience_sounds[0])))
