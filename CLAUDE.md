@@ -19,6 +19,7 @@ make compile_flags.txt  # include paths for clangd
 ./rt levels/other.txt  # play another episode file
 make editor      # export textures + FGD, link TrenchBroom game config
 ./rt --convert in.level out.map  # hand-written .level → TrenchBroom .map
+./rt --bench [map ...]  # frame and tick times on fixed views (default: shipped maps)
 ```
 
 Requires: SDL2 (`sdl2-config`), C compiler, pthreads, `-lm`.
@@ -58,7 +59,8 @@ on the include path, so headers are included by bare name (`"scene.h"`).
   platform/       SDL: display (window, present), input, audio, clock; file
                   watch; talks to game via PlayerCmd only. main.c has no SDL
   tools/          editor export (`./rt --export-editor`), .level → .map
-                  converter (`./rt --convert`), invoked by main
+                  converter (`./rt --convert`), benchmark (`./rt --bench`),
+                  invoked by main
 ```
 
 - **PlayerCmd (`game/cmd.h`) is the only input contract.** `input_poll()`
@@ -107,6 +109,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `levelcheck` | Load-time warnings (spawn/exit, stuck bodies, no floor, exit unreachable on foot, target wiring, missing keycards) and budget line (`BUDGET_*`) |
 | `filewatch` | Polls a file's mtime; reports a change once it has settled (hot reload) |
 | `level_convert` | `./rt --convert in.level out.map`: each `.level` line to its `.map` form (rooms become wall slabs); warns on what's lost: `quad`/`obj` lines (skipped), flat-color materials (draw untextured), material motion keys. Keeps `.level` scale (2 m per texture repeat), right for 64 px textures; others (tomb_slab) and one-per-face pieces (rose_window, carpet borders) need their face scale/offset set afterwards |
+| `bench` | `./rt --bench`: fixed views per map (spawn ×4, each enemy's eye), median frame on the pool, worst view, one-core time (steadiest for comparing builds), mean tick |
 | `editor_export` | Writes TrenchBroom textures (TGA) and `rt.fgd` from the proctex generators and `EntityDef` table |
 | `ps1_effects` | Vertex jitter (1/128 grid, applied at level load), 4x4 Bayer dither + 15-bit quantize (per pixel); `ps1_affine_uv()` used by render's F4 affine warp |
 | `save` | Full-state saves (`saves/quick.sav`, `slot1..5.sav`): header with struct sizes (other builds refused), info block for menus (`save_peek()`), game fields, every entity and light; `game_load()` reloads the map, checks entities match, restores state |

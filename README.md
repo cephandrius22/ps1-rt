@@ -64,6 +64,7 @@ make        # Build the raytracer (objects go to build/)
 make test   # Build and run all test suites
 make clean  # Remove build artifacts
 make editor # Set up TrenchBroom (see Levels)
+./rt --bench             # Frame and tick times on the shipped maps
 ./rt levels/other.map    # Run a specific level (.map or .level)
 ```
 
@@ -134,7 +135,8 @@ src/
               particles, screen effects
   platform/   SDL window, input → PlayerCmd, stereo audio mixer with
               reverb, clock; settings file, file watching
-  tools/      TrenchBroom export (textures, FGD), .level → .map converter
+  tools/      TrenchBroom export (textures, FGD), .level → .map converter,
+              benchmark
 
 tests/        one standalone binary per module (test_framework.h)
 levels/       episode file and .map levels

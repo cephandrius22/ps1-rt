@@ -40,6 +40,7 @@
 #include "menu.h"
 #include "editor_export.h"
 #include "level_convert.h"
+#include "bench.h"
 #include "screenfx.h"
 #include "particles.h"
 #include "levelcheck.h"
@@ -560,6 +561,10 @@ int main(int argc, char *argv[]) {
     /* Tool mode: .level → TrenchBroom .map */
     if (argc > 3 && strcmp(argv[1], "--convert") == 0) {
         return level_convert(argv[2], argv[3]) == 0 ? 0 : 1;
+    }
+    /* Tool mode: time renders and ticks on the shipped (or given) maps */
+    if (argc > 1 && strcmp(argv[1], "--bench") == 0) {
+        return bench_run((const char *const *)&argv[2], argc - 2, stdout) == 0 ? 0 : 1;
     }
 
     Display display;
