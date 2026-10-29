@@ -184,7 +184,7 @@ Carried forward:
 - Playtest: door speed/wait, hearing distances and ambush timing are set
   from numbers, not long play sessions.
 
-## Phase 4: Atmosphere (in progress, in stages)
+## Phase 4: Atmosphere ✅
 
 - ✅ Stage 1 — **Environment in the level.** `Environment` on `Scene`:
   ambient, sun, fog, sky; `.level` lines and `.map` worldspawn keys.
@@ -198,7 +198,6 @@ Carried forward:
 - ✅ Stage 3 — **Per-area light and fog** (Doom sectors): `zone` lines /
   `env_zone` brushes override ambient (per surface) and fog (per eye,
   faded in over ~0.6 s). e1m1's west corridor and exit passage use them.
-- Ambient soundscapes per zone, simple reverb, stereo panning
 - ✅ Stage 4 — **Shootable lights, flashlight battery.** `breakable`
   bulbs go dark for good when shot (glass sound, sparks); e1m1's bare
   bulbs are breakable. The flashlight drains in 90 s, recharges in 30 s
@@ -207,6 +206,20 @@ Carried forward:
   water and screen textures scroll/glow/pulse (defaults per texture,
   `.level` keys override); color drains below 35 health; F4 toggles PS1
   affine texture warping (screen-space UVs, no measurable cost).
+- ✅ Stage 6 — **Sound in space.** Stereo mixer with constant-power pan;
+  event sounds placed by distance and direction; reverb (two cross-fed
+  delays) and an ambient loop (drone, drip, hum) per level and zone,
+  crossfaded as you move. e1m1: dripping corridor, humming storage room,
+  echoing exit passage; arena echoes.
+
+Carried forward:
+
+- Phase 7: sound isn't occluded by walls (the nav grid could muffle it,
+  as it does for enemy hearing); no doppler or HRTF.
+- Phase 7: affine warp falls back to true UVs on triangles reaching
+  behind the camera; PS1 games subdivided large polygons instead.
+- Playtest: fog, zone and battery numbers are set by eye on a few
+  screenshots, not long play sessions.
 
 ## Phase 5: Content
 

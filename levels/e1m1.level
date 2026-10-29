@@ -8,6 +8,9 @@ spawn 0 0 3 0
 ambient 0.04
 sun 0.5 1 -0.3 1 0.95 0.7 0
 fog 8 22 0.04 0.03 0.02
+# Low drone everywhere; concrete gives a little echo
+ambience drone
+reverb 0.2
 
 # --- Materials (darker, grittier) ---
 material concrete    concrete     0.3 0.25 0.2
@@ -55,7 +58,7 @@ box -14 3 -12 -8 3.2 -4 concrete
 brush func_door -7.95 0 -9 -7.85 2.5 -7 dark_metal
 brush trigger_once -7.5 0 -9 -6.5 2 -7 message="Something scratches behind the door"
 # Rot: darker, with a thick green haze while you're inside
-zone -14 0 -12 -7.8 3 -4 ambient=0.02 fog="3 11 0.04 0.06 0.025"
+zone -14 0 -12 -7.8 3 -4 ambient=0.02 fog="3 11 0.04 0.06 0.025" ambience=drip reverb=0.5
 
 # Pipe running along ceiling
 box -14 2.5 -11 -9 2.8 -10.7 pipe_mat
@@ -74,6 +77,8 @@ box 7.8 0 -12.2 8 4 -9 dark_metal
 box 7.8 0 -7 8 4 -4.8 dark_metal
 box 7.8 2.5 -9 8 4 -7 dark_metal
 box 8 3.5 -12 14 3.7 -5 dark_metal
+# Machinery hums in here; metal walls keep it close
+zone 8 0 -12 14 3.5 -5 ambience=hum reverb=0.1
 brush func_door 7.85 0 -9 7.95 2.5 -7 dark_metal key=blue
 brush func_button 13.8 1.0 -8.2 14 1.4 -7.8 rust_wall opens=side rot=-1.5708 lip=0.05 wait=-1 target=lockdown message="Somewhere a gate grinds open"
 
@@ -95,7 +100,7 @@ box 6 0 -19 6.2 4 -14.8 brick
 box -6 3 -19 6 3.2 -15 concrete
 brush func_door -1 0 -14.95 1 2.5 -14.85 dark_metal targetname=lockdown wait=-1
 # The exit glows through a red haze
-zone -6 0 -19 6 3 -14.8 fog="3 14 0.08 0.01 0.01"
+zone -6 0 -19 6 3 -14.8 fog="3 14 0.08 0.01 0.01" reverb=0.45
 
 # =====================
 # Entities

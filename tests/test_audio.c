@@ -91,9 +91,9 @@ TEST(test_sounds_have_nonzero_samples) {
 }
 
 TEST(test_sound_id_count) {
-    ASSERT(SND_COUNT == 25);
+    ASSERT(SND_COUNT == 27);
     ASSERT(SND_WEAPON_FIRE == 0);
-    ASSERT(SND_GLASS == SND_COUNT - 1);
+    ASSERT(SND_AMBIENT_HUM == SND_COUNT - 1);
 }
 
 /* --- AudioSystem struct tests (no SDL init) --- */
@@ -128,6 +128,53 @@ TEST(test_audio_stop_without_init) {
     audio_stop(&audio, AUDIO_MAX_VOICES);
 }
 
+/* Mixer, without a device: a constant tone in voice 0 */
+static AudioSystem mixer;   /* large (echo buffers): keep off the stack */
+static int16_t tone_samples[256];
+static int16_t mixed[512 * AUDIO_CHANNELS];
+
+static void start_tone(float pan, float reverb) {
+    memset(&mixer, 0, sizeof(mixer));
+    for (int i = 0; i < 256; i++) {
+        tone_samples[i] = 10000;
+    }
+    static Sound tone = {tone_samples, 256, AUDIO_SAMPLE_RATE};
+    mixer.voices[0] = (Voice){.sound = &tone, .volume = 1.0f, .pan = pan};
+    mixer.reverb.amount = reverb;
+}
+
+static int channel(int frame, int ch) {
+    return mixed[frame * AUDIO_CHANNELS + ch];
+}
+
+TEST(test_mix_pans) {
+    start_tone(0.0f, 0);
+    audio_mix(&mixer, mixed, 64);
+    ASSERT(abs(channel(10, 0) - channel(10, 1)) <= 1);   /* centered: equal */
+
+    start_tone(1.0f, 0);
+    audio_mix(&mixer, mixed, 64);
+    ASSERT(channel(10, 1) > 9000 && abs(channel(10, 0)) <= 1);  /* hard right */
+}
+
+/* The tone stops after 256 samples: dry, silence follows; with reverb, a tail */
+TEST(test_mix_reverb_tail) {
+    start_tone(0.0f, 0);
+    audio_mix(&mixer, mixed, 512);
+    ASSERT_EQ_INT(channel(500, 0), 0);
+    ASSERT(mixer.voices[0].sound == NULL);   /* finished */
+
+    start_tone(0.0f, 1.0f);
+    for (int block = 0; block < 4; block++) {  /* past the first echo (~70 ms) */
+        audio_mix(&mixer, mixed, 512);
+    }
+    int tail = 0;
+    for (int f = 0; f < 512; f++) {
+        tail |= channel(f, 0) | channel(f, 1);
+    }
+    ASSERT(tail != 0);
+}
+
 int main(void) {
     TEST_SUITE("audio");
     RUN_TEST(test_generate_sounds_all_valid);
@@ -139,5 +186,7 @@ int main(void) {
     RUN_TEST(test_audio_play_without_init);
     RUN_TEST(test_audio_play_invalid_id);
     RUN_TEST(test_audio_stop_without_init);
+    RUN_TEST(test_mix_pans);
+    RUN_TEST(test_mix_reverb_tail);
     TEST_REPORT();
 }

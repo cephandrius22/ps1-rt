@@ -34,7 +34,7 @@ where it's heading.
 - **Gore and feedback** — blood, gibs and sparks as depth-tested particles; red damage flash; explosions that light the room
 - **Gameplay** — fixed 60 Hz simulation, first-person movement with collision, pickups, death/respawn, exit pad with kill count
 - **HUD** — color drains from the screen at low health; health and ammo in bitmap digits, held keycards, on-screen messages, held weapon, red death tint, kill count at the exit
-- **Procedural sound** — weapons, explosions, footsteps, pickups, doors, locked-door buzz, switches, a voice per enemy type, ambient drone
+- **Procedural sound** — weapons, explosions, footsteps, pickups, doors, locked-door buzz, switches, breaking glass, a voice per enemy type; stereo and distance-placed; per-area echo and ambient loops (drone, dripping water, machinery hum) that crossfade as you move
 
 ## Building
 
@@ -172,9 +172,10 @@ Quake level editor:
    `targetname` (TrenchBroom draws the links). `levels/arena.map` is an
    example to open.
    The level's mood (ambient light, fog distance and color, sun, sky)
-   is set on worldspawn: `ambient`, `fog`, `sun`, `sky`. An `env_zone`
-   brush gives an area its own light level and fog (a dark crypt, a
-   hazy pit); fog fades in as you enter it.
+   is set on worldspawn: `ambient`, `fog`, `sun`, `sky`, `reverb`,
+   `ambience`. An `env_zone` brush gives an area its own light level,
+   fog, echo and ambient loop (a dark, dripping crypt; a humming machine
+   room); they fade in as you enter.
 4. Save as `levels/<name>.map` and run `./rt levels/<name>.map`. Keep it
    running: every save reloads the level where you stand.
 

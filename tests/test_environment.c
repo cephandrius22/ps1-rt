@@ -2,6 +2,7 @@
 #include "level.h"
 #include "mapfile.h"
 #include <stdio.h>
+#include <string.h>
 
 #define LEVEL_TMP "build/tests/env_tmp.level"
 #define MAP_TMP   "build/tests/env_tmp.map"
@@ -100,6 +101,28 @@ TEST(test_env_zones) {
     zone_list_free(&zones);
 }
 
+/* Sound: level defaults, keys, and the listener's zone overriding them */
+TEST(test_env_sound) {
+    Environment base = environment_default();
+    ASSERT(environment_set(&base, "reverb", "0.3"));
+    ASSERT(environment_set(&base, "ambience", "hum"));
+    ASSERT(!environment_set(&base, "reverb", "2"));   /* out of range */
+    ASSERT(strcmp(base.ambience, "hum") == 0);
+
+    ZoneList zones;
+    zone_list_init(&zones);
+    EnvZone cave;
+    ASSERT(zone_from_keys(&cave, vec3(0, 0, 0), vec3(5, 3, 5), &base, "reverb=0.8 ambience=drip"));
+    zone_add(&zones, cave);
+
+    Environment inside = environment_for_view(&base, &zones, vec3(1, 1, 1));
+    ASSERT_NEAR(inside.reverb, 0.8f, 1e-6f);
+    ASSERT(strcmp(inside.ambience, "drip") == 0);
+    Environment outside = environment_for_view(&base, &zones, vec3(9, 1, 9));
+    ASSERT(strcmp(outside.ambience, "hum") == 0);
+    zone_list_free(&zones);
+}
+
 TEST(test_env_blend) {
     Environment a = environment_default();
     Environment b = a;
@@ -150,6 +173,7 @@ int main(void) {
     RUN_TEST(test_env_from_level_file);
     RUN_TEST(test_env_from_map_worldspawn);
     RUN_TEST(test_env_zones);
+    RUN_TEST(test_env_sound);
     RUN_TEST(test_env_blend);
     RUN_TEST(test_env_zone_loading);
     TEST_REPORT();

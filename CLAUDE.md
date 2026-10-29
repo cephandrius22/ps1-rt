@@ -61,7 +61,7 @@ on the include path, so headers are included by bare name (`"scene.h"`).
 
 ### Core Pipeline
 
-`main.c` per frame: `input_poll()` → hot reload check (`filewatch_poll()` → `game_reload()`) → `game_update()` → events to presentation (`play_event_sounds()`, `play_event_effects()` shake/flash, `spawn_event_particles()`) → camera = `game_view()` + shake → `render_scene_lit_mt()` (color + depth) → `particles_draw()` → `overlay_draw()` (viewmodel, flash, HUD, F3 lines) → SDL present
+`main.c` per frame: `input_poll()` → hot reload check (`filewatch_poll()` → `game_reload()`) → `game_update()` → events to presentation (`play_event_sounds()` placed by `play_at()`, `play_event_effects()` shake/flash, `spawn_event_particles()`) → camera = `game_view()` + shake → view environment faded toward the camera's zone (`fade_view_env()`: fog, reverb, ambience loop) → `render_scene_lit_mt()` (color + depth) → `particles_draw()` → `overlay_draw()` (viewmodel, flash, HUD, F3 lines) → SDL present
 
 `game_update()` runs 0..`GAME_MAX_TICKS_PER_FRAME` fixed ticks at `GAME_TICK_HZ` (60). Each `game_tick()`: entities → `logic_update()` (doors, buttons, triggers) → lights → rebuild dynamic BVH + sprites → then by `GameMode`:
 - `GAME_PLAYING`: AI → use (`logic_use()`) → player (exit pad → `GAME_LEVEL_END`; new weapon pickups → switch) → weapon select → weapon (muzzle flash light, noise wakes enemies via `ai_hear()`, rocket launch request) → `resolve_impacts()` → `projectile_update()` → player dead → `GAME_DEAD`. Kills are counted from `EV_ENEMY_DIED` events; on-screen notices (`game_message()`) are written from this tick's events.
@@ -112,7 +112,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `event` | `GameEvent` queue: gameplay pushes, presentation drains each frame |
 | `cmd` | `PlayerCmd`: move axes, look deltas, button bitmask (held + impulse) |
 | `input` | SDL2 keyboard/mouse → `PlayerCmd`, relative mouse mode |
-| `audio` | 8-voice mixer via SDL2 audio callback, procedural sound gen, WAV loader ready |
+| `audio` | 8-voice stereo mixer via SDL2 audio callback (`audio_mix()`, testable without a device): per-voice pan, volume changes, reverb (two cross-fed delay lines); procedural sounds incl. ambient loops (drone, drip, hum); WAV loader ready |
 | `threadpool` | pthread fork-join pool, generation-based sync, splits scanlines across workers |
 
 ### Key Patterns
@@ -164,12 +164,14 @@ ambient <level>
 fog <start_m> <end_m> <r> <g> <b>
 sun <dx> <dy> <dz> <r> <g> <b> <intensity>   # direction toward the sun; 0 = none
 sky <top r g b> <horizon r g b>
-zone <x1> <y1> <z1> <x2> <y2> <z2> [ambient=<a>] [fog="<start> <end> <r> <g> <b>"]
+reverb <0..1>
+ambience <drone|drip|hum|none>
+zone <x1> <y1> <z1> <x2> <y2> <z2> [ambient=<a>] [fog="<start> <end> <r> <g> <b>"] [reverb=<r>] [ambience=<name>]
 ```
 
 Environment lines are optional; anything left out keeps `environment_default()`. Indoor levels should set the sun's intensity to 0: it can't reach them and its shadow ray costs ~15% of a frame. In `.map` files the same four are worldspawn keys (fog distances in units, sun direction in map axes).
 
-Zones are areas with their own light level and/or fog, like Doom sectors (`env_zone` brush entity in `.map`, textured `trigger`). A surface takes the ambient of the zone it's in; fog follows the zone the camera is in, faded by `main.c:fade_view_env()` (presentation; passed to render in `RenderView.env`). Overlapping zones: the later one wins.
+Zones are areas with their own light level, fog and/or sound (reverb, ambient loop), like Doom sectors (`env_zone` brush entity in `.map`, textured `trigger`). A surface takes the ambient of the zone it's in; fog follows the zone the camera is in, faded by `main.c:fade_view_env()` (presentation; passed to render in `RenderView.env`). Overlapping zones: the later one wins.
 
 Entity types (all take `rot=` (radians) and `mat=<material or texture name>`; without `mat=` the type's default material is used; values with spaces go in quotes, `message="Like this"`):
 
@@ -220,7 +222,7 @@ Setup once: `make editor`, then in TrenchBroom Preferences → RT → Game Path 
 
 **Wiring a level:** give a trigger/button `target=X`; give doors, monsters or lights `targetname=X`. The checker warns about targets that name nothing, named doors/monsters nothing targets, keyed doors whose keycard isn't placed, and exits you can't walk to.
 
-**New sound:** Add to `SoundID` enum, generate in `audio_generate_sounds()` or load WAV via `audio_load_wav()`. Push a `GameEvent` from gameplay and map it in `play_event_sounds()`.
+**New sound:** Add to `SoundID` enum, generate in `audio_generate_sounds()` or load WAV via `audio_load_wav()`. Push a `GameEvent` (with its `pos`) from gameplay and map it in `play_event_sounds()`; `play_at()` sets volume by distance and pan by direction from the listener. A new ambient loop also needs a row in `ambience_sounds[]` (main.c) so levels can name it.
 
 **New PS1 effect:** Add to `ps1_effects.c`. Current effects are applied per-vertex (jitter) or per-pixel (dither/quantize).
 

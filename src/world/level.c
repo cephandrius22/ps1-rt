@@ -340,14 +340,14 @@ static void parse_zone(const char *line, Scene *scene) {
 
     EnvZone zone;
     if (!zone_from_keys(&zone, lo, hi, &scene->env, line)) {
-        fprintf(stderr, "level: zone sets neither ambient nor fog: %.60s\n", line);
+        fprintf(stderr, "level: zone sets no ambient, fog, reverb or ambience: %.60s\n", line);
         return;
     }
     zone_add(&scene->zones, zone);
 }
 
 static bool is_environment(const char *line) {
-    static const char *keys[] = {"ambient ", "fog ", "sun ", "sky "};
+    static const char *keys[] = {"ambient ", "fog ", "sun ", "sky ", "reverb ", "ambience "};
     for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) {
         if (strncmp(line, keys[i], strlen(keys[i])) == 0) {
             return true;

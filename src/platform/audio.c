@@ -181,6 +181,55 @@ static void gen_ambient(Sound *s) {
     }
 }
 
+#define LOOP_LEN  3.0f /* seconds; loops fade at both ends to join seamlessly */
+#define LOOP_FADE 0.1f
+
+static float loop_fade(float t) {
+    if (t < LOOP_FADE) {
+        return t / LOOP_FADE;
+    }
+    if (t > LOOP_LEN - LOOP_FADE) {
+        return (LOOP_LEN - t) / LOOP_FADE;
+    }
+    return 1.0f;
+}
+
+/* Sparse drops: short falling pings at a few fixed times, faint air */
+static void gen_ambient_drip(Sound *s) {
+    static const float drops[] = {0.35f, 1.1f, 1.45f, 2.3f};
+    *s = make_sound(AUDIO_SAMPLE_RATE, LOOP_LEN);
+    if (!s->samples) {
+        return;
+    }
+    for (int i = 0; i < s->length; i++) {
+        float t = (float)i / s->sample_rate;
+        float val = ((float)(rand() % 20000) - 10000) / 10000.0f * 0.02f;
+        for (size_t d = 0; d < sizeof(drops) / sizeof(drops[0]); d++) {
+            float dt = t - drops[d];
+            if (dt >= 0 && dt < 0.15f) {
+                float freq = 1400.0f - dt * 3000.0f; /* pitch falls: a drop */
+                val += sinf(dt * freq * 6.28f) * expf(-dt * 35.0f) * 0.6f;
+            }
+        }
+        s->samples[i] = (int16_t)(val * loop_fade(t) * 9000.0f);
+    }
+}
+
+/* Mains hum: 50 Hz with harmonics and a slow beat */
+static void gen_ambient_hum(Sound *s) {
+    *s = make_sound(AUDIO_SAMPLE_RATE, LOOP_LEN);
+    if (!s->samples) {
+        return;
+    }
+    for (int i = 0; i < s->length; i++) {
+        float t = (float)i / s->sample_rate;
+        float beat = 0.8f + 0.2f * sinf(t * 2.0f / LOOP_LEN * 6.28f);
+        float val = (sinf(t * 50.0f * 6.28f) * 0.4f + sinf(t * 100.0f * 6.28f) * 0.25f +
+                     sinf(t * 150.0f * 6.28f) * 0.1f) * beat;
+        s->samples[i] = (int16_t)(val * loop_fade(t) * 7000.0f);
+    }
+}
+
 static void gen_dry_fire(Sound *s) {
     *s = make_sound(AUDIO_SAMPLE_RATE, 0.05f);
     if (!s->samples) {
@@ -291,6 +340,8 @@ void audio_generate_sounds(Sound sounds[SND_COUNT]) {
     gen_switch(&sounds[SND_SWITCH]);
     gen_glass(&sounds[SND_GLASS]);
     gen_ambient(&sounds[SND_AMBIENT]);
+    gen_ambient_drip(&sounds[SND_AMBIENT_DRIP]);
+    gen_ambient_hum(&sounds[SND_AMBIENT_HUM]);
     gen_dry_fire(&sounds[SND_DRY_FIRE]);
 
     /*                                         dur    f0     f1    rasp  noise gain */
@@ -320,43 +371,84 @@ void sound_free(Sound *s) {
     s->length = 0;
 }
 
-/* --- SDL2 audio callback --- */
+/* --- Mixing --- */
+
+#define ECHO_LEFT       1543   /* delay lengths in samples: unequal, so the */
+#define ECHO_RIGHT      1867   /* tail doesn't ring at one pitch (~70/85 ms) */
+#define ECHO_WET_MAX    0.6f   /* echo level at amount 1 */
+#define ECHO_FEED_BASE  0.3f   /* feedback: how long the tail lasts */
+#define ECHO_FEED_RANGE 0.4f
+#define ECHO_INPUT      0.5f   /* share of the dry signal fed into the echo */
+
+_Static_assert(ECHO_LEFT < AUDIO_ECHO_MAX && ECHO_RIGHT < AUDIO_ECHO_MAX,
+               "echo delays must fit their buffers");
+
+static float clamp_sample(float v) {
+    return v > 32767.0f ? 32767.0f : v < -32768.0f ? -32768.0f : v;
+}
+
+/* Constant-power pan: the voice keeps its loudness as it moves across */
+static void pan_gains(float pan, float *left, float *right) {
+    float p = pan < -1 ? -1 : pan > 1 ? 1 : pan;
+    *left = sqrtf((1.0f - p) * 0.5f);
+    *right = sqrtf((1.0f + p) * 0.5f);
+}
+
+/* Next sample of a voice (0 once it ends), advancing it */
+static float voice_next(Voice *voice) {
+    const Sound *snd = voice->sound;
+    if (voice->position >= snd->length) {
+        if (!voice->looping) {
+            voice->sound = NULL;
+            return 0;
+        }
+        voice->position = 0;
+    }
+    return snd->samples[voice->position++] * voice->volume;
+}
+
+/* Two delay lines, each fed by the other: a wide, diffuse tail */
+static void echo(Reverb *r, float *left, float *right) {
+    if (r->amount <= 0) {
+        return;
+    }
+    float wet = r->amount * ECHO_WET_MAX;
+    float feed = ECHO_FEED_BASE + ECHO_FEED_RANGE * r->amount;
+    float dl = r->left[r->pos_left];
+    float dr = r->right[r->pos_right];
+
+    r->left[r->pos_left] = *left * ECHO_INPUT + dr * feed;
+    r->right[r->pos_right] = *right * ECHO_INPUT + dl * feed;
+    r->pos_left = (r->pos_left + 1) % ECHO_LEFT;
+    r->pos_right = (r->pos_right + 1) % ECHO_RIGHT;
+
+    *left += dl * wet;
+    *right += dr * wet;
+}
+
+void audio_mix(AudioSystem *audio, int16_t *out, int frames) {
+    for (int i = 0; i < frames; i++) {
+        float left = 0, right = 0;
+        for (int v = 0; v < AUDIO_MAX_VOICES; v++) {
+            Voice *voice = &audio->voices[v];
+            if (!voice->sound) {
+                continue;
+            }
+            float sample = voice_next(voice);
+            float gl, gr;
+            pan_gains(voice->pan, &gl, &gr);
+            left += sample * gl;
+            right += sample * gr;
+        }
+        echo(&audio->reverb, &left, &right);
+        out[i * AUDIO_CHANNELS] = (int16_t)clamp_sample(left);
+        out[i * AUDIO_CHANNELS + 1] = (int16_t)clamp_sample(right);
+    }
+}
 
 static void audio_callback(void *userdata, Uint8 *stream, int len) {
-    AudioSystem *audio = userdata;
-    int sample_count = len / (int)sizeof(int16_t);
-    int16_t *out = (int16_t *)stream;
-
-    memset(stream, 0, (size_t)len);
-
-    for (int v = 0; v < AUDIO_MAX_VOICES; v++) {
-        Voice *voice = &audio->voices[v];
-        if (!voice->sound) {
-            continue;
-        }
-
-        const Sound *snd = voice->sound;
-        for (int i = 0; i < sample_count; i++) {
-            if (voice->position >= snd->length) {
-                if (voice->looping) {
-                    voice->position = 0;
-                } else {
-                    voice->sound = NULL;
-                    break;
-                }
-            }
-            /* Mix into output (clamp to int16 range) */
-            int32_t mixed = out[i] + (int32_t)(snd->samples[voice->position] * voice->volume);
-            if (mixed > 32767) {
-                mixed = 32767;
-            }
-            if (mixed < -32768) {
-                mixed = -32768;
-            }
-            out[i] = (int16_t)mixed;
-            voice->position++;
-        }
-    }
+    int frames = len / (int)(sizeof(int16_t) * AUDIO_CHANNELS);
+    audio_mix(userdata, (int16_t *)stream, frames);
 }
 
 /* --- Public API --- */
@@ -371,7 +463,7 @@ int audio_init(AudioSystem *audio) {
     memset(&want, 0, sizeof(want));
     want.freq = AUDIO_SAMPLE_RATE;
     want.format = AUDIO_S16SYS;
-    want.channels = 1;
+    want.channels = AUDIO_CHANNELS;
     want.samples = 1024;
     want.callback = audio_callback;
     want.userdata = audio;
@@ -399,63 +491,56 @@ void audio_shutdown(AudioSystem *audio) {
     audio->initialized = false;
 }
 
-int audio_play(AudioSystem *audio, SoundID id, float volume) {
-    if (!audio->initialized) {
-        return -1;
-    }
-    if (id < 0 || id >= SND_COUNT) {
-        return -1;
-    }
-    if (!audio->sounds[id].samples) {
+/* Claim a free voice for a sound; -1 if none (or no device/sound) */
+static int start_voice(AudioSystem *audio, SoundID id, float volume, float pan, bool looping) {
+    if (!audio->initialized || id < 0 || id >= SND_COUNT || !audio->sounds[id].samples) {
         return -1;
     }
 
-    /* Find a free voice */
     SDL_LockAudioDevice(audio->device_id);
     int slot = -1;
-    for (int i = 0; i < AUDIO_MAX_VOICES; i++) {
+    for (int i = 0; i < AUDIO_MAX_VOICES && slot < 0; i++) {
         if (!audio->voices[i].sound) {
             slot = i;
-            break;
         }
     }
     if (slot >= 0) {
-        audio->voices[slot].sound = &audio->sounds[id];
-        audio->voices[slot].position = 0;
-        audio->voices[slot].volume = volume;
-        audio->voices[slot].looping = false;
+        audio->voices[slot] = (Voice){.sound = &audio->sounds[id], .volume = volume,
+                                      .pan = pan, .looping = looping};
     }
     SDL_UnlockAudioDevice(audio->device_id);
     return slot;
 }
 
-int audio_play_loop(AudioSystem *audio, SoundID id, float volume) {
-    if (!audio->initialized) {
-        return -1;
-    }
-    if (id < 0 || id >= SND_COUNT) {
-        return -1;
-    }
-    if (!audio->sounds[id].samples) {
-        return -1;
-    }
+int audio_play(AudioSystem *audio, SoundID id, float volume) {
+    return start_voice(audio, id, volume, 0, false);
+}
 
+int audio_play_at(AudioSystem *audio, SoundID id, float volume, float pan) {
+    return start_voice(audio, id, volume, pan, false);
+}
+
+int audio_play_loop(AudioSystem *audio, SoundID id, float volume) {
+    return start_voice(audio, id, volume, 0, true);
+}
+
+void audio_set_volume(AudioSystem *audio, int voice, float volume) {
+    if (!audio->initialized || voice < 0 || voice >= AUDIO_MAX_VOICES) {
+        return;
+    }
     SDL_LockAudioDevice(audio->device_id);
-    int slot = -1;
-    for (int i = 0; i < AUDIO_MAX_VOICES; i++) {
-        if (!audio->voices[i].sound) {
-            slot = i;
-            break;
-        }
-    }
-    if (slot >= 0) {
-        audio->voices[slot].sound = &audio->sounds[id];
-        audio->voices[slot].position = 0;
-        audio->voices[slot].volume = volume;
-        audio->voices[slot].looping = true;
-    }
+    audio->voices[voice].volume = volume;
     SDL_UnlockAudioDevice(audio->device_id);
-    return slot;
+}
+
+void audio_set_reverb(AudioSystem *audio, float amount) {
+    if (!audio->initialized) {
+        audio->reverb.amount = amount; /* no device: nothing to lock against */
+        return;
+    }
+    SDL_LockAudioDevice(audio->device_id);
+    audio->reverb.amount = amount;
+    SDL_UnlockAudioDevice(audio->device_id);
 }
 
 void audio_stop(AudioSystem *audio, int voice) {

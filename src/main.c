@@ -152,32 +152,54 @@ static SoundID burst_sound(const Game *g, int projectile) {
     return kind == PROJECTILE_SPIT ? SND_SPIT_SPLAT : SND_EXPLOSION;
 }
 
+/* --- Sound in space: louder near, panned toward where it happened --- */
+
+#define NEAR_FIELD  2.0f /* meters: full volume, centered (your own steps, shots) */
+#define HEARING_REF 6.0f /* meters past the near field to half volume */
+
+static void play_at(AudioSystem *audio, SoundID id, float volume, Pose ear, Vec3 pos) {
+    Vec3 to = vec3_sub(pos, ear.pos);
+    Vec3 flat = vec3(to.x, 0, to.z);
+    float dist = vec3_length(to);
+    float far = fmaxf(dist - NEAR_FIELD, 0.0f);
+    float gain = 1.0f / (1.0f + far / HEARING_REF);
+
+    /* Right of the view (yaw 0 faces -Z, so right is +X) */
+    Vec3 right = vec3(cosf(ear.yaw), 0, -sinf(ear.yaw));
+    float flat_len = vec3_length(flat);
+    float pan = flat_len > 1e-3f ? vec3_dot(flat, right) / flat_len : 0;
+    pan *= fminf(dist / NEAR_FIELD, 1.0f); /* close sounds stay centered */
+
+    audio_play_at(audio, id, volume * gain, pan);
+}
+
 static void play_event_sounds(AudioSystem *audio, const EventQueue *events, const Game *g) {
+    Pose ear = g->player.view;
     for (int i = 0; i < events->count; i++) {
         const GameEvent *ev = &events->items[i];
         switch (ev->type) {
         case EV_WEAPON_FIRED:
-            audio_play(audio, weapon_fire_sounds[g->weapon.type], 0.8f);
+            play_at(audio, weapon_fire_sounds[g->weapon.type], 0.8f, ear, ev->pos);
             break;
-        case EV_EXPLOSION:     audio_play(audio, burst_sound(g, ev->entity), 0.9f); break;
-        case EV_WEAPON_IMPACT: audio_play(audio, SND_WEAPON_IMPACT, 0.5f); break;
-        case EV_WEAPON_EMPTY:  audio_play(audio, SND_DRY_FIRE, 0.6f);     break;
-        case EV_FOOTSTEP:      audio_play(audio, SND_FOOTSTEP, 0.4f);     break;
-        case EV_PICKUP:        audio_play(audio, SND_PICKUP, 0.6f);       break;
+        case EV_EXPLOSION:     play_at(audio, burst_sound(g, ev->entity), 0.9f, ear, ev->pos); break;
+        case EV_WEAPON_IMPACT: play_at(audio, SND_WEAPON_IMPACT, 0.5f, ear, ev->pos); break;
+        case EV_WEAPON_EMPTY:  play_at(audio, SND_DRY_FIRE, 0.6f, ear, ev->pos);     break;
+        case EV_FOOTSTEP:      play_at(audio, SND_FOOTSTEP, 0.4f, ear, ev->pos);     break;
+        case EV_PICKUP:        play_at(audio, SND_PICKUP, 0.6f, ear, ev->pos);       break;
         case EV_WEAPON_PICKUP: break; /* EV_PICKUP already plays the pickup sound */
-        case EV_DOOR_OPENED:   audio_play(audio, SND_DOOR_OPEN, 0.7f);    break;
-        case EV_DOOR_CLOSED:   audio_play(audio, SND_DOOR_CLOSE, 0.7f);   break;
-        case EV_LOCKED:        audio_play(audio, SND_DOOR_LOCKED, 0.7f);  break;
-        case EV_BUTTON_PRESSED: audio_play(audio, SND_SWITCH, 0.7f);      break;
-        case EV_LIGHT_SHOT:    audio_play(audio, SND_GLASS, 0.8f);        break;
+        case EV_DOOR_OPENED:   play_at(audio, SND_DOOR_OPEN, 0.7f, ear, ev->pos);    break;
+        case EV_DOOR_CLOSED:   play_at(audio, SND_DOOR_CLOSE, 0.7f, ear, ev->pos);   break;
+        case EV_LOCKED:        play_at(audio, SND_DOOR_LOCKED, 0.7f, ear, ev->pos);  break;
+        case EV_BUTTON_PRESSED: play_at(audio, SND_SWITCH, 0.7f, ear, ev->pos);      break;
+        case EV_LIGHT_SHOT:    play_at(audio, SND_GLASS, 0.8f, ear, ev->pos);        break;
         case EV_TRIGGERED:     break; /* game.c shows its message */
-        case EV_PLAYER_HURT:   audio_play(audio, SND_PLAYER_PAIN, 0.7f);  break;
-        case EV_PLAYER_DIED:   audio_play(audio, SND_PLAYER_DEATH, 0.8f); break;
-        case EV_ENEMY_ALERT:   audio_play(audio, sounds_of(g, ev->entity)->alert, 0.7f);  break;
-        case EV_ENEMY_ATTACK:  audio_play(audio, sounds_of(g, ev->entity)->attack, 0.7f); break;
-        case EV_ENEMY_PAIN:    audio_play(audio, sounds_of(g, ev->entity)->pain, 0.6f);   break;
-        case EV_ENEMY_DIED:    audio_play(audio, sounds_of(g, ev->entity)->death, 0.8f);  break;
-        case EV_LEVEL_EXIT:    audio_play(audio, SND_DOOR_OPEN, 0.8f);    break;
+        case EV_PLAYER_HURT:   play_at(audio, SND_PLAYER_PAIN, 0.7f, ear, ev->pos);  break;
+        case EV_PLAYER_DIED:   play_at(audio, SND_PLAYER_DEATH, 0.8f, ear, ev->pos); break;
+        case EV_ENEMY_ALERT:   play_at(audio, sounds_of(g, ev->entity)->alert, 0.7f, ear, ev->pos);  break;
+        case EV_ENEMY_ATTACK:  play_at(audio, sounds_of(g, ev->entity)->attack, 0.7f, ear, ev->pos); break;
+        case EV_ENEMY_PAIN:    play_at(audio, sounds_of(g, ev->entity)->pain, 0.6f, ear, ev->pos);   break;
+        case EV_ENEMY_DIED:    play_at(audio, sounds_of(g, ev->entity)->death, 0.8f, ear, ev->pos);  break;
+        case EV_LEVEL_EXIT:    play_at(audio, SND_DOOR_OPEN, 0.8f, ear, ev->pos);    break;
         }
     }
 }
@@ -210,6 +232,58 @@ static float low_health_drain(float health) {
         return 0; /* dead: the red death tint takes over */
     }
     return (1.0f - health / LOW_HEALTH) * LOW_HEALTH_DRAIN;
+}
+
+/* --- Ambience: the listener's zone names a background loop; loops
+ * crossfade over AMBIENCE_FADE so walking between rooms never cuts --- */
+
+#define AMBIENCE_VOLUME 0.3f
+#define AMBIENCE_FADE   1.5f /* seconds from silent to full */
+
+typedef struct {
+    const char *name;  /* as levels write it (environment.h) */
+    SoundID sound;
+} AmbienceSound;
+
+static const AmbienceSound ambience_sounds[] = {
+    {"drone", SND_AMBIENT},
+    {"drip",  SND_AMBIENT_DRIP},
+    {"hum",   SND_AMBIENT_HUM},
+};
+
+#define AMBIENCE_COUNT ((int)(sizeof(ambience_sounds) / sizeof(ambience_sounds[0])))
+
+typedef struct {
+    int voice[AMBIENCE_COUNT];    /* looping voice, -1 while silent */
+    float volume[AMBIENCE_COUNT];
+} Ambience;
+
+static void ambience_init(Ambience *a) {
+    for (int k = 0; k < AMBIENCE_COUNT; k++) {
+        a->voice[k] = -1;
+        a->volume[k] = 0;
+    }
+}
+
+/* Fade the named loop up and every other one down ("none": all down) */
+static void update_ambience(Ambience *a, AudioSystem *audio, const char *name, float dt) {
+    float step = AMBIENCE_VOLUME * dt / AMBIENCE_FADE;
+    for (int k = 0; k < AMBIENCE_COUNT; k++) {
+        float target = strcmp(name, ambience_sounds[k].name) == 0 ? AMBIENCE_VOLUME : 0;
+        float v = a->volume[k];
+        a->volume[k] = v < target ? fminf(v + step, target) : fmaxf(v - step, target);
+
+        if (a->volume[k] <= 0) {
+            audio_stop(audio, a->voice[k]);
+            a->voice[k] = -1;
+            continue;
+        }
+        if (a->voice[k] < 0) {
+            a->voice[k] = audio_play_loop(audio, ambience_sounds[k].sound, a->volume[k]);
+            continue;
+        }
+        audio_set_volume(audio, a->voice[k], a->volume[k]);
+    }
 }
 
 /* HUD colors per keycard, matching the keycard sprites */
@@ -388,6 +462,8 @@ int main(int argc, char *argv[]) {
     ViewAnim view_anim = {0};
     ScreenFx fx = {0};
     ViewEnv view_env = {0};
+    Ambience ambience;
+    ambience_init(&ambience);
     static ParticleSystem particles;
     particles_init(&particles, (uint32_t)SDL_GetTicks());
 
@@ -415,7 +491,6 @@ int main(int argc, char *argv[]) {
     AudioSystem audio;
     if (audio_init(&audio) == 0) {
         printf("Audio initialized\n");
-        audio_play_loop(&audio, SND_AMBIENT, 0.3f);
     } else {
         printf("Audio init failed (continuing without sound)\n");
     }
@@ -467,6 +542,8 @@ int main(int argc, char *argv[]) {
         Camera cam = camera_from_pose(view, VIEW_FOV);
         Light flashlight = player_flashlight(&game.player, view);
         fade_view_env(&view_env, &game.scene, cam.position, dt);
+        audio_set_reverb(&audio, view_env.env.reverb);
+        update_ambience(&ambience, &audio, view_env.env.ambience, dt);
         RenderView render_view = {.carried = &flashlight, .env = &view_env.env,
                                   .affine = affine};
         render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool, &render_view);

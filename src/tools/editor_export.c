@@ -110,14 +110,18 @@ static void write_builtin_classes(FILE *out) {
           "\tambient(float) : \"Light everywhere\" : \"0.04\"\n"
           "\tfog(string) : \"Fog: start end (units) r g b\" : \"256 704 0.04 0.03 0.02\"\n"
           "\tsun(string) : \"Sun: direction (map axes) r g b intensity; 0 = none\" : \"0.5 0.3 1 1 0.95 0.7 0.15\"\n"
-          "\tsky(string) : \"Sky: top r g b, horizon r g b\" : \"0.02 0.01 0.04 0.08 0.06 0.03\"\n]\n"
+          "\tsky(string) : \"Sky: top r g b, horizon r g b\" : \"0.02 0.01 0.04 0.08 0.06 0.03\"\n"
+          "\treverb(float) : \"Echo, 0 dry .. 1 cavernous\" : \"0.15\"\n"
+          "\tambience(string) : \"Background loop: drone, drip, hum, none\" : \"drone\"\n]\n"
           "@SolidClass = func_group : \"Group (static geometry)\" []\n"
           "@SolidClass = func_detail : \"Detail (static geometry)\" []\n\n", out);
 
     fputs("@SolidClass color(80 120 160) = env_zone : \"Area with its own light level and fog "
           "(texture it trigger)\"\n[\n"
           "\tambient(float) : \"Light everywhere inside (empty = level's)\" : \"\"\n"
-          "\tfog(string) : \"Fog while the camera is inside: start end (units) r g b\" : \"\"\n]\n\n",
+          "\tfog(string) : \"Fog while the camera is inside: start end (units) r g b\" : \"\"\n"
+          "\treverb(float) : \"Echo while inside, 0..1 (empty = level's)\" : \"\"\n"
+          "\tambience(string) : \"Background loop while inside (empty = level's)\" : \"\"\n]\n\n",
           out);
 
     fprintf(out, "@PointClass size(-16 -16 0, 16 16 %d) color(0 255 0) = info_player_start : "

@@ -8,6 +8,8 @@
 #define SUN_INTENSITY_DEF 0.15f
 #define FOG_START_DEF     8.0f
 #define FOG_END_DEF       22.0f
+#define REVERB_DEF        0.15f
+#define AMBIENCE_DEF      "drone"
 
 Environment environment_default(void) {
     return (Environment){
@@ -20,6 +22,8 @@ Environment environment_default(void) {
         .fog_end = FOG_END_DEF,
         .sky_top = vec3(0.02f, 0.01f, 0.04f),
         .sky_horizon = vec3(0.08f, 0.06f, 0.03f),
+        .reverb = REVERB_DEF,
+        .ambience = AMBIENCE_DEF,
     };
 }
 
@@ -68,6 +72,24 @@ static bool set_sky(Environment *env, const char *value) {
     return true;
 }
 
+static bool set_reverb(Environment *env, const char *value) {
+    float r;
+    if (sscanf(value, "%f", &r) != 1 || r < 0 || r > 1) {
+        return false;
+    }
+    env->reverb = r;
+    return true;
+}
+
+static bool set_ambience(Environment *env, const char *value) {
+    char name[ENV_NAME_MAX];
+    if (sscanf(value, "%15s", name) != 1) {
+        return false;
+    }
+    snprintf(env->ambience, sizeof(env->ambience), "%s", name);
+    return true;
+}
+
 typedef struct {
     const char *key;
     bool (*set)(Environment *env, const char *value);
@@ -78,6 +100,8 @@ static const EnvKey env_keys[] = {
     {"fog", set_fog},
     {"sun", set_sun},
     {"sky", set_sky},
+    {"reverb", set_reverb},
+    {"ambience", set_ambience},
 };
 
 bool environment_set(Environment *env, const char *key, const char *value) {
@@ -104,6 +128,7 @@ Environment environment_blend(const Environment *a, const Environment *b, float 
     out.fog_start = a->fog_start + (b->fog_start - a->fog_start) * t;
     out.fog_end = a->fog_end + (b->fog_end - a->fog_end) * t;
     out.fog_color = vec3_lerp(a->fog_color, b->fog_color, t);
+    out.reverb = a->reverb + (b->reverb - a->reverb) * t;
     return out;
 }
 
@@ -148,6 +173,14 @@ bool zone_from_keys(EnvZone *zone, Vec3 lo, Vec3 hi, const Environment *base,
         environment_set(&zone->env, "fog", value)) {
         zone->sets |= ZONE_SETS_FOG;
     }
+    if (kv_string(args, "reverb", value, sizeof(value)) &&
+        environment_set(&zone->env, "reverb", value)) {
+        zone->sets |= ZONE_SETS_SOUND;
+    }
+    if (kv_string(args, "ambience", value, sizeof(value)) &&
+        environment_set(&zone->env, "ambience", value)) {
+        zone->sets |= ZONE_SETS_SOUND;
+    }
     return zone->sets != 0;
 }
 
@@ -180,6 +213,11 @@ Environment environment_for_view(const Environment *base, const ZoneList *zones,
         env.fog_color = z->env.fog_color;
         env.fog_start = z->env.fog_start;
         env.fog_end = z->env.fog_end;
+    }
+    const EnvZone *sound = zone_at(zones, p, ZONE_SETS_SOUND);
+    if (sound) {
+        env.reverb = sound->env.reverb;
+        snprintf(env.ambience, sizeof(env.ambience), "%s", sound->env.ambience);
     }
     return env;
 }

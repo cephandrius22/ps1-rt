@@ -447,10 +447,13 @@ static void apply_environment(MapLoader *ml, const KeyValues *kvs) {
     Environment *env = &ml->scene->env;
     char value[MAP_VALUE_MAX];
 
-    const char *ambient = kv_get(kvs, "ambient", NULL);
-    const char *sky = kv_get(kvs, "sky", NULL);
-    bool ok = (!ambient || environment_set(env, "ambient", ambient)) &&
-              (!sky || environment_set(env, "sky", sky));
+    /* Unit-free keys go straight through */
+    static const char *plain[] = {"ambient", "sky", "reverb", "ambience"};
+    bool ok = true;
+    for (size_t i = 0; i < sizeof(plain) / sizeof(plain[0]); i++) {
+        const char *value = kv_get(kvs, plain[i], NULL);
+        ok &= !value || environment_set(env, plain[i], value);
+    }
 
     const char *fog = kv_get(kvs, "fog", NULL);
     float start, end, r, g, b;
@@ -474,7 +477,7 @@ static void apply_environment(MapLoader *ml, const KeyValues *kvs) {
     }
 
     if (!ok) {
-        fprintf(stderr, "map: worldspawn has a malformed ambient/fog/sun/sky key\n");
+        fprintf(stderr, "map: worldspawn has a malformed environment key\n");
     }
 }
 
@@ -657,7 +660,9 @@ static void spawn_zone(MapLoader *ml, const KeyValues *kvs, const BrushModel *mo
     }
 
     char args[MAP_ARGS_MAX];
-    int len = snprintf(args, sizeof(args), "ambient=%s ", kv_get(kvs, "ambient", ""));
+    int len = snprintf(args, sizeof(args), "ambient=%s reverb=%s ambience=%s ",
+                       kv_get(kvs, "ambient", ""), kv_get(kvs, "reverb", ""),
+                       kv_get(kvs, "ambience", ""));
     const char *fog = kv_get(kvs, "fog", NULL);
     float start, end, r, g, b;
     if (fog && sscanf(fog, "%f %f %f %f %f", &start, &end, &r, &g, &b) == 5) {
@@ -668,7 +673,7 @@ static void spawn_zone(MapLoader *ml, const KeyValues *kvs, const BrushModel *mo
     EnvZone zone;
     Scene *scene = ml->scene;
     if (!zone_from_keys(&zone, model->lo, model->hi, &scene->env, args)) {
-        fprintf(stderr, "map: " ZONE_CLASS " sets neither ambient nor fog\n");
+        fprintf(stderr, "map: " ZONE_CLASS " sets no ambient, fog, reverb or ambience\n");
         return;
     }
     zone_add(&scene->zones, zone);
