@@ -26,7 +26,10 @@ carry over to the next map; dying restarts the map with what you brought
 into it. Between maps a tally shows kills, secrets found and your time;
 click to go on.
 
-For a straight fight outside the episode, try `./rt levels/arena.map`. See `ROADMAP.md` for
+For a straight fight outside the episode, try `./rt levels/arena.map`.
+`./rt levels/chapel.map` is a small church-themed map: a candlelit nave,
+a moonlit graveyard (the crypt key is there) and a crypt down the west
+stair. See `ROADMAP.md` for
 where it's heading.
 
 ## Features

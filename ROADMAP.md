@@ -30,6 +30,9 @@ playable soonest. Each phase ends in something you can play.
 - Title, pause, options and save/load menus; settings file; save
   anywhere, F5/F9 quicksave
 - Level file format, procedural textures (industrial and church sets)
+- Church theme: textures, decor sprites (a candelabra that lights
+  itself, gravestones, a statue), wind/organ/bell ambience, and
+  `levels/chapel.map` to try them
 - Multithreaded rendering
 
 ## Phase 0: Structure ✅

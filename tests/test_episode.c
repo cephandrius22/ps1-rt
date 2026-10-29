@@ -41,27 +41,43 @@ TEST(test_episode_single) {
     ASSERT(!episode_is_file("levels/arena.map"));
 }
 
-/* Every map of the shipped episode loads and passes the level checker
- * (spawn, exit reachable on foot, wiring, budgets) */
+#define CHECK_TMP "build/tests/episode_check.txt"
+
+/* Checker warnings for a level (spawn, exit reachable on foot, wiring,
+ * budgets); -1 if it doesn't load */
+static int map_warnings(const char *path) {
+    BodySize player = {PLAYER_RADIUS, PLAYER_HEIGHT};
+    Scene s;
+    scene_init(&s);
+    LevelInfo info;
+    if (level_load(&s, path, &info) != 0) {
+        scene_free(&s);
+        return -1;
+    }
+    FILE *out = fopen(CHECK_TMP, "w");
+    int warnings = level_check(&s, &info, player, out);
+    fclose(out);
+    remove(CHECK_TMP);
+    scene_free(&s);
+    if (warnings != 0) {
+        printf("\n    %s: %d checker warnings\n", path, warnings);
+    }
+    return warnings;
+}
+
+/* Every map of the shipped episode loads and passes the level checker */
 TEST(test_episode_shipped_maps_clean) {
     Episode ep;
     ASSERT(episode_load(&ep, "levels/episode1.txt"));
-    BodySize player = {PLAYER_RADIUS, PLAYER_HEIGHT};
     for (int i = 0; i < ep.count; i++) {
-        Scene s;
-        scene_init(&s);
-        LevelInfo info;
-        ASSERT_EQ_INT(level_load(&s, ep.maps[i].path, &info), 0);
-        FILE *out = fopen("build/tests/episode_check.txt", "w");
-        int warnings = level_check(&s, &info, player, out);
-        fclose(out);
-        if (warnings != 0) {
-            printf("\n    %s: %d checker warnings\n", ep.maps[i].path, warnings);
-        }
-        ASSERT_EQ_INT(warnings, 0);
-        scene_free(&s);
+        ASSERT_EQ_INT(map_warnings(ep.maps[i].path), 0);
     }
-    remove("build/tests/episode_check.txt");
+}
+
+/* So do the standalone maps: the arena and the church theme map */
+TEST(test_standalone_maps_clean) {
+    ASSERT_EQ_INT(map_warnings("levels/arena.map"), 0);
+    ASSERT_EQ_INT(map_warnings("levels/chapel.map"), 0);
 }
 
 int main(void) {
@@ -70,5 +86,6 @@ int main(void) {
     RUN_TEST(test_episode_empty_or_missing);
     RUN_TEST(test_episode_single);
     RUN_TEST(test_episode_shipped_maps_clean);
+    RUN_TEST(test_standalone_maps_clean);
     TEST_REPORT();
 }
