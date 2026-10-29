@@ -92,11 +92,11 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `screenfx` | Screen shake (camera only, never aim) and full-screen color flash; decays with frame time |
 | `environment` | Level mood on `Scene.env`: ambient, sun (direction, color, intensity; 0 = no sun and no sun shadow rays), fog (start/end/color), sky gradient; set by `.level` lines or `.map` worldspawn keys (`environment_set()`). Zones (`Scene.zones`, `EnvZone` boxes) override ambient per surface and fog per eye |
 | `light` | One light model (`Light`): point or spot (`LIGHT_SPOT`: `aim`, cone), radius window + `falloff`; attenuation, flicker, swing; temporary lights with a lifetime and fade (`light_add_temporary()`), swap-removed; `targetname` + `off` (toggled by triggers) |
-| `texture` | Nearest-neighbor sampling; TGA load (levels can't reference TGA files yet) and save (editor export) |
+| `texture` | Nearest-neighbor sampling; TGA load (level textures from `textures/`) and save (editor export) |
 | `proctex` | Procedural textures: concrete, brick, metal_panel, metal_grate, rust, floor_tile, pipe; seamless animated surfaces slime, water, screen; color-keyed sprite sheets (`Sheet` helpers): barrel, ghoul + spitter (`EnemyFrame`), projectiles (`ProjectileFrame`), keycards (`KeycardFrame`), viewmodels `view_*` (`ViewFrame`) |
 | `level` | `level_load()` dispatches by extension; `.level` text loader; `level_add_brush_entity()` and `level_finish()` (jitter, textures, BVH, nav grid) shared by both loaders |
 | `mapfile` | TrenchBroom/Quake `.map` loader: brushes → triangles (plane clipping), Standard + Valve 220 UVs, point and brush entities |
-| `matlib` | Named material registry shared by both loaders; generates procedural textures on first use; entity default materials; default motion per texture (`texture_motions[]`: slime/water scroll, slime/screen glow) and `matlib_motion()` overrides |
+| `matlib` | Named material registry shared by both loaders; resolves texture names (procedural, else `textures/<name>.tga`, or a `.tga` path), generating/loading on first use; entity default materials; default motion per texture (`texture_motions[]`: slime/water scroll, slime/screen glow) and `matlib_motion()` overrides |
 | `levelcheck` | Load-time warnings (spawn/exit, stuck bodies, no floor, exit unreachable on foot, target wiring, missing keycards) and budget line (`BUDGET_*`) |
 | `filewatch` | Polls a file's mtime; reports a change once it has settled (hot reload) |
 | `editor_export` | Writes TrenchBroom textures (TGA) and `rt.fgd` from the proctex generators and `EntityDef` table |

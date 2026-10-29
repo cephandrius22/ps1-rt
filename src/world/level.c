@@ -135,6 +135,12 @@ static void parse_material(const char *line, LevelParser *p) {
     }
     int idx = matlib_add(&p->mats, name, tex_name, vec3(r, g, b));
     matlib_motion(&p->mats, idx, line);
+    bool untextured = idx != MATLIB_NONE && p->scene->materials[idx].texture_id < 0;
+    if (untextured && strcmp(tex_name, "none") != 0) {
+        fprintf(stderr, "level: unknown texture '%s' (not procedural, no "
+                MATLIB_TEXTURE_DIR "/%s.tga); material '%s' is flat color\n",
+                tex_name, tex_name, name);
+    }
 }
 
 static void parse_room(const char *line, LevelParser *p) {

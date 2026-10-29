@@ -65,9 +65,31 @@ TEST(test_material_glow_in_the_dark) {
     scene_free(&s);
 }
 
+#define TGA_TMP "build/tests/materials_wall.tga"
+
+/* A material naming a .tga path uses that file, at its own size */
+TEST(test_material_tga_file) {
+    uint8_t pixels[8 * 4 * 3];
+    for (int i = 0; i < 8 * 4 * 3; i++) {
+        pixels[i] = (uint8_t)(i * 7);
+    }
+    Texture src = {.pixels = pixels, .width = 8, .height = 4};
+    ASSERT_EQ_INT(texture_save_tga(&src, TGA_TMP), 0);
+
+    load("material wall " TGA_TMP " 1 1 1\nmaterial ghost no_such_texture 0.5 0.5 0.5\n");
+    remove(TGA_TMP);
+    const Material *wall = &s.materials[0];
+    ASSERT(wall->texture_id >= 0);
+    ASSERT_EQ_INT(s.textures[wall->texture_id].width, 8);
+    ASSERT_EQ_INT(s.textures[wall->texture_id].height, 4);
+    ASSERT_EQ_INT(s.materials[1].texture_id, -1);   /* unknown: flat color */
+    scene_free(&s);
+}
+
 int main(void) {
     TEST_SUITE("materials");
     RUN_TEST(test_material_motion_defaults_and_keys);
     RUN_TEST(test_material_glow_in_the_dark);
+    RUN_TEST(test_material_tga_file);
     TEST_REPORT();
 }

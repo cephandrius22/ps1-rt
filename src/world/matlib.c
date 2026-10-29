@@ -12,12 +12,68 @@ void matlib_init(MatLib *lib, Scene *scene) {
     }
 }
 
-/* Scene texture index for a procedural texture name, generating it on
- * first use; -1 for "none" or unknown names */
+#define TGA_EXT ".tga"
+
+static bool ends_with(const char *s, const char *tail) {
+    size_t n = strlen(s), t = strlen(tail);
+    return n >= t && strcmp(s + n - t, tail) == 0;
+}
+
+static bool file_exists(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (f) {
+        fclose(f);
+    }
+    return f != NULL;
+}
+
+/* Where a non-procedural name's TGA lives: the name itself if it is a
+ * .tga path, else textures/<name>.tga */
+static void tga_path(const char *texture, char *out, size_t size) {
+    if (ends_with(texture, TGA_EXT)) {
+        snprintf(out, size, "%s", texture);
+        return;
+    }
+    snprintf(out, size, MATLIB_TEXTURE_DIR "/%s" TGA_EXT, texture);
+}
+
+/* Scene texture index for a TGA, loading it on first use; -1 if missing */
+static int file_index(MatLib *lib, const char *texture) {
+    char path[MATLIB_PATH_MAX];
+    tga_path(texture, path, sizeof(path));
+    for (int i = 0; i < lib->file_count; i++) {
+        if (strcmp(lib->file_paths[i], path) == 0) {
+            return lib->file_scene_index[i];
+        }
+    }
+    if (!file_exists(path)) {
+        return -1;
+    }
+    if (lib->file_count >= MATLIB_FILES_MAX) {
+        fprintf(stderr, "level: more than %d texture files; '%s' skipped\n", MATLIB_FILES_MAX, path);
+        return -1;
+    }
+
+    int i = lib->file_count;
+    if (texture_load_tga(&lib->files[i], path) != 0) {
+        return -1;
+    }
+    snprintf(lib->file_paths[i], MATLIB_PATH_MAX, "%s", path);
+    lib->file_scene_index[i] = lib->texture_count++;
+    lib->file_count++;
+    return lib->file_scene_index[i];
+}
+
+/* Scene texture index for a texture name (header: procedural, then
+ * TGA file), generating or loading it on first use; -1 for "none" or
+ * names that resolve to nothing */
 static int texture_index(MatLib *lib, const char *texture) {
+    if (strcmp(texture, "none") == 0) {
+        return -1;
+    }
     int ptex = proctex_find(texture);
     if (ptex < 0) {
-        return -1;
+        return file_index(lib, texture);
     }
     if (lib->proc_scene_index[ptex] < 0) {
         proctex_generate(&lib->proc[ptex], (ProceduralTextureID)ptex);
@@ -143,10 +199,20 @@ void matlib_texture_size(const MatLib *lib, int material, int *w, int *h) {
     }
 
     int tex = lib->scene->materials[material].texture_id;
+    if (tex < 0) {
+        return;
+    }
     for (int i = 0; i < PTEX_COUNT; i++) {
-        if (tex >= 0 && lib->proc_scene_index[i] == tex) {
+        if (lib->proc_scene_index[i] == tex) {
             *w = lib->proc[i].width;
             *h = lib->proc[i].height;
+            return;
+        }
+    }
+    for (int i = 0; i < lib->file_count; i++) {
+        if (lib->file_scene_index[i] == tex) {
+            *w = lib->files[i].width;
+            *h = lib->files[i].height;
             return;
         }
     }
@@ -167,5 +233,8 @@ void matlib_finish(MatLib *lib) {
         if (lib->proc_scene_index[i] >= 0) {
             s->textures[lib->proc_scene_index[i]] = lib->proc[i];
         }
+    }
+    for (int i = 0; i < lib->file_count; i++) {
+        s->textures[lib->file_scene_index[i]] = lib->files[i];
     }
 }

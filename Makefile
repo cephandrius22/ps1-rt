@@ -71,7 +71,8 @@ test: $(TEST_BIN)
 		echo "All test suites passed"; \
 	fi
 
-# TrenchBroom: generate textures + FGD from code, then install the game
+# TrenchBroom: generate textures + FGD from code, add the hand-made TGAs
+# from textures/ (so the editor shows them too), then install the game
 # config into TrenchBroom's games folder. A symlink keeps it live on
 # macOS/Linux; MSYS can't make one without admin rights, so Windows gets
 # a copy (rerun `make editor` after changing the config or entity types).
@@ -84,6 +85,7 @@ endif
 editor: $(BIN)
 	@mkdir -p editor/game/textures/rt editor/trenchbroom/RT
 	./$(BIN) --export-editor editor
+	@if ls textures/*.tga >/dev/null 2>&1; then cp textures/*.tga editor/game/textures/rt/; fi
 	@mkdir -p "$(TB_GAMES)"
 	@$(INSTALL_CONFIG)
 	@echo "Installed $(TB_GAMES)/RT from editor/trenchbroom/RT"

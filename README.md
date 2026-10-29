@@ -198,7 +198,8 @@ keyed doors without their keycard) and a `budget:` line; stay within 30k triangl
 
 Levels can also be hand-written as `.level` text (`levels/e1m1.level`);
 the format and every entity's keys are in `CLAUDE.md`. OBJ models go in
-`assets/models/`.
+`assets/models/`; hand-made TGA textures go in `textures/` and are used by
+name like the procedural ones.
 
 ## License
 

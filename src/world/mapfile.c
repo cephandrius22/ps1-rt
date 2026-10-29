@@ -341,11 +341,14 @@ static const char *texture_basename(const char *texture) {
 }
 
 static int face_material(MapLoader *ml, const char *texture) {
-    if (matlib_find(&ml->mats, texture) == MATLIB_NONE && proctex_find(texture) < 0) {
-        fprintf(stderr, "map: unknown texture '%s', drawing it untextured\n", texture);
-    }
+    bool known = matlib_find(&ml->mats, texture) != MATLIB_NONE;
     float grey = UNTEXTURED_GREY;
-    return matlib_texture(&ml->mats, texture, vec3(grey, grey, grey));
+    int mat = matlib_texture(&ml->mats, texture, vec3(grey, grey, grey));
+    if (!known && mat != MATLIB_NONE && ml->scene->materials[mat].texture_id < 0) {
+        fprintf(stderr, "map: unknown texture '%s' (not procedural, no "
+                MATLIB_TEXTURE_DIR "/%s.tga), drawing it untextured\n", texture, texture);
+    }
+    return mat;
 }
 
 static Vec2 face_uv(const Face *f, D3 p, int tex_w, int tex_h) {

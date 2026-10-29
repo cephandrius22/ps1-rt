@@ -8,8 +8,13 @@
  *   .map face texture "brick"           ──matlib_texture()─┼─> scene->materials[i]
  *   ghoul with no mat=                  ──matlib_texture()─┘     (+ generated textures)
  *
- * Procedural textures are generated on first use and handed to the scene
- * by matlib_finish().
+ * A texture name resolves to, in order:
+ *
+ *   "brick"             a procedural texture (generated on first use)
+ *   "crate"             textures/crate.tga, if that file exists
+ *   "art/wall.tga"      that TGA file (paths relative to the game's folder)
+ *
+ * Textures are handed to the scene by matlib_finish().
  */
 #ifndef MATLIB_H
 #define MATLIB_H
@@ -20,6 +25,9 @@
 #define MATLIB_MAX       64
 #define MATLIB_NAME_MAX  32
 #define MATLIB_NONE      (-1) /* lookup failed */
+#define MATLIB_FILES_MAX 32   /* TGA files per level */
+#define MATLIB_PATH_MAX  256
+#define MATLIB_TEXTURE_DIR "textures" /* where bare names look for <name>.tga */
 
 typedef struct MatLib {
     char names[MATLIB_MAX][MATLIB_NAME_MAX];
@@ -27,7 +35,13 @@ typedef struct MatLib {
 
     Texture proc[PTEX_COUNT];
     int proc_scene_index[PTEX_COUNT]; /* -1 = not generated yet */
-    int texture_count;
+
+    Texture files[MATLIB_FILES_MAX];  /* TGAs loaded so far */
+    char file_paths[MATLIB_FILES_MAX][MATLIB_PATH_MAX];
+    int file_scene_index[MATLIB_FILES_MAX];
+    int file_count;
+
+    int texture_count;                /* scene textures handed out */
 
     Scene *scene;
 } MatLib;
@@ -35,7 +49,7 @@ typedef struct MatLib {
 /* Start a registry that writes materials into scene (no textures yet) */
 void matlib_init(MatLib *lib, Scene *scene);
 
-/* Define a material. texture is a procedural texture name or "none".
+/* Define a material. texture is a texture name (see above) or "none".
  * Redefining a name updates it. Returns its index, or MATLIB_NONE if full. */
 int matlib_add(MatLib *lib, const char *name, const char *texture, Vec3 color);
 

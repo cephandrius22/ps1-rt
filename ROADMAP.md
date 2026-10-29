@@ -241,8 +241,9 @@ Carried forward:
 - ✅ Step 4 — **Monster movement.** Chasers steer apart instead of
   stacking; the nav grid has one-way drop links off ledges up to 3 m, so
   monsters jump down after you (never path back up).
-- TGA textures from level materials (loader exists, not reachable from
-  `.level` files)
+- ✅ Step 5 — **TGA textures.** A texture name that isn't procedural loads
+  `textures/<name>.tga` (or a `.tga` path); `make editor` copies them
+  for TrenchBroom; unknown names warn and fall back to flat color.
 
 ## Phase 6: Shell
 
