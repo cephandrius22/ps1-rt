@@ -70,7 +70,7 @@ Carried into later phases:
 - Phase 1 (done): `damage` hook, generic health, ammo type on
   `WeaponDef`, game modes, weapon `kick` applied to the view.
 - Phase 4 (done): environment settings and one light model.
-- Phase 6: move SDL window code out of `main.c` into `platform/`.
+- ~~Phase 6: move SDL window code out of `main.c` into `platform/`~~ (done).
 - Phase 7: interpolate rendering between ticks (displays above 60 Hz
   show each tick on several frames).
 
@@ -271,11 +271,12 @@ Carried forward:
   guns hit harder (more damage, kick, shake, flash, knockback, flinch,
   gore and punchier sounds).
 
-## Phase 6: Shell
+## Phase 6: Shell (in progress, in steps)
 
+- ✅ Step 1 — **SDL out of `main.c`.** `platform/display` (window,
+  present) and `platform/clock`; audio initializes its own SDL subsystem.
 - Main menu, pause, mouse sensitivity
 - Save / load
-- Move SDL window/present code from `main.c` into `platform/`
 
 ## Phase 7: Performance (when profiling demands)
 

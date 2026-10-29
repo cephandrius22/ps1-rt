@@ -513,6 +513,10 @@ int audio_init(AudioSystem *audio) {
     want.callback = audio_callback;
     want.userdata = audio;
 
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
+        fprintf(stderr, "SDL audio: %s\n", SDL_GetError());
+        return -1;
+    }
     audio->device_id = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
     if (audio->device_id == 0) {
         fprintf(stderr, "SDL_OpenAudioDevice: %s\n", SDL_GetError());
@@ -534,6 +538,7 @@ void audio_shutdown(AudioSystem *audio) {
         sound_free(&audio->sounds[i]);
     }
     audio->initialized = false;
+    SDL_QuitSubSystem(SDL_INIT_AUDIO);
 }
 
 /* Claim a free voice for a sound; -1 if none (or no device/sound) */

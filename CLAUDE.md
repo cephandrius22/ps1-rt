@@ -52,7 +52,8 @@ on the include path, so headers are included by bare name (`"scene.h"`).
   world/          scene, entity, sprite, light, environment, nav grid, level loader
   gfx/            camera, mesh, bvh, texture, proctex, ps1_effects
   core/           math3d (Vec3, Ray, Pose), threadpool, kv
-  platform/       SDL input + audio, file watch; talks to game via PlayerCmd only
+  platform/       SDL: display (window, present), input, audio, clock; file
+                  watch; talks to game via PlayerCmd only. main.c has no SDL
   tools/          editor export (`./rt --export-editor`), .level → .map
                   converter (`./rt --convert`), invoked by main
 ```
@@ -116,6 +117,8 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `event` | `GameEvent` queue: gameplay pushes, presentation drains each frame |
 | `cmd` | `PlayerCmd`: move axes, look deltas, button bitmask (held + impulse) |
 | `input` | SDL2 keyboard/mouse → `PlayerCmd`, relative mouse mode |
+| `display` | Game window: opens it, uploads the framebuffer to a streaming texture, presents (vsync) |
+| `clock` | High-resolution seconds for frame timing; a per-run seed |
 | `audio` | 8-voice stereo mixer via SDL2 audio callback (`audio_mix()`, testable without a device): per-voice pan, volume changes, reverb (two cross-fed delay lines); procedural sounds incl. ambient loops (drone, drip, hum); WAV loader ready |
 | `threadpool` | pthread fork-join pool, generation-based sync, splits scanlines across workers |
 

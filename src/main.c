@@ -9,15 +9,14 @@
  *                                    │           reverb, ambience loop)
  *                                    └──> render_scene_lit_mt(RenderView)
  *                     Game fields ──> OverlayState ──> overlay_draw()
- *                                                        ──> SDL present
+ *                                                        ──> display_present()
  *
  * The level file is watched: saving it in an editor reloads it in place.
  *
  * Holds no game rules: it only translates between game/, render/ and
- * platform/ (event → sound, game mode → overlay mode). SDL window and
- * present code also live here until Phase 6 moves them to platform/.
+ * platform/ (event → sound, game mode → overlay mode). SDL itself stays
+ * in platform/ (display, input, audio, clock).
  */
-#include <SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +31,8 @@
 #include "threadpool.h"
 #include "audio.h"
 #include "filewatch.h"
+#include "display.h"
+#include "clock.h"
 #include "editor_export.h"
 #include "level_convert.h"
 #include "screenfx.h"
@@ -40,6 +41,7 @@
 #include "mapfile.h"
 
 #define WINDOW_SCALE 3
+#define WINDOW_TITLE "PS1 Raytracer"
 #define VIEW_FOV     1.2f /* radians */
 #define DEFAULT_START "levels/episode1.txt" /* an episode file or a level */
 #define RELOAD_POLL_SEC 0.25f /* how often to check the level file for saves */
@@ -457,35 +459,10 @@ int main(int argc, char *argv[]) {
         return level_convert(argv[2], argv[3]) == 0 ? 0 : 1;
     }
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
-        fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
+    Display display;
+    if (!display_open(&display, WINDOW_TITLE, SCREEN_W, SCREEN_H, WINDOW_SCALE)) {
         return 1;
     }
-
-    SDL_Window *window = SDL_CreateWindow(
-        "PS1 Raytracer",
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        SCREEN_W * WINDOW_SCALE, SCREEN_H * WINDOW_SCALE,
-        SDL_WINDOW_SHOWN
-    );
-    if (!window) {
-        fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
-        SDL_Quit();
-        return 1;
-    }
-
-    SDL_Renderer *sdl_renderer = SDL_CreateRenderer(window, -1,
-        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!sdl_renderer) {
-        fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError());
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    SDL_Texture *texture = SDL_CreateTexture(sdl_renderer,
-        SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-        SCREEN_W, SCREEN_H);
 
     Framebuffer fb;
     Overlay hud;
@@ -496,7 +473,7 @@ int main(int argc, char *argv[]) {
     Ambience ambience;
     ambience_init(&ambience);
     static ParticleSystem particles;
-    particles_init(&particles, (uint32_t)SDL_GetTicks());
+    particles_init(&particles, clock_seed());
 
     /* Game owns the level, player and weapon (static: Scene is large) */
     static Game game;
@@ -508,10 +485,7 @@ int main(int argc, char *argv[]) {
     }
     if (!loaded || game_start(&game, &episode) != GAME_LOAD_OK) {
         fprintf(stderr, "Failed to load: %s\n", start);
-        SDL_DestroyTexture(texture);
-        SDL_DestroyRenderer(sdl_renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
+        display_close(&display);
         return 1;
     }
 
@@ -540,12 +514,11 @@ int main(int argc, char *argv[]) {
     bool affine = false;  /* PS1 texture warp, F4 */
     float work_ms = 0;   /* smoothed */
     float fps = 0;       /* smoothed */
-    Uint64 freq = SDL_GetPerformanceFrequency();
-    Uint64 last_time = SDL_GetPerformanceCounter();
+    double last_time = clock_seconds();
 
     while (running) {
-        Uint64 frame_start = SDL_GetPerformanceCounter();
-        float dt = (float)(frame_start - last_time) / (float)freq;
+        double frame_start = clock_seconds();
+        float dt = (float)(frame_start - last_time);
         last_time = frame_start;
 
         PlayerCmd cmd;
@@ -608,17 +581,13 @@ int main(int argc, char *argv[]) {
         overlay_draw(&hud, &fb, &overlay);
 
         /* Work time: everything this frame except waiting for vsync */
-        float frame_work = (float)(SDL_GetPerformanceCounter() - frame_start) / (float)freq * 1000.0f;
+        float frame_work = (float)(clock_seconds() - frame_start) * 1000.0f;
         work_ms += (frame_work - work_ms) * MS_SMOOTHING;
         fps += ((dt > 0 ? 1.0f / dt : 0) - fps) * MS_SMOOTHING;
 
-        SDL_UpdateTexture(texture, NULL, fb.pixels, SCREEN_W * sizeof(uint32_t));
-        SDL_RenderClear(sdl_renderer);
-        SDL_RenderCopy(sdl_renderer, texture, NULL, NULL);
-        SDL_RenderPresent(sdl_renderer);
+        display_present(&display, fb.pixels);
 
-        Uint64 frame_end = SDL_GetPerformanceCounter();
-        float frame_ms = (float)(frame_end - frame_start) / (float)freq * 1000.0f;
+        float frame_ms = (float)(clock_seconds() - frame_start) * 1000.0f;
         printf("\rFrame: %.1f ms (%.0f fps)  Entities: %d  Lights: %d",
                frame_ms, 1000.0f / frame_ms, game.scene.entities.count, game.scene.lights.count);
         fflush(stdout);
@@ -629,9 +598,6 @@ int main(int argc, char *argv[]) {
     threadpool_destroy(&pool);
     overlay_free(&hud);
     game_free(&game);
-    SDL_DestroyTexture(texture);
-    SDL_DestroyRenderer(sdl_renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+    display_close(&display);
     return 0;
 }
