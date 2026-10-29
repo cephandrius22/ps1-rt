@@ -16,9 +16,13 @@ playable soonest. Each phase ends in something you can play.
 - Enemies path over a nav grid, climb steps, fall, and hear gunfire
 - Particles, temporary lights, damage flash
 - Health, death, respawn, level end; HUD
-- Point lights, shadows, flicker, swinging bulbs, flashlight, fog
-- 8-voice mixer, procedural sounds (weapon, footsteps, creature voices),
-  ambient loop
+- One light model (point and spot), shadows, flicker, swinging and
+  shootable bulbs, battery-powered flashlight
+- Per-level and per-zone ambient, fog, sky, sun; animated slime, water and
+  screens; low-health desaturation; optional PS1 affine warp
+- 8-voice stereo mixer with reverb, procedural sounds (weapons,
+  footsteps, creature voices), sounds placed in space, ambient loops
+  per zone
 - Level file format, procedural textures
 - Multithreaded rendering
 
@@ -61,7 +65,7 @@ Carried into later phases:
 
 - Phase 1 (done): `damage` hook, generic health, ammo type on
   `WeaponDef`, game modes, weapon `kick` applied to the view.
-- Phase 4: environment settings and one light model (below).
+- Phase 4 (done): environment settings and one light model.
 - Phase 6: move SDL window code out of `main.c` into `platform/`.
 - Phase 7: interpolate rendering between ticks (displays above 60 Hz
   show each tick on several frames).
@@ -142,7 +146,7 @@ Carried forward:
 
 - ~~Phase 3: enemies walk straight at you on a fixed height~~ (done);
   no infighting (projectiles hurt any enemy, but enemies don't retaliate).
-- Phase 4: projectile glows are point lights refreshed per tick; fine at
+- Phase 7: projectile glows are lights refreshed per tick; fine at
   current counts, watch the light budget with many spitters.
 - Particles land on the player's floor height, not real geometry.
 - Playtest: balance (damage, ammo, spitter cadence) is set from numbers,

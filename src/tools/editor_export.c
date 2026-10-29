@@ -129,7 +129,7 @@ static void write_builtin_classes(FILE *out) {
                  "\tangle(integer) : \"Facing, degrees (0 = east, 90 = north)\" : 0\n]\n\n",
             (int)(PLAYER_HEIGHT * MAP_UNITS_PER_METER));
 
-    fprintf(out, "@PointClass size(-8 -8 -8, 8 8 8) color(255 255 128) = light : \"Point light\"\n[\n"
+    fprintf(out, "@PointClass size(-8 -8 -8, 8 8 8) color(255 255 128) = light : \"Light: point, or spot with a cone\"\n[\n"
                  "\tintensity(float) : \"Brightness\" : \"2\"\n"
                  "\tradius(float) : \"Reach (units)\" : \"320\"\n"
                  "\tcolor(color1) : \"Color\" : \"1 1 1\"\n"

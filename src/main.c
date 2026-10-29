@@ -4,8 +4,10 @@
  * Per frame:
  *
  *   input_poll() ──PlayerCmd──> game_update() ──events──> play_event_sounds()
- *                                    │
- *                     game_view() ──> camera ──> render_scene_lit_mt()
+ *                                    │                     (placed by play_at)
+ *                     game_view() ──> camera ──> fade_view_env() (zone fog,
+ *                                    │           reverb, ambience loop)
+ *                                    └──> render_scene_lit_mt(RenderView)
  *                     Game fields ──> OverlayState ──> overlay_draw()
  *                                                        ──> SDL present
  *
@@ -173,6 +175,8 @@ static void play_at(AudioSystem *audio, SoundID id, float volume, Pose ear, Vec3
     audio_play_at(audio, id, volume * gain, pan);
 }
 
+/* Presentation side of the event queue: one sound per event, heard
+ * from where the player stands */
 static void play_event_sounds(AudioSystem *audio, const EventQueue *events, const Game *g) {
     Pose ear = g->player.view;
     for (int i = 0; i < events->count; i++) {
@@ -258,6 +262,7 @@ typedef struct {
     float volume[AMBIENCE_COUNT];
 } Ambience;
 
+/* All loops silent; the level's ambience fades in on the first frames */
 static void ambience_init(Ambience *a) {
     for (int k = 0; k < AMBIENCE_COUNT; k++) {
         a->voice[k] = -1;
@@ -293,6 +298,7 @@ static const Vec3 keycard_colors[KEYCARD_COUNT] = {
     [KEYCARD_YELLOW] = {0.90f, 0.78f, 0.16f},
 };
 
+/* One HUD icon per held keycard, in Keycard order */
 static void fill_keycards(OverlayState *o, const Inventory *inv) {
     for (int k = 0; k < KEYCARD_COUNT && o->keycard_count < OVERLAY_KEYCARDS; k++) {
         if (inventory_has_keycard(inv, (Keycard)k)) {
@@ -532,7 +538,7 @@ int main(int argc, char *argv[]) {
         spawn_event_particles(&particles, &game.events, &game);
         particles_update(&particles, dt);
 
-        /* Render with point lights and shadow rays (multithreaded) */
+        /* Render: scene lights + flashlight, shadow rays (multithreaded) */
         /* Shake moves only what we see, never where shots go */
         Pose view = game_view(&game);
         float shake_yaw, shake_pitch;

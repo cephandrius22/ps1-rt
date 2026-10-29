@@ -68,15 +68,15 @@ on the include path, so headers are included by bare name (`"scene.h"`).
 - `GAME_DEAD`: AI and projectiles keep running, view sinks; attack/use after `GAME_CONTINUE_DELAY` reloads the level
 - `GAME_LEVEL_END`: frozen; attack/use after the delay reloads the level
 
-Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites) → `shade_pixel_lit()` → PS1 dither → framebuffer → `overlay_draw()` (HUD, death tint, level-end kill count)
+Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites) → `shade_pixel_lit()` (material motion, optional affine UVs, zone ambient + glow, `shade_light()` per light, view fog) → PS1 dither → framebuffer → `particles_draw()` → `overlay_draw()` (viewmodel, desaturation, HUD, death tint, level-end kill count)
 
 ### Module Map
 
 | Module | Purpose |
 |--------|---------|
 | `math3d.h` | Vec3, Mat4, Ray, UV, `Pose` (pos + yaw/pitch) — header-only |
-| `camera` | Render camera (`camera_from_pose()`), ray per pixel, `camera_project()` (world point → pixel, its inverse) |
-| `mesh` | Triangle storage, OBJ loader with fan triangulation |
+| `camera` | Render camera (`camera_from_pose()`), ray per pixel, `camera_project()` (world point → pixel, its inverse), `camera_to_screen()` (unclamped, for affine UVs) |
+| `mesh` | Triangle storage, ray-triangle test (`HitRecord.tri` points at the hit triangle), OBJ loader with fan triangulation |
 | `bvh` | SAH-based BVH build, stack-based iterative traversal |
 | `scene` | Static world BVH + dynamic entity BVH + sprite list (both rebuilt per tick); `scene_trace()` with `TraceMask`; `scene_spawn()` for runtime entities (reuses spent slots, `type_material`) |
 | `sprite` | Upright billboards facing each ray, color-keyed holes, frame sheets; `SPRITE_SOLID`/`SPRITE_GHOST` |
@@ -84,7 +84,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `entity_types` | `EntityDef` table: per-type name, `RenderKind`, `TouchEffect`, `mesh_solidity`, `runtime_only`, `brush`, `usable`, hooks (spawn/update/touch/damage/pose/build_mesh/sprite); shared enemy hooks (`enemy_damage`, `enemy_sprite`); movers (`func_door`, `func_button`), triggers, keycard |
 | `nav` | Walkable grid built at load from static geometry (0.5 m cells, up to 4 floors each, 8-way links over steps ≤ `NAV_STEP`); A* `nav_next_waypoint()`, sound `nav_flood()`/`nav_heard()`, closed/locked doors (`nav_set_door()`) |
 | `kv` | `key=value` lookup in a text line (level args): float, int, string (`"quoted"` values may hold spaces) |
-| `render` | Shading: ambient + sun + scene lights + carried light (flashlight), one `shade_light()` for all, shadows, fog + sky from `scene->env`, light billboards; writes a depth buffer; `render_light_at()` (viewmodel light probe) |
+| `render` | Shading: zone ambient + material glow + sun + scene lights + carried light (flashlight), one `shade_light()` for all, shadows; fog + sky from `RenderView.env` (else `scene->env`); scrolling materials; affine UVs (`RenderView.affine`); light billboards; writes a depth buffer; `render_light_at()` (viewmodel light probe) |
 | `overlay` | Viewmodel (weapon sheet, bob/recoil/switch offsets, lit + dithered), low-health desaturation, damage flash, HUD (health, ammo, keycard icons), message line, death tint, level-end kill count, F3 text. Caches viewmodel textures (`Overlay`); fed an `OverlayState` by `main.c` |
 | `font` | 5x7 pixel text (`font_draw()`, `font_width()`) for messages; HUD numbers and F3 lines keep overlay's 3x5 font |
 | `particles` | Blood, gibs, sparks, debris, spit: projected and splatted after the raytrace, depth-tested; presentation only |
