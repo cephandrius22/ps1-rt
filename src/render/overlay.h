@@ -16,7 +16,9 @@
  *   │ 7.1 MS 140 FPS               │  debug lines (F3), top left
  *   │ TRI 252/30000                │
  *   │   YOU NEED THE RED KEYCARD   │  message (5x7 font, font.h)
- *   │            3/4               │  kills/total (level end only)
+ *   │      PROCESSING PLANT        │  intermission (level end):
+ *   │      KILLS    3/4             │  map title, kills, secrets,
+ *   │      SECRETS  1/1             │  time, next map
  *   │ ▬▬▬▬▬                ▮ ▮     │  flashlight battery, keycards held
  *   │ + 100                    50  │  health (left), ammo (right)
  *   └──────────────────────────────┘
@@ -30,7 +32,7 @@
 typedef enum {
     OVERLAY_PLAYING,
     OVERLAY_DEAD,       /* red-tinted frame */
-    OVERLAY_LEVEL_END,  /* darkened frame, kill count centered */
+    OVERLAY_LEVEL_END,  /* darkened frame, intermission stats centered */
     OVERLAY_EPISODE_END, /* darkened frame, "episode complete" and its title */
 } OverlayMode;
 
@@ -73,6 +75,13 @@ typedef struct {
     float weapon_kick;    /* current recoil, radians (viewmodel, later) */
     const char *message;  /* notice centered near the top; NULL = none */
     const char *title;    /* episode title (episode end screen) */
+
+    /* Intermission (level end) */
+    const char *map_title;  /* the map just finished */
+    const char *next_title; /* the map coming up; NULL = none */
+    int secrets;
+    int secrets_total;
+    int time_seconds;       /* spent on the map */
     bool show_battery;    /* draw the flashlight battery bar */
     float battery;        /* its charge, 0..1 */
     int keycard_count;    /* keycard icons, drawn in this order */

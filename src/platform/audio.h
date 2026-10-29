@@ -46,6 +46,7 @@ typedef enum {
     SND_GLASS,          /* a bulb shot out */
     SND_AMBIENT_DRIP,   /* loop: water dripping in a cave */
     SND_AMBIENT_HUM,    /* loop: machinery hum */
+    SND_SECRET,         /* rising chime: a secret area found */
     SND_COUNT
 } SoundID;
 

@@ -79,6 +79,9 @@ typedef struct {
     float tick_accum;    /* frame time not yet simulated */
     int kills;           /* enemies killed this level */
     int kills_total;     /* enemies placed in the level */
+    int secrets;         /* trigger_secret areas found this level */
+    int secrets_total;
+    float map_time;      /* seconds spent playing this map (intermission) */
     PlayerCmd pending;   /* input waiting for the next tick */
     char message[GAME_MESSAGE_MAX]; /* latest notice, e.g. "You need the red keycard" */
     float message_time;  /* seconds it has left on screen */

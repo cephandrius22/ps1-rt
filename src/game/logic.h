@@ -12,8 +12,8 @@
  *
  * Buttons use the same slide (pressed = open). Quake-style wiring:
  *
- *   trigger_once / trigger_multiple ──player enters──┐
- *   func_button ──────────────────────E──────────────┴──> fire `target`
+ *   trigger_once / _multiple / _secret ──player enters──┐
+ *   func_button ─────────────────────────E──────────────┴──> fire `target`
  *        ──> every entity named it: door opens, hidden monster appears
  *        ──> every light named it: toggles on/off
  *        EV_TRIGGERED lets game.c show the source's `message`

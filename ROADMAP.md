@@ -232,8 +232,9 @@ Carried forward:
   keycards), death restarts the map with its entry loadout, an episode
   end screen after the last. A test keeps every shipped map checker-clean.
 - Episode of 3–4 levels (has e1m1 + arena so far)
-- Secrets (a `trigger_secret` counted like kills), intermission screen
-  (kills, secrets, time)
+- ✅ Step 2 — **Secrets and intermission.** `trigger_secret` brushes
+  (chime, "A secret area!"); the level end shows map title, kills,
+  secrets, time and the next map. e1m1 has a crate-top stash.
 - Scripting extras as levels need them: doors that fire their `target`,
   `trigger_relay` with `delay`, toggling doors, `trigger_hurt`
 - Monster movement as levels demand: avoid each other, jump-down links

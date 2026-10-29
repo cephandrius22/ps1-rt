@@ -433,6 +433,12 @@ static const EntityKey trigger_once_keys[] = {
     {.type = KEY_END},
 };
 
+static const EntityKey trigger_secret_keys[] = {
+    {"target", KEY_STRING, 0, "Fires everything with this name when found", ""},
+    {"message", KEY_STRING, 0, "Shown when found (empty = \"A secret area!\")", ""},
+    {.type = KEY_END},
+};
+
 static const EntityKey trigger_multiple_keys[] = {
     {"target", KEY_STRING, 0, "Fires everything with this name", ""},
     {"message", KEY_STRING, 0, "Shown when entered", ""},
@@ -545,6 +551,12 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
         .default_texture = "none", .default_color = {0.8f, 0.5f, 0.1f},
         .desc = "Invisible brush: fires its target the first time the player enters",
         .keys = trigger_once_keys, .spawn = trigger_once_spawn,
+    },
+    [ENTITY_TRIGGER_SECRET] = {
+        .name = "trigger_secret", .render = RENDER_NONE, .brush = true,
+        .default_texture = "none", .default_color = {0.9f, 0.8f, 0.2f},
+        .desc = "Invisible brush around a secret area: counted for the intermission",
+        .keys = trigger_secret_keys, .spawn = trigger_once_spawn,
     },
     [ENTITY_TRIGGER_MULTIPLE] = {
         .name = "trigger_multiple", .render = RENDER_NONE, .brush = true,

@@ -197,6 +197,7 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events, cons
         case EV_BUTTON_PRESSED: play_at(audio, SND_SWITCH, 0.7f, ear, ev->pos);      break;
         case EV_LIGHT_SHOT:    play_at(audio, SND_GLASS, 0.8f, ear, ev->pos);        break;
         case EV_TRIGGERED:     break; /* game.c shows its message */
+        case EV_SECRET_FOUND:  play_at(audio, SND_SECRET, 0.8f, ear, ev->pos);       break;
         case EV_PLAYER_HURT:   play_at(audio, SND_PLAYER_PAIN, 0.7f, ear, ev->pos);  break;
         case EV_PLAYER_DIED:   play_at(audio, SND_PLAYER_DEATH, 0.8f, ear, ev->pos); break;
         case EV_ENEMY_ALERT:   play_at(audio, sounds_of(g, ev->entity)->alert, 0.7f, ear, ev->pos);  break;
@@ -297,6 +298,17 @@ static const Vec3 keycard_colors[KEYCARD_COUNT] = {
     [KEYCARD_BLUE]   = {0.16f, 0.35f, 0.86f},
     [KEYCARD_YELLOW] = {0.90f, 0.78f, 0.16f},
 };
+
+/* Episode title, and the level-end tally: this map, the next, stats */
+static void fill_intermission(OverlayState *o, const Game *g) {
+    const Episode *ep = &g->episode;
+    o->title = ep->title;
+    o->map_title = ep->maps[g->map_index].title;
+    o->next_title = g->map_index + 1 < ep->count ? ep->maps[g->map_index + 1].title : NULL;
+    o->secrets = g->secrets;
+    o->secrets_total = g->secrets_total;
+    o->time_seconds = (int)g->map_time;
+}
 
 /* One HUD icon per held keycard, in Keycard order */
 static void fill_keycards(OverlayState *o, const Inventory *inv) {
@@ -580,7 +592,7 @@ int main(int argc, char *argv[]) {
         overlay.show_battery = game.player.battery < 1.0f;
         overlay.battery = game.player.battery;
         fill_keycards(&overlay, &game.player.inv);
-        overlay.title = game.episode.title;
+        fill_intermission(&overlay, &game);
         fill_viewmodel(&overlay.viewmodel, &view_anim, &game, dt);
         if (show_debug) {
             fill_debug(&overlay, &game, work_ms, fps);

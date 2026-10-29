@@ -14,7 +14,8 @@ static bool is_button(const Entity *e) {
 }
 
 static bool is_trigger(const Entity *e) {
-    return e->active && (e->type == ENTITY_TRIGGER_ONCE || e->type == ENTITY_TRIGGER_MULTIPLE);
+    return e->active && (e->type == ENTITY_TRIGGER_ONCE || e->type == ENTITY_TRIGGER_MULTIPLE ||
+                         e->type == ENTITY_TRIGGER_SECRET);
 }
 
 /* Locked: needs a keycard, or only a trigger may open it */
@@ -240,6 +241,9 @@ static void trigger_tick(Scene *s, int i, const Player *p, float dt, EventQueue 
         return;
     }
 
+    if (e->type == ENTITY_TRIGGER_SECRET) {
+        push(ev, EV_SECRET_FOUND, i, e);
+    }
     fire_from(s, i, ev);
     if (e->trigger.wait < 0) {
         e->active = false; /* trigger_once */

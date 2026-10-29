@@ -18,7 +18,7 @@ inside the storage room — and opening it has consequences. The flashlight
 (F) helps more than you'd like, until its battery runs low; the bare bulbs
 can be shot out if you'd rather hide in the dark. Weapons, ammo and health
 carry over to the next map; dying restarts the map with what you brought
-into it. Die, or reach the red exit pad, and click
+into it. Between maps a tally shows kills, secrets found and your time. Die, or reach the red exit pad, and click
 to play again.
 
 For a straight fight, try `./rt levels/arena.map`. See `ROADMAP.md` for
@@ -179,7 +179,8 @@ Quake level editor:
    (`health`, `ammo`, `weapon`, `keycard`) and an `exit`. Doors, buttons
    and triggers are brush entities (`func_door`, `func_button`,
    `trigger_once`, `trigger_multiple`); wire them with `target` →
-   `targetname` (TrenchBroom draws the links). `levels/arena.map` is an
+   `targetname` (TrenchBroom draws the links). Wrap secret areas in a
+   `trigger_secret` brush so the intermission counts them. `levels/arena.map` is an
    example to open.
    The level's mood (ambient light, fog distance and color, sun, sky)
    is set on worldspawn: `ambient`, `fog`, `sun`, `sky`, `reverb`,

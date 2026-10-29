@@ -34,6 +34,7 @@ typedef enum {
     EV_LOCKED,        /* pos/entity = door or button used without its keycard */
     EV_BUTTON_PRESSED, /* pos/entity = the func_button */
     EV_TRIGGERED,     /* pos/entity = trigger or button that fired its target */
+    EV_SECRET_FOUND,  /* pos/entity = the trigger_secret entered */
     EV_PLAYER_HURT,   /* pos = player eye, amount = damage taken */
     EV_PLAYER_DIED,   /* pos = player eye, amount = final blow */
     EV_ENEMY_ALERT,   /* pos = enemy feet, entity = enemy; spotted the player */

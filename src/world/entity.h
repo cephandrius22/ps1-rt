@@ -52,6 +52,7 @@ typedef enum {
     ENTITY_BUTTON,        /* func_button: brush pressed with E; fires its target */
     ENTITY_TRIGGER_ONCE,  /* invisible brush: fires its target when entered, once */
     ENTITY_TRIGGER_MULTIPLE, /* same, again every `wait` seconds while inside */
+    ENTITY_TRIGGER_SECRET,   /* invisible brush: a secret area, counted when found */
     ENTITY_TYPE_COUNT
 } EntityType;
 

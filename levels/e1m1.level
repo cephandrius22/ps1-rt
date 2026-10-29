@@ -86,6 +86,8 @@ brush func_button 13.8 1.0 -8.2 14 1.4 -7.8 rust_wall opens=side rot=-1.5708 lip
 box 9 0 -11 10.5 1.5 -9.5 rust_wall
 box 10.5 0 -10 12 1 -8.5 rust_wall
 box 12.5 0 -11 14 2 -9 rust_wall
+# Secret: a stash on top of the tall crate (climb the low one first)
+brush trigger_secret 9 1.5 -11 10.5 3 -9.5
 # A monitor above the crates, still on
 box 13.9 2.1 -10.5 14 2.7 -9.5 monitor
 
@@ -111,6 +113,7 @@ entity ammo -2 0.5 -2 amount=10
 # Pickups in storage room
 entity ammo 11 0.5 -7 amount=15
 entity health 13 0.5 -7 amount=25
+entity health 9.75 2.0 -10.25 amount=50
 # Weapons and their ammo
 entity weapon -2 0.5 1 give=shotgun amount=8
 entity ammo -12 0.5 -10 ammo=shells amount=8

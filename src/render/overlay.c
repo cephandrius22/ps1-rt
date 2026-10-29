@@ -1,4 +1,5 @@
 #include "overlay.h"
+#include <stdio.h>
 #include "font.h"
 #include "ps1_effects.h"
 #include <stddef.h>
@@ -227,16 +228,56 @@ static void dim(Framebuffer *fb, float keep) {
     }
 }
 
-/* "kills/total" centered on screen */
-static void draw_kill_count(Framebuffer *fb, int kills, int total) {
-    int width = number_width(kills, TITLE_SCALE) + glyph_advance(TITLE_SCALE)
-              + number_width(total, TITLE_SCALE);
-    int x = (SCREEN_W - width) / 2;
-    int y = (SCREEN_H - GLYPH_H * TITLE_SCALE) / 2;
+#define STATS_SCALE   2   /* intermission lines: 5x7 font at 2x */
+#define STATS_LINE    (FONT_ROWS * STATS_SCALE + 6)
+#define STATS_LINES   6   /* title, blank, kills, secrets, time, next */
+#define STATS_TAB     78  /* pixels from the label to its value */
+#define SECONDS_PER_MINUTE 60
 
-    x = draw_number(fb, kills, x, y, TITLE_SCALE, HUD_TITLE);
-    draw_glyph(fb, slash_rows, x, y, TITLE_SCALE, HUD_TITLE);
-    draw_number(fb, total, x + glyph_advance(TITLE_SCALE), y, TITLE_SCALE, HUD_TITLE);
+static void draw_centered(Framebuffer *fb, const char *text, int y, int scale) {
+    font_draw(fb, text, (SCREEN_W - font_width(text, scale)) / 2, y, scale, HUD_TITLE);
+}
+
+/* "LABEL  value", the label left of center and the values lined up */
+static void draw_stat(Framebuffer *fb, const char *label, const char *value, int y) {
+    int x = SCREEN_W / 2 - STATS_TAB;
+    font_draw(fb, label, x, y, STATS_SCALE, HUD_TITLE);
+    font_draw(fb, value, x + STATS_TAB + STATS_TAB / 2, y, STATS_SCALE, HUD_TITLE);
+}
+
+/* Doom-style tally between maps:
+ *
+ *        PROCESSING PLANT
+ *
+ *     KILLS        3/4
+ *     SECRETS      1/1
+ *     TIME        2:31
+ *          NEXT: ARENA
+ */
+static void draw_intermission(Framebuffer *fb, const OverlayState *s) {
+    char value[24];
+    int y = (SCREEN_H - STATS_LINES * STATS_LINE) / 2;
+    if (s->map_title && s->map_title[0]) {
+        draw_centered(fb, s->map_title, y, STATS_SCALE);
+    }
+    y += 2 * STATS_LINE;
+
+    snprintf(value, sizeof(value), "%d/%d", s->kills, s->kills_total);
+    draw_stat(fb, "KILLS", value, y);
+    y += STATS_LINE;
+    snprintf(value, sizeof(value), "%d/%d", s->secrets, s->secrets_total);
+    draw_stat(fb, "SECRETS", value, y);
+    y += STATS_LINE;
+    snprintf(value, sizeof(value), "%d:%02d", s->time_seconds / SECONDS_PER_MINUTE,
+             s->time_seconds % SECONDS_PER_MINUTE);
+    draw_stat(fb, "TIME", value, y);
+    y += STATS_LINE;
+
+    if (s->next_title && s->next_title[0]) {
+        y += STATS_LINE / 2;
+        snprintf(value, sizeof(value), "NEXT: %s", s->next_title);
+        draw_centered(fb, value, y, 1);
+    }
 }
 
 /* Centered notice with a 1 px drop shadow so it reads on bright walls */
@@ -385,7 +426,7 @@ void overlay_draw(Overlay *o, Framebuffer *fb, const OverlayState *state) {
         break;
     case OVERLAY_LEVEL_END:
         dim(fb, END_DIM);
-        draw_kill_count(fb, state->kills, state->kills_total);
+        draw_intermission(fb, state);
         break;
     case OVERLAY_EPISODE_END:
         dim(fb, END_DIM);

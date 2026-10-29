@@ -12,9 +12,18 @@
 #define DEG_TO_RAD       ((float)MATH_PI / 180.0f)
 #define DEAD_EYE_HEIGHT  0.3f /* death cam: eye this far above the feet */
 #define DEAD_EYE_SPEED   2.0f /* how fast the view sinks, units/second */
+#define SECRET_MESSAGE   "A secret area!"
 
 static BodySize player_body(void) {
     return (BodySize){PLAYER_RADIUS, PLAYER_HEIGHT};
+}
+
+static int count_secrets(const EntityList *list) {
+    int n = 0;
+    for (int i = 0; i < list->count; i++) {
+        n += list->items[i].type == ENTITY_TRIGGER_SECRET;
+    }
+    return n;
 }
 
 static int count_enemies(const EntityList *list) {
@@ -67,6 +76,9 @@ static GameLoadResult load_map(Game *g, int index, Loadout loadout) {
     g->mode_time = 0;
     g->kills = 0;
     g->kills_total = count_enemies(&g->scene.entities);
+    g->secrets = 0;
+    g->secrets_total = count_secrets(&g->scene.entities);
+    g->map_time = 0;
     g->message_time = 0;
 
     level_check(&g->scene, &info, player_body(), stderr);
@@ -181,6 +193,8 @@ static void post_messages(Game *g, int first_event) {
             set_message(g, "Picked up the %s keycard", e->pickup.item);
         } else if (ev->type == EV_TRIGGERED) {
             set_message(g, "%s", e->message);
+        } else if (ev->type == EV_SECRET_FOUND && e->message[0] == '\0') {
+            set_message(g, "%s", SECRET_MESSAGE);
         }
     }
 }
@@ -198,10 +212,11 @@ static void break_lights(Game *g, int first_event) {
     }
 }
 
-/* Kills are counted from death events, whatever caused them */
+/* Kills and secrets are counted from events, whatever caused them */
 static void count_kills(Game *g, int first_event) {
     for (int i = first_event; i < g->events.count; i++) {
         g->kills += g->events.items[i].type == EV_ENEMY_DIED;
+        g->secrets += g->events.items[i].type == EV_SECRET_FOUND;
     }
 }
 
@@ -297,6 +312,7 @@ static void make_noise(Game *g) {
 }
 
 static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
+    g->map_time += dt;
     ai_update(&g->scene, &g->player, dt, &g->events);
     if (cmd_has(cmd, BTN_USE)) {
         logic_use(&g->scene, &g->player, &g->events);

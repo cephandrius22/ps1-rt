@@ -230,6 +230,27 @@ static void gen_ambient_hum(Sound *s) {
     }
 }
 
+/* Three rising notes, each a soft bell */
+static void gen_secret(Sound *s) {
+    static const float notes[] = {523.0f, 659.0f, 784.0f}; /* C5 E5 G5 */
+    const float step = 0.12f;
+    *s = make_sound(AUDIO_SAMPLE_RATE, 0.7f);
+    if (!s->samples) {
+        return;
+    }
+    for (int i = 0; i < s->length; i++) {
+        float t = (float)i / s->sample_rate;
+        float val = 0;
+        for (int n = 0; n < 3; n++) {
+            float dt = t - n * step;
+            if (dt >= 0) {
+                val += sinf(dt * notes[n] * 6.28f) * expf(-dt * 5.0f) * 0.35f;
+            }
+        }
+        s->samples[i] = (int16_t)(val * 12000.0f);
+    }
+}
+
 static void gen_dry_fire(Sound *s) {
     *s = make_sound(AUDIO_SAMPLE_RATE, 0.05f);
     if (!s->samples) {
@@ -342,6 +363,7 @@ void audio_generate_sounds(Sound sounds[SND_COUNT]) {
     gen_ambient(&sounds[SND_AMBIENT]);
     gen_ambient_drip(&sounds[SND_AMBIENT_DRIP]);
     gen_ambient_hum(&sounds[SND_AMBIENT_HUM]);
+    gen_secret(&sounds[SND_SECRET]);
     gen_dry_fire(&sounds[SND_DRY_FIRE]);
 
     /*                                         dur    f0     f1    rasp  noise gain */

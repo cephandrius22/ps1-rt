@@ -67,7 +67,7 @@ on the include path, so headers are included by bare name (`"scene.h"`).
 `game_update()` runs 0..`GAME_MAX_TICKS_PER_FRAME` fixed ticks at `GAME_TICK_HZ` (60). Each `game_tick()`: entities → `logic_update()` (doors, buttons, triggers) → lights → rebuild dynamic BVH + sprites → then by `GameMode`:
 - `GAME_PLAYING`: AI → use (`logic_use()`) → player (exit pad → `GAME_LEVEL_END`; new weapon pickups → switch) → weapon select → weapon (muzzle flash light, noise wakes enemies via `ai_hear()`, rocket launch request) → `resolve_impacts()` → `projectile_update()` → player dead → `GAME_DEAD`. Kills are counted from `EV_ENEMY_DIED` events; on-screen notices (`game_message()`) are written from this tick's events.
 - `GAME_DEAD`: AI and projectiles keep running, view sinks; attack/use after `GAME_CONTINUE_DELAY` restarts the map with the loadout it was entered with (`Game.entry`)
-- `GAME_LEVEL_END`: frozen; attack/use after the delay loads the next map of the episode, carrying health, ammo and weapons (not keycards); after the last map, `GAME_EPISODE_END`, whose continue starts the episode fresh
+- `GAME_LEVEL_END`: frozen, intermission shown (map title, kills, secrets, time from `Game.map_time`, next map); attack/use after the delay loads the next map of the episode, carrying health, ammo and weapons (not keycards); after the last map, `GAME_EPISODE_END`, whose continue starts the episode fresh
 
 Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites) → `shade_pixel_lit()` (material motion, optional affine UVs, zone ambient + glow, `shade_light()` per light, view fog) → PS1 dither → framebuffer → `particles_draw()` → `overlay_draw()` (viewmodel, desaturation, HUD, death tint, level-end kill count)
 
@@ -186,6 +186,7 @@ Entity types (all take `rot=` (radians) and `mat=<material or texture name>`; wi
 | `func_button` (brush) | `target`, `message`, `opens` (`side`), `speed`, `wait` (1), `lip`, `key` | E presses: fires `target` |
 | `trigger_once` (brush) | `target`, `message` | fires when the player enters, then is spent |
 | `trigger_multiple` (brush) | `target`, `message`, `wait` (1) | fires again every `wait` s while inside |
+| `trigger_secret` (brush) | `target`, `message` | a secret area: counted for the intermission, "A secret area!" |
 | `keycard` | `color` (`red`/`blue`/`yellow`) | sprite; opens doors/buttons with that `key` |
 | `prop` | — | static cube |
 | `decor` | `w` (0.8), `h` (1.0), `solid` (1) | sprite; default texture `barrel` |

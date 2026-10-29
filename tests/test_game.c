@@ -322,6 +322,21 @@ TEST(test_game_shoot_out_light) {
     game_free(&g);
 }
 
+/* Entering a secret counts it once, with the default notice; time runs */
+TEST(test_game_secret_found) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    Entity secret = entity_spawn_brush(ENTITY_TRIGGER_SECRET, vec3(5, 1, 10), vec3(1, 1, 1), "");
+    entity_add(&g.scene.entities, secret);
+    g.player.on_ground = true;
+
+    PlayerCmd idle = {0};
+    run_ticks(&idle, 30);
+    ASSERT_EQ_INT(g.secrets, 1);
+    ASSERT(game_message(&g) && strcmp(game_message(&g), "A secret area!") == 0);
+    ASSERT_NEAR(g.map_time, 0.5f, 0.02f);
+    game_free(&g);
+}
+
 /* A trigger's message shows when the player walks in */
 TEST(test_game_trigger_message) {
     ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
@@ -438,6 +453,7 @@ int main(void) {
     RUN_TEST(test_game_reload_keeps_pose);
     RUN_TEST(test_game_locked_door_message);
     RUN_TEST(test_game_trigger_message);
+    RUN_TEST(test_game_secret_found);
     RUN_TEST(test_game_shoot_out_light);
     RUN_TEST(test_game_weapon_select);
     RUN_TEST(test_game_weapon_slot_impulse_once);

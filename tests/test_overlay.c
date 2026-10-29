@@ -42,10 +42,12 @@ TEST(test_overlay_dead_tints_red) {
     ASSERT(g < r && b < r);
 }
 
-TEST(test_overlay_level_end_shows_kills) {
+TEST(test_overlay_level_end_shows_stats) {
     framebuffer_clear(&fb, BG);
     OverlayState s = {.mode = OVERLAY_LEVEL_END, .health = 50, .ammo = 9,
-                      .kills = 3, .kills_total = 4};
+                      .kills = 3, .kills_total = 4, .map_title = "Processing Plant",
+                      .next_title = "Arena", .secrets = 1, .secrets_total = 2,
+                      .time_seconds = 151};
     overlay_draw(&ov, &fb, &s);
 
     /* Frame dimmed; something bright drawn in the middle band */
@@ -162,7 +164,7 @@ int main(void) {
     TEST_SUITE("overlay");
     RUN_TEST(test_overlay_draws_hud_corners);
     RUN_TEST(test_overlay_dead_tints_red);
-    RUN_TEST(test_overlay_level_end_shows_kills);
+    RUN_TEST(test_overlay_level_end_shows_stats);
     RUN_TEST(test_overlay_debug_text_top_left);
     RUN_TEST(test_overlay_viewmodel);
     RUN_TEST(test_overlay_message_and_keycards);
