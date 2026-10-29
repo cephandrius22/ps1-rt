@@ -154,6 +154,37 @@ TEST(test_render_sprite_across_tiles) {
     scene_free(&s);
 }
 
+/* With a light in the shadow cache, entity meshes (a door) still cast
+ * shadows: they are tested live on top of the cache */
+TEST(test_render_door_shadows_cached_light) {
+    Scene s;
+    Mesh m;
+    floor_quad(&s, &m, 2.0f);
+    s.env.ambient = 0;
+    light_add(&s.lights, (Light){.position = vec3(0, 3, -4), .color = vec3(1, 1, 1),
+                                 .intensity = 8, .radius = 12, .cast_shadows = true});
+    shadowcache_build(&s.shadows, &s.static_bvh, &s.lights);
+    ASSERT(shadowcache_has(&s.shadows, 0));
+
+    /* A slab between the light and the floor, as entity geometry */
+    Vec3 up = vec3(0, 1, 0);
+    Triangle slab[] = {
+        {vec3(-2, 1, -6), vec3(2, 1, -6), vec3(2, 1, -2), .normal = up},
+        {vec3(-2, 1, -6), vec3(2, 1, -2), vec3(-2, 1, -2), .normal = up},
+    };
+    Camera cam = camera_create(vec3(0, 0, 0), 0, -0.25f, 1.2f);
+
+    render_scene_lit(&frame_a, &cam, &s, 0, NULL);
+    bvh_build(&s.dynamic_bvh, slab, 2);
+    s.has_dynamic = true;
+    render_scene_lit(&frame_b, &cam, &s, 0, NULL);
+
+    ASSERT(center_peak(&frame_a) > 40);
+    ASSERT(center_peak(&frame_b) < center_peak(&frame_a) / 4);
+    mesh_free(&m);
+    scene_free(&s);
+}
+
 int main(void) {
     TEST_SUITE("color");
     RUN_TEST(test_color_rgb);
@@ -169,5 +200,6 @@ int main(void) {
     RUN_TEST(test_render_affine_warp);
     RUN_TEST(test_render_no_bulb);
     RUN_TEST(test_render_sprite_across_tiles);
+    RUN_TEST(test_render_door_shadows_cached_light);
     TEST_REPORT();
 }

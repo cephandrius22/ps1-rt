@@ -15,12 +15,14 @@
 #include "entity.h"
 #include "light.h"
 #include "nav.h"
+#include "shadowcache.h"
 #include "environment.h"
 #include "texture.h"
 
 typedef struct Scene {
     /* Static world geometry */
     BVH static_bvh;
+    ShadowCache shadows;   /* fixed lights' visibility on it, built at load */
 
     /* Dynamic entity geometry (rebuilt per tick) */
     BVH dynamic_bvh;

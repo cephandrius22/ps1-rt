@@ -337,7 +337,8 @@ Each step was its own commit with before/after numbers.
 | | frame (mean) | worst view | one core | tick |
 |---|---|---|---|---|
 | Before | 12.5 ms | 21 ms | 51 ms | 0.15-0.5 ms |
-| After | 7.5-8.3 ms | 12-15 ms | 36 ms | 0.005 ms |
+| Steps 1-5 | 7.5-8.3 ms | 12-15 ms | 36 ms | 0.005 ms |
+| Step 6 | 5.8 ms | 9.5 ms | 27 ms | 0.005 ms |
 
 - ✅ Step 1 — **Bench.** `./rt --bench [map ...]`; profiling showed BVH
   traversal at two thirds of a frame, half of it shadow rays.
@@ -351,13 +352,20 @@ Each step was its own commit with before/after numbers.
   place; it is rebuilt only when one comes or goes.
 - ✅ Step 5 — **Smooth camera.** Frames between 60 Hz ticks ease the
   eye from the last tick's spot and apply mouse look at once.
+- ✅ Step 6 — **Shadow cache.** Shadow rays had become a third of a
+  frame. At load, each static triangle gets a 25 cm grid of samples
+  recording which fixed lights it sees (Quake lightmaps, of visibility);
+  shading blends the four nearest (soft edges) and tests doors live.
+  Every fixed light now casts shadows, not just four per pixel. Load
+  takes 0.05-0.1 s longer.
 
 Carried forward:
 
-- Shadow rays are now the largest cost (about a third of a frame). Next
-  levers: precomputed shadows for static lights on static geometry
-  (lightmaps), or fewer shadowed lights per pixel (`MAX_SHADOW_LIGHTS`,
-  a quality trade).
+- Shadow edges are soft at 25 cm; small details (pew legs, thin
+  bars) cast blurrier shadows than before. `SHADOW_TEXEL` trades
+  sharpness for load time and memory.
+- Swinging lamps, the flashlight and muzzle flashes still trace shadow
+  rays (capped at four per pixel).
 - Only the camera is smoothed: monsters, doors and projectiles still
   move at the 60 Hz tick rate.
 - 8 workers reach about 4.8x one core: efficiency cores are slower, and

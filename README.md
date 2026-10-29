@@ -36,7 +36,7 @@ where it's heading.
 
 - **CPU raytracer** — no GPU shaders, all rendering happens on the CPU, in 16x16 tiles shared out across threads; `./rt --bench` measures it
 - **Two-level BVH** — SAH-built static world + per-tick dynamic entity BVH; sprites tested analytically
-- **Lighting** — point and spot lights with shadows, flicker and swing, bulbs you can shoot out, a battery-powered flashlight, per-level and per-area ambient light and fog
+- **Lighting** — point and spot lights with soft shadows (worked out per level at load for fixed lights; doors and swinging lamps stay live), flicker and swing, bulbs you can shoot out, a battery-powered flashlight, per-level and per-area ambient light and fog
 - **PS1 look** — vertex jitter, 4x4 Bayer dithering, 15-bit color, 320x240 upscaled 3x
 - **Level editing** — build levels in TrenchBroom (`.map`, Quake-style brushes) or a simple text format (`.level`); the game reloads on save and warns about mistakes and budget overruns
 - **Procedural textures** — an industrial set (concrete, brick, metal, grate, rust, tile, pipe), a church set (dressed stone, crypt rubble, flagstones, tomb slabs, plaster, oak panelling and boards, marble, carpet, studded iron, glowing stained glass and a rose window), plus animated slime, water and flickering screens; generated in code

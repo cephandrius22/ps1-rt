@@ -420,6 +420,9 @@ void level_finish(Scene *scene, MatLib *mats, Mesh *world, const char *name) {
     nav_build(&scene->nav, &scene->static_bvh);
     printf("Nav grid: %dx%d cells, %d floors\n",
            scene->nav.nx, scene->nav.nz, nav_floor_count(&scene->nav));
+
+    shadowcache_build(&scene->shadows, &scene->static_bvh, &scene->lights);
+    printf("Shadow cache: %d samples\n", scene->shadows.bit_count);
     mesh_free(world);
 }
 

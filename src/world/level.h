@@ -35,7 +35,7 @@ void level_add_brush_entity(Scene *scene, EntityType type, Vec3 lo, Vec3 hi,
 
 /* Shared last step of every loader: hand textures to the scene, add the
  * lights entities bring (EntityDef.light), jitter world triangles, build
- * the static BVH and nav grid, free the world mesh */
+ * the static BVH, nav grid and shadow cache, free the world mesh */
 void level_finish(Scene *scene, struct MatLib *mats, Mesh *world, const char *name);
 
 #endif

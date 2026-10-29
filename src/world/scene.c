@@ -34,12 +34,14 @@ void scene_init(Scene *s) {
         s->type_material[t] = 0;
     }
     s->nav = (NavGrid){0};
+    s->shadows = (ShadowCache){0};
     s->env = environment_default();
     zone_list_init(&s->zones);
 }
 
 void scene_free(Scene *s) {
     bvh_free(&s->static_bvh);
+    shadowcache_free(&s->shadows);
     bvh_free(&s->dynamic_bvh);
     free(s->dynamic_tris);
     s->dynamic_tris = NULL;

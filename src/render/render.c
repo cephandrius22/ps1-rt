@@ -114,11 +114,54 @@ static bool affine_uv(const Camera *cam, const Triangle *tri, int x, int y, Vec2
     return true;
 }
 
-/* One light's color on a surface point: cone, distance, facing, and a
- * shadow ray while the pixel's shadow budget (MAX_SHADOW_LIGHTS) lasts */
-static Vec3 shade_light(const Light *pl, const Scene *scene, Vec3 hit_pos, Vec3 normal,
+/* A surface point being lit: where, which way it faces, and which static
+ * triangle it's on (index in the static BVH; -1 = entity mesh or sprite) */
+typedef struct {
+    Vec3 pos;
+    Vec3 normal;
+    int static_tri;
+} SurfacePoint;
+
+/* Index of a hit's triangle in the static BVH, or -1 */
+static int static_tri_index(const Scene *scene, const HitRecord *rec) {
+    const Triangle *first = scene->static_bvh.tris;
+    if (!rec->tri || !first || rec->tri < first || rec->tri >= first + scene->static_bvh.tri_count) {
+        return -1;
+    }
+    return (int)(rec->tri - first);
+}
+
+/* How much of light `index` reaches the point: the shadow cache for a
+ * fixed light on static geometry (entity meshes, like doors, still tested
+ * live), else a shadow ray while the pixel's budget (MAX_SHADOW_LIGHTS)
+ * lasts. 0 hidden .. 1 visible. */
+static float light_visible(const Light *pl, int index, const Scene *scene, const SurfacePoint *sp,
+                           Vec3 light_dir, float dist, int *shadow_count) {
+    Ray ray = {vec3_add(sp->pos, vec3_mul(sp->normal, 0.01f)), light_dir};
+    if (sp->static_tri >= 0 && shadowcache_has(&scene->shadows, index)) {
+        float seen = shadowcache_visible(&scene->shadows, sp->static_tri, sp->pos, index);
+        if (seen <= 0) {
+            return 0;
+        }
+        bool door = scene->has_dynamic &&
+                    bvh_occluded(&scene->dynamic_bvh, ray, 0.001f, dist - 0.01f);
+        return door ? 0 : seen;
+    }
+
+    if (!pl->cast_shadows || *shadow_count >= MAX_SHADOW_LIGHTS) {
+        return 1;
+    }
+    (*shadow_count)++;
+    return scene_occluded(scene, ray, 0.001f, dist - 0.01f) ? 0 : 1;
+}
+
+/* One light's color on a surface point: cone, distance, facing, shadow.
+ * index is the light's slot in the scene list (-1: the carried light). */
+static Vec3 shade_light(const Light *pl, int index, const Scene *scene, const SurfacePoint *sp,
                         float time, int *shadow_count) {
     Vec3 none = vec3(0, 0, 0);
+    Vec3 hit_pos = sp->pos;
+    Vec3 normal = sp->normal;
     Vec3 to_light = vec3_sub(pl->position, hit_pos);
     float dist = vec3_length(to_light);
     if (pl->off || dist >= pl->radius || dist < 1e-4f) {
@@ -132,15 +175,13 @@ static Vec3 shade_light(const Light *pl, const Scene *scene, Vec3 hit_pos, Vec3 
         return none;
     }
 
-    if (pl->cast_shadows && *shadow_count < MAX_SHADOW_LIGHTS) {
-        (*shadow_count)++;
-        Ray shadow_ray = {vec3_add(hit_pos, vec3_mul(normal, 0.01f)), light_dir};
-        if (scene_occluded(scene, shadow_ray, 0.001f, dist - 0.01f)) {
-            return none;
-        }
+    float seen = light_visible(pl, index, scene, sp, light_dir, dist, shadow_count);
+    if (seen <= 0) {
+        return none;
     }
 
-    float amount = ndl * cone * light_attenuation(pl, dist) * light_effective_intensity(pl, time);
+    float amount = seen * ndl * cone * light_attenuation(pl, dist) *
+                   light_effective_intensity(pl, time);
     return vec3_mul(pl->color, amount);
 }
 
@@ -199,14 +240,15 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
         }
 
         /* Lamps, flashes, then the light the viewer carries */
+        SurfacePoint sp = {hit_pos, normal, static_tri_index(scene, &rec)};
         int shadow_count = 0;
         for (int i = 0; i < scene->lights.count; i++) {
-            lighting = vec3_add(lighting, shade_light(&scene->lights.items[i], scene, hit_pos,
-                                                      normal, time, &shadow_count));
+            lighting = vec3_add(lighting, shade_light(&scene->lights.items[i], i, scene, &sp,
+                                                      time, &shadow_count));
         }
         if (params->carried) {
-            lighting = vec3_add(lighting, shade_light(params->carried, scene, hit_pos, normal,
-                                                      time, &shadow_count));
+            lighting = vec3_add(lighting, shade_light(params->carried, -1, scene, &sp, time,
+                                                      &shadow_count));
         }
 
         col.x = surface_col.x * lighting.x;
