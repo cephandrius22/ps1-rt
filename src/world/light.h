@@ -11,7 +11,8 @@
  *       \      /
  *
  * Lights are data owned by the scene; render/ does the shading and
- * shadow rays. light_update() animates swinging bulbs each game tick and
+ * shadow rays. Some come with an entity (a candelabra's flames, added at
+ * load) and set no_bulb, since the sprite already draws the source. light_update() animates swinging bulbs each game tick and
  * retires temporary lights (muzzle flashes, explosions), which fade out
  * over their lifetime; flicker is a pure function of time, evaluated
  * when shading.

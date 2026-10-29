@@ -297,13 +297,53 @@ Carried forward:
   survive updates.
 - No confirmation before overwriting a save slot or quitting.
 
+## Theme: Church ✅
+
+A gothic/church look as the first alternative to the industrial set,
+all generated in code (no image files).
+
+- ✅ **Textures** (`proctex_church.c`): ashlar, crypt rubble, flagstones,
+  tomb slab, plaster, oak panelling and boards, marble, aisle carpet,
+  studded iron, stained glass and a rose window (both glow). Tiles are
+  tested for seams.
+- ✅ **Decor:** `decor_candelabra` (brings its own flickering light via
+  the new `EntityDef.light` hook; `Light.no_bulb`), `decor_gravestone`,
+  `decor_statue`; named types with their own sizes.
+- ✅ **Ambience:** wind, organ and bell loops that repeat exactly (no
+  fade at the seam).
+- ✅ **`levels/chapel.map`:** porch, nave, moonlit graveyard (crypt key,
+  secret), crypt with the exit. Checker-clean, kept so by a test.
+
+Carried forward:
+
+- Playtest: the chapel was checked by renders and the level checker,
+  not played by hand.
+- Looks: plaster's flaked patches read as spots; the rose window's
+  stone square glows with the glass; sprites lit only from behind show
+  as silhouettes.
+- No ground texture (grass, earth): the graveyard is paved.
+- Converted maps need non-64 px and one-per-face textures rescaled by
+  hand (see `level_convert` in CLAUDE.md).
+- Next themes: a Victorian manor set (wallpaper, wood floors,
+  fireplaces) would reuse the same approach.
+
 ## Phase 7: Performance (when profiling demands)
 
-- Refit dynamic BVH instead of rebuilding (still doors re-posed every tick)
-- Tile-based rendering
+Gathered from the phases above:
+
+- Refit dynamic BVH instead of rebuilding (doors are re-posed every
+  tick, even when still)
 - Cull sprites per frame (bounding check or put them in the dynamic BVH)
-  instead of scanning all of them per ray
-- Interpolate rendering between fixed ticks
+  instead of scanning all of them per ray (~0.11 ms per sprite)
+- Interpolate rendering between fixed ticks (displays above 60 Hz show
+  each tick on several frames)
+- Tile-based rendering
+- Projectile glows are lights refreshed per tick; watch the light budget
+  with many spitters
+- Sound isn't occluded by walls (the nav grid could muffle it, as it
+  does for enemy hearing)
+- Affine warp falls back to true UVs on triangles reaching behind the
+  camera; PS1 games subdivided large polygons instead
 
 ## Design notes
 
