@@ -50,6 +50,14 @@ TEST(test_material_motion_defaults_and_keys) {
     scene_free(&s);
 }
 
+/* Stained glass glows by default: it reads as lit from outside */
+TEST(test_material_glass_glows) {
+    load("material lancet stained_glass 1 1 1\nmaterial rose rose_window 1 1 1\n");
+    ASSERT(s.materials[0].glow > 0);
+    ASSERT(s.materials[1].glow > 0);
+    scene_free(&s);
+}
+
 /* No lights, no ambient: a glowing wall still shows, a plain one doesn't */
 TEST(test_material_glow_in_the_dark) {
     load("ambient 0\nsun 0 1 0 1 1 1 0\nfog 100 200 0 0 0\n"
@@ -90,6 +98,7 @@ int main(void) {
     TEST_SUITE("materials");
     RUN_TEST(test_material_motion_defaults_and_keys);
     RUN_TEST(test_material_glow_in_the_dark);
+    RUN_TEST(test_material_glass_glows);
     RUN_TEST(test_material_tga_file);
     TEST_REPORT();
 }

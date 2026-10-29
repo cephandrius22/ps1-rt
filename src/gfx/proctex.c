@@ -595,6 +595,18 @@ static const char *proctex_names[PTEX_COUNT] = {
     [PTEX_SLIME]         = "slime",
     [PTEX_WATER]         = "water",
     [PTEX_SCREEN]        = "screen",
+    [PTEX_ASHLAR]        = "ashlar",
+    [PTEX_RUBBLE]        = "rubble",
+    [PTEX_FLAGSTONE]     = "flagstone",
+    [PTEX_TOMB_SLAB]     = "tomb_slab",
+    [PTEX_PLASTER]       = "plaster",
+    [PTEX_OAK_PANEL]     = "oak_panel",
+    [PTEX_OAK_PLANKS]    = "oak_planks",
+    [PTEX_MARBLE]        = "marble",
+    [PTEX_CARPET]        = "carpet",
+    [PTEX_IRON]          = "iron",
+    [PTEX_STAINED_GLASS] = "stained_glass",
+    [PTEX_ROSE_WINDOW]   = "rose_window",
 };
 
 static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
@@ -616,6 +628,18 @@ static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
     [PTEX_SLIME]         = gen_slime,
     [PTEX_WATER]         = gen_water,
     [PTEX_SCREEN]        = gen_screen,
+    [PTEX_ASHLAR]        = church_ashlar,
+    [PTEX_RUBBLE]        = church_rubble,
+    [PTEX_FLAGSTONE]     = church_flagstone,
+    [PTEX_TOMB_SLAB]     = church_tomb_slab,
+    [PTEX_PLASTER]       = church_plaster,
+    [PTEX_OAK_PANEL]     = church_oak_panel,
+    [PTEX_OAK_PLANKS]    = church_oak_planks,
+    [PTEX_MARBLE]        = church_marble,
+    [PTEX_CARPET]        = church_carpet,
+    [PTEX_IRON]          = church_iron,
+    [PTEX_STAINED_GLASS] = church_stained_glass,
+    [PTEX_ROSE_WINDOW]   = church_rose_window,
 };
 
 const char *proctex_name(ProceduralTextureID id) {

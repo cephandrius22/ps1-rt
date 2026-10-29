@@ -3,6 +3,7 @@
  * Not part of the gfx API: only proctex*.c include it.
  *
  *   proctex.c          names, lookup, industrial set, sprites, animated
+ *   proctex_church.c   church and crypt surfaces
  */
 #ifndef PROCTEX_INTERNAL_H
 #define PROCTEX_INTERNAL_H
@@ -52,5 +53,20 @@ static inline uint8_t clamp8(float v) {
     }
     return (uint8_t)v;
 }
+
+/* --- Church set (proctex_church.c) --- */
+
+void church_ashlar(Texture *tex);
+void church_rubble(Texture *tex);
+void church_flagstone(Texture *tex);
+void church_tomb_slab(Texture *tex);
+void church_plaster(Texture *tex);
+void church_oak_panel(Texture *tex);
+void church_oak_planks(Texture *tex);
+void church_marble(Texture *tex);
+void church_carpet(Texture *tex);
+void church_iron(Texture *tex);
+void church_stained_glass(Texture *tex);
+void church_rose_window(Texture *tex);
 
 #endif

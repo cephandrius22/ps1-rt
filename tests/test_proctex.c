@@ -1,5 +1,7 @@
 #include "test_framework.h"
 #include "proctex.h"
+#include <stdlib.h>
+#include <string.h>
 
 TEST(test_proctex_find_concrete) {
     ASSERT_EQ_INT(proctex_find("concrete"), PTEX_CONCRETE);
@@ -82,6 +84,75 @@ TEST(test_proctex_nonzero_content) {
     texture_free(&tex);
 }
 
+/* Every texture's name finds it again (no gaps in the name table) */
+TEST(test_proctex_names_round_trip) {
+    for (int i = 0; i < PTEX_COUNT; i++) {
+        const char *name = proctex_name((ProceduralTextureID)i);
+        ASSERT(name != NULL);
+        ASSERT_EQ_INT(proctex_find(name), i);
+    }
+}
+
+TEST(test_proctex_church_sizes) {
+    for (int i = PTEX_ASHLAR; i <= PTEX_ROSE_WINDOW; i++) {
+        Texture tex = {0};
+        proctex_generate(&tex, (ProceduralTextureID)i);
+        bool slab = i == PTEX_TOMB_SLAB;
+        ASSERT_EQ_INT(tex.width, slab ? 32 : 64);
+        ASSERT_EQ_INT(tex.height, 64);
+        texture_free(&tex);
+    }
+}
+
+/* Mean channel difference between column a and column b */
+static float column_diff(const Texture *t, int a, int b) {
+    int sum = 0;
+    for (int y = 0; y < t->height; y++) {
+        for (int c = 0; c < 3; c++) {
+            sum += abs(t->pixels[(y * t->width + a) * 3 + c] - t->pixels[(y * t->width + b) * 3 + c]);
+        }
+    }
+    return (float)sum / (t->height * 3);
+}
+
+/* Transposed copy, so rows can be checked as columns */
+static Texture transposed(const Texture *t) {
+    Texture out = {.width = t->height, .height = t->width,
+                   .pixels = malloc((size_t)(t->width * t->height * 3))};
+    for (int y = 0; y < t->height; y++) {
+        for (int x = 0; x < t->width; x++) {
+            memcpy(&out.pixels[(x * out.width + y) * 3], &t->pixels[(y * t->width + x) * 3], 3);
+        }
+    }
+    return out;
+}
+
+/* The wrap from the last column to the first is no harsher than the
+ * harshest step inside the texture (a joint): no visible seam */
+static bool wraps_cleanly(const Texture *t) {
+    float inside = 0;
+    for (int x = 0; x + 1 < t->width; x++) {
+        float d = column_diff(t, x, x + 1);
+        inside = d > inside ? d : inside;
+    }
+    return column_diff(t, t->width - 1, 0) <= inside * 1.05f;
+}
+
+TEST(test_proctex_church_tiles_seamlessly) {
+    for (int i = PTEX_ASHLAR; i <= PTEX_STAINED_GLASS; i++) {
+        if (i == PTEX_TOMB_SLAB) {
+            continue; /* a single piece, not a tile */
+        }
+        Texture tex = {0};
+        proctex_generate(&tex, (ProceduralTextureID)i);
+        Texture rows = transposed(&tex);
+        ASSERT(wraps_cleanly(&tex));
+        ASSERT(wraps_cleanly(&rows));
+        texture_free(&rows);
+        texture_free(&tex);
+    }
+}
+
 int main(void) {
     TEST_SUITE("proctex");
     RUN_TEST(test_proctex_find_concrete);
@@ -94,5 +165,8 @@ int main(void) {
     RUN_TEST(test_proctex_generate_all);
     RUN_TEST(test_proctex_sample);
     RUN_TEST(test_proctex_nonzero_content);
+    RUN_TEST(test_proctex_names_round_trip);
+    RUN_TEST(test_proctex_church_sizes);
+    RUN_TEST(test_proctex_church_tiles_seamlessly);
     TEST_REPORT();
 }

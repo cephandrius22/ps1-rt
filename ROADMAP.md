@@ -29,7 +29,7 @@ playable soonest. Each phase ends in something you can play.
   per zone
 - Title, pause, options and save/load menus; settings file; save
   anywhere, F5/F9 quicksave
-- Level file format, procedural textures
+- Level file format, procedural textures (industrial and church sets)
 - Multithreaded rendering
 
 ## Phase 0: Structure ✅

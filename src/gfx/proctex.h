@@ -1,8 +1,9 @@
 /*
- * proctex.h — Procedural texture generation for industrial environments.
+ * proctex.h — Procedural textures: an industrial set, a church set,
+ * sprites and viewmodels.
  *
  * Generates low-res textures (32x32 or 64x64) in code using hash-based noise.
- * No external image files needed. Sprite textures (barrel, enemies) use the
+ * No external image files needed. The church set lives in proctex_church.c. Sprite textures (barrel, enemies) use the
  * TEXTURE_KEY color for empty pixels; sheets hold frames side by side.
  */
 #ifndef PROCTEX_H
@@ -29,6 +30,18 @@ typedef enum {
     PTEX_SLIME,       /* animated surfaces (matlib gives them motion): */
     PTEX_WATER,       /*   tile seamlessly so they can scroll */
     PTEX_SCREEN,
+    PTEX_ASHLAR,      /* church set: 64x64, tiling */
+    PTEX_RUBBLE,
+    PTEX_FLAGSTONE,
+    PTEX_TOMB_SLAB,   /*   32x64, one slab per face */
+    PTEX_PLASTER,
+    PTEX_OAK_PANEL,
+    PTEX_OAK_PLANKS,
+    PTEX_MARBLE,
+    PTEX_CARPET,
+    PTEX_IRON,
+    PTEX_STAINED_GLASS, /* glows (matlib) */
+    PTEX_ROSE_WINDOW,   /*   64x64, one window per face; glows */
     PTEX_COUNT
 } ProceduralTextureID;
 

@@ -101,9 +101,11 @@ typedef struct {
 } TextureMotion;
 
 static const TextureMotion texture_motions[] = {
-    {"slime",  {0.04f, 0.015f}, 0.35f, 0.4f},
-    {"water",  {0.025f, 0.01f}, 0.0f,  0.0f},
-    {"screen", {0.0f, 0.0f},    0.6f,  6.0f},
+    {"slime",         {0.04f, 0.015f}, 0.35f, 0.4f},
+    {"water",         {0.025f, 0.01f}, 0.0f,  0.0f},
+    {"screen",        {0.0f, 0.0f},    0.6f,  6.0f},
+    {"stained_glass", {0.0f, 0.0f},    0.5f,  0.0f}, /* lit from outside */
+    {"rose_window",   {0.0f, 0.0f},    0.5f,  0.0f},
 };
 
 static void apply_texture_motion(Material *mat, const char *texture) {
