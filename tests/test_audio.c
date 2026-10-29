@@ -44,10 +44,10 @@ TEST(test_weapon_fire_is_short) {
     memset(sounds, 0, sizeof(sounds));
     audio_generate_sounds(sounds);
 
-    /* Weapon fire should be ~0.15s = 3307 samples at 22050 Hz */
+    /* A shot with its tail: about a third of a second, never a drone */
     float duration = (float)sounds[SND_WEAPON_FIRE].length / sounds[SND_WEAPON_FIRE].sample_rate;
     ASSERT(duration > 0.1f);
-    ASSERT(duration < 0.3f);
+    ASSERT(duration < 0.5f);
 
     for (int i = 0; i < SND_COUNT; i++) {
         sound_free(&sounds[i]);
@@ -91,9 +91,9 @@ TEST(test_sounds_have_nonzero_samples) {
 }
 
 TEST(test_sound_id_count) {
-    ASSERT(SND_COUNT == 28);
+    ASSERT(SND_COUNT == 29);
     ASSERT(SND_WEAPON_FIRE == 0);
-    ASSERT(SND_SECRET == SND_COUNT - 1);
+    ASSERT(SND_FLESH_HIT == SND_COUNT - 1);
 }
 
 /* --- AudioSystem struct tests (no SDL init) --- */

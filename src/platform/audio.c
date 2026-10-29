@@ -15,20 +15,42 @@ static Sound make_sound(int sample_rate, float duration) {
     return s;
 }
 
+/* Pistol: a sharp crack, a low thump under it, and a muffled tail so
+ * the shot hangs in the room for a moment */
 static void gen_weapon_fire(Sound *s) {
-    *s = make_sound(AUDIO_SAMPLE_RATE, 0.15f);
+    const float duration = 0.32f;
+    *s = make_sound(AUDIO_SAMPLE_RATE, duration);
     if (!s->samples) {
         return;
     }
+    float tail = 0;
     for (int i = 0; i < s->length; i++) {
         float t = (float)i / s->sample_rate;
-        float env = 1.0f - t / 0.15f;
-        env = env * env;
-        /* Mix noise burst with low-frequency punch */
         float noise = ((float)(rand() % 20000) - 10000) / 10000.0f;
-        float punch = sinf(t * 120.0f * 6.28f) * expf(-t * 40.0f);
-        float val = (noise * 0.6f + punch * 0.8f) * env;
-        s->samples[i] = (int16_t)(val * 24000.0f);
+        tail += (noise - tail) * 0.08f;   /* low-passed: the room's rumble */
+        float crack = noise * expf(-t * 55.0f);
+        float thump = sinf(t * 95.0f * 6.28f) * expf(-t * 18.0f);
+        float val = crack * 0.7f + thump * 0.9f + tail * 2.2f * expf(-t * 9.0f);
+        float fade = 1.0f - t / duration;
+        s->samples[i] = (int16_t)(fminf(fmaxf(val * fade, -1.0f), 1.0f) * 30000.0f);
+    }
+}
+
+/* A bullet into a body: a wet, low thud */
+static void gen_flesh_hit(Sound *s) {
+    const float duration = 0.14f;
+    *s = make_sound(AUDIO_SAMPLE_RATE, duration);
+    if (!s->samples) {
+        return;
+    }
+    float squelch = 0;
+    for (int i = 0; i < s->length; i++) {
+        float t = (float)i / s->sample_rate;
+        float noise = ((float)(rand() % 20000) - 10000) / 10000.0f;
+        squelch += (noise - squelch) * 0.25f;
+        float thud = sinf(t * 140.0f * 6.28f) * expf(-t * 30.0f);
+        float val = (thud * 0.8f + squelch * 1.2f * expf(-t * 25.0f));
+        s->samples[i] = (int16_t)(fminf(fmaxf(val, -1.0f), 1.0f) * 20000.0f);
     }
 }
 
@@ -353,6 +375,7 @@ static void gen_rocket_launch(Sound *s) {
 void audio_generate_sounds(Sound sounds[SND_COUNT]) {
     gen_weapon_fire(&sounds[SND_WEAPON_FIRE]);
     gen_weapon_impact(&sounds[SND_WEAPON_IMPACT]);
+    gen_flesh_hit(&sounds[SND_FLESH_HIT]);
     gen_footstep(&sounds[SND_FOOTSTEP]);
     gen_pickup(&sounds[SND_PICKUP]);
     gen_door_open(&sounds[SND_DOOR_OPEN]);
@@ -375,8 +398,8 @@ void audio_generate_sounds(Sound sounds[SND_COUNT]) {
     gen_vocal(&sounds[SND_ENEMY_DEATH],  (VocalTone){0.90f, 130.0f, 35.0f,  0.30f, 0.45f, 0.8f});
 
     /*                                        dur    thump  decay lowpass gain */
-    gen_blast(&sounds[SND_SHOTGUN_FIRE], (BlastTone){0.35f, 70.0f, 12.0f, 0.2f, 0.9f});
-    gen_blast(&sounds[SND_EXPLOSION],    (BlastTone){1.20f, 45.0f, 3.5f,  0.8f, 1.0f});
+    gen_blast(&sounds[SND_SHOTGUN_FIRE], (BlastTone){0.6f, 55.0f, 7.0f, 0.3f, 1.0f});
+    gen_blast(&sounds[SND_EXPLOSION],    (BlastTone){1.60f, 38.0f, 2.8f,  0.8f, 1.0f});
     gen_rocket_launch(&sounds[SND_ROCKET_LAUNCH]);
 
     /* Spitter: higher, wetter (more noise) than the ghoul */

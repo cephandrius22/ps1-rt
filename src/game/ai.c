@@ -21,7 +21,7 @@ static const EnemyDef enemy_defs[ENTITY_TYPE_COUNT] = {
         .damage      = 12.0f,
         .windup      = 0.4f,
         .cooldown    = 0.8f,
-        .pain_time   = 0.15f,
+        .pain_time   = 0.3f,
         .radius      = 0.4f,
         .height      = 1.7f,
         .attack      = ATTACK_MELEE,
@@ -32,7 +32,7 @@ static const EnemyDef enemy_defs[ENTITY_TYPE_COUNT] = {
         .melee_range = 0.0f,
         .windup      = 0.5f,
         .cooldown    = 1.6f,
-        .pain_time   = 0.2f,
+        .pain_time   = 0.35f,
         .radius      = 0.35f,
         .height      = 1.4f,
         .attack      = ATTACK_PROJECTILE,
@@ -163,6 +163,20 @@ static void chase(Scene *scene, int index, const EnemyDef *def, const Player *p,
     e->position = movement_slide(scene, e->position, move, enemy_shape(def));
 }
 
+#define KNOCK_FRICTION 7.0f  /* per second: a shove dies out in about half a second */
+#define KNOCK_STOP     0.05f /* m/s: below this the shove is over */
+
+/* Slide along a shove from a hit (dead or alive), losing speed fast */
+static void apply_knock(Entity *e, const EnemyDef *def, const Scene *scene, float dt) {
+    if (vec3_length(e->enemy.knock) < KNOCK_STOP) {
+        e->enemy.knock = vec3(0, 0, 0);
+        return;
+    }
+    e->position = movement_slide(scene, e->position, vec3_mul(e->enemy.knock, dt),
+                                 enemy_shape(def));
+    e->enemy.knock = vec3_mul(e->enemy.knock, expf(-KNOCK_FRICTION * dt));
+}
+
 /* Gravity and steps: stand on the ground under the feet (stepping up
  * ledges lower than ENEMY_STEP), or fall toward it */
 static void settle(Entity *e, const Scene *scene, float dt) {
@@ -270,6 +284,7 @@ void ai_update(Scene *scene, Player *player, float dt, EventQueue *ev) {
         if (!e->active || !def) {
             continue;
         }
+        apply_knock(e, def, scene, dt);
         settle(e, scene, dt);
         tick_enemy(e, i, def, player, scene, dt, ev);
     }

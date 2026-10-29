@@ -488,13 +488,13 @@ static const EntityKey decor_keys[] = {
 #define HIDDEN_DESC "Name; a named monster stays hidden until triggered"
 
 static const EntityKey ghoul_keys[] = {
-    {"health", KEY_FLOAT, GHOUL_HEALTH, "Hit points (pistol does 25)", NULL},
+    {"health", KEY_FLOAT, GHOUL_HEALTH, "Hit points (pistol does 34)", NULL},
     {"targetname", KEY_STRING, 0, HIDDEN_DESC, ""},
     {.type = KEY_END},
 };
 
 static const EntityKey spitter_keys[] = {
-    {"health", KEY_FLOAT, SPITTER_HEALTH, "Hit points (pistol does 25)", NULL},
+    {"health", KEY_FLOAT, SPITTER_HEALTH, "Hit points (pistol does 34)", NULL},
     {"targetname", KEY_STRING, 0, HIDDEN_DESC, ""},
     {.type = KEY_END},
 };

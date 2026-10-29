@@ -1,5 +1,6 @@
 #include "test_framework.h"
 #include "ai.h"
+#include "damage.h"
 #include <math.h>
 
 #define TICK (1.0f / 60.0f)
@@ -226,6 +227,27 @@ TEST(test_ai_monsters_spread_out) {
     free_world();
 }
 
+/* A hit shoves a monster away from the shooter, harder for bigger hits,
+ * and the shove dies out */
+TEST(test_ai_knockback) {
+    build_world(false);
+    entity_add(&s.entities, entity_spawn(ENTITY_GHOUL, vec3(0, 0, -5), "health=500"));
+    entity_add(&s.entities, entity_spawn(ENTITY_GHOUL, vec3(4, 0, -5), "health=500"));
+    Player p = player_at_origin();
+    events_clear(&ev);
+
+    damage_entity(&s, 0, 10, vec3(0, 1.7f, 0), &ev);   /* pistol-ish */
+    damage_entity(&s, 1, 90, vec3(4, 1.7f, 0), &ev);   /* point-blank shotgun */
+    run_ai(&p, 15);   /* still flinching: no walking yet */
+    float light = -5 - s.entities.items[0].position.z;
+    float heavy = -5 - s.entities.items[1].position.z;
+    ASSERT(light > 0.04f);                 /* pushed away (-Z) */
+    ASSERT(heavy > light * 3);
+    run_ai(&p, 45);
+    ASSERT(vec3_length(s.entities.items[1].enemy.knock) < 0.1f);
+    free_world();
+}
+
 /* Enemies fall onto the floor and chase across it */
 TEST(test_ai_enemy_falls_to_floor) {
     build_world(false);
@@ -247,6 +269,7 @@ int main(void) {
     RUN_TEST(test_ai_paths_around_wall);
     RUN_TEST(test_ai_hears_around_walls);
     RUN_TEST(test_ai_monsters_spread_out);
+    RUN_TEST(test_ai_knockback);
     RUN_TEST(test_ai_enemy_falls_to_floor);
     RUN_TEST(test_ai_spitter_holds_and_spits);
     RUN_TEST(test_ai_spitter_approaches_from_afar);

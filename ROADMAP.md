@@ -266,8 +266,10 @@ Carried forward:
 - Level authoring: generated maps are plain boxes; real detail (trim,
   arches, varied ceilings) comes from editing them in TrenchBroom.
 - Playtest: the three maps were verified by scripted runs (reachability,
-  keys, buttons, ambushes, exits) and screenshots, not played through by
-  hand; difficulty and pacing are unknown.
+  keys, buttons, ambushes, exits) and screenshots, then played by hand.
+  First tuning pass: rooms ~25% brighter (ambient ×1.5, lamps ×1.2);
+  guns hit harder (more damage, kick, shake, flash, knockback, flinch,
+  gore and punchier sounds).
 
 ## Phase 6: Shell
 

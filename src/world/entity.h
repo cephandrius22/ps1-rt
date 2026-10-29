@@ -165,6 +165,7 @@ typedef struct {
             float state_time; /* seconds in the current state */
             float cooldown;   /* seconds until it may attack again */
             float fall_speed; /* m/s downward while airborne */
+            Vec3 knock;       /* shove from hits, m/s on XZ; decays (game/ai.c) */
             Vec3 waypoint;    /* where it steers when the player isn't in a straight line */
             float repath;     /* seconds until the path is searched again */
             bool routed;      /* waypoint is valid */

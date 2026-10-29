@@ -47,6 +47,7 @@ typedef enum {
     SND_AMBIENT_DRIP,   /* loop: water dripping in a cave */
     SND_AMBIENT_HUM,    /* loop: machinery hum */
     SND_SECRET,         /* rising chime: a secret area found */
+    SND_FLESH_HIT,      /* wet thud: a bullet into a body */
     SND_COUNT
 } SoundID;
 

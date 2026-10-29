@@ -16,13 +16,13 @@
 
 static const ProjectileDef projectile_defs[PROJECTILE_KIND_COUNT] = {
     [PROJECTILE_ROCKET] = {
-        .speed = 18.0f, .damage = 60.0f,
-        .splash_radius = 2.6f, .splash_damage = 80.0f,
+        .speed = 18.0f, .damage = 90.0f,
+        .splash_radius = 2.8f, .splash_damage = 110.0f,
         .hit_radius = 0.15f, .life = 6.0f,
         .frame = PROJ_FRAME_ROCKET, .size = 0.35f,
         .glow_color = {1.0f, 0.6f, 0.25f}, .glow_intensity = 1.4f, .glow_radius = 4.0f,
-        .burst_color = {1.0f, 0.55f, 0.2f}, .burst_intensity = 4.5f,
-        .burst_radius = 10.0f, .burst_time = 0.35f,
+        .burst_color = {1.0f, 0.55f, 0.2f}, .burst_intensity = 5.5f,
+        .burst_radius = 12.0f, .burst_time = 0.4f,
     },
     [PROJECTILE_SPIT] = {
         .speed = 8.0f, .damage = 14.0f,
@@ -136,7 +136,7 @@ static void splash(Scene *s, Player *p, const ProjectileDef *def, Vec3 at, Event
         Vec3 center = vec3_add(e->position, vec3(0, BODY_CENTER, 0));
         float dist = vec3_length(vec3_sub(center, at));
         if (dist < r && clear_line(s, at, center, i)) {
-            damage_entity(s, i, def->splash_damage * (1.0f - dist / r), ev);
+            damage_entity(s, i, def->splash_damage * (1.0f - dist / r), at, ev);
         }
     }
 
@@ -160,7 +160,9 @@ static void explode(Scene *s, Player *p, int index, Vec3 at, TargetKind target,
     e->active = false; /* before damage: nothing should see it mid-blast */
 
     if (target == TARGET_ENTITY) {
-        damage_entity(s, target_entity, def->damage, ev);
+        /* Shoved along the shot: "from" a point back along its flight */
+        Vec3 behind = vec3_sub(at, e->projectile.velocity);
+        damage_entity(s, target_entity, def->damage, behind, ev);
     } else if (target == TARGET_PLAYER) {
         player_damage(p, def->damage, ev);
     }

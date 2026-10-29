@@ -165,7 +165,7 @@ static void resolve_impacts(Game *g, int first_event) {
             continue;
         }
 
-        damage_entity(&g->scene, hit.entity, hit.amount, &g->events);
+        damage_entity(&g->scene, hit.entity, hit.amount, g->player.view.pos, &g->events);
     }
 }
 

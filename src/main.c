@@ -53,7 +53,7 @@
 #define HURT_FLASH_PER_HP 0.03f  /* flash strength per point of damage taken */
 #define HURT_SHAKE        0.012f /* camera jolt when hit, radians */
 #define HURT_COLOR        vec3(0.8f, 0.05f, 0.02f)
-#define BLAST_SHAKE       0.06f  /* camera jolt at the center of an explosion */
+#define BLAST_SHAKE       0.08f  /* camera jolt at the center of an explosion */
 #define BLAST_SHAKE_RANGE 14.0f  /* felt out to this distance, meters */
 
 /* Presentation side of the event queue: camera jolts and color flashes */
@@ -84,11 +84,11 @@ static void play_event_effects(ScreenFx *fx, const EventQueue *events, const Gam
 /* Particle bursts per event: count, speed (m/s), spread (0..1) */
 #define SPARK_COUNT   6
 #define SPARK_SPEED   2.5f
-#define BLOOD_COUNT   10
+#define BLOOD_COUNT   16
 #define BLOOD_SPEED   2.0f
-#define GIB_COUNT     10
+#define GIB_COUNT     18
 #define GIB_SPEED     3.0f
-#define GIB_BLOOD     16
+#define GIB_BLOOD     28
 #define BODY_CENTER   0.9f  /* gibs burst from this high above an enemy's feet */
 #define DEBRIS_COUNT  24
 #define DEBRIS_SPEED  4.0f
@@ -184,10 +184,13 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events, cons
         const GameEvent *ev = &events->items[i];
         switch (ev->type) {
         case EV_WEAPON_FIRED:
-            play_at(audio, weapon_fire_sounds[g->weapon.type], 0.8f, ear, ev->pos);
+            play_at(audio, weapon_fire_sounds[g->weapon.type], 1.0f, ear, ev->pos);
             break;
         case EV_EXPLOSION:     play_at(audio, burst_sound(g, ev->entity), 0.9f, ear, ev->pos); break;
-        case EV_WEAPON_IMPACT: play_at(audio, SND_WEAPON_IMPACT, 0.5f, ear, ev->pos); break;
+        case EV_WEAPON_IMPACT: /* ricochet off walls, a thud into bodies */
+            play_at(audio, ev->entity == ENTITY_INDEX_NONE ? SND_WEAPON_IMPACT : SND_FLESH_HIT,
+                    0.6f, ear, ev->pos);
+            break;
         case EV_WEAPON_EMPTY:  play_at(audio, SND_DRY_FIRE, 0.6f, ear, ev->pos);     break;
         case EV_FOOTSTEP:      play_at(audio, SND_FOOTSTEP, 0.4f, ear, ev->pos);     break;
         case EV_PICKUP:        play_at(audio, SND_PICKUP, 0.6f, ear, ev->pos);       break;
@@ -386,8 +389,8 @@ static void fill_debug(OverlayState *o, const Game *g, float work_ms, float fps)
 #define BOB_RATE          9.0f   /* bob phase speed (rad/s) at full walking speed */
 #define BOB_X             6.0f   /* sway, pixels */
 #define BOB_Y             4.0f   /* dip, pixels */
-#define VIEW_FIRE_SHOW    0.07f  /* seconds the firing frame stays up */
-#define RECOIL_PX_PER_RAD 150.0f /* how far the gun jumps per radian of kick */
+#define VIEW_FIRE_SHOW    0.09f  /* seconds the firing frame stays up */
+#define RECOIL_PX_PER_RAD 190.0f /* how far the gun jumps per radian of kick */
 #define VIEW_LOWER_PX     110.0f /* drop when fully lowered for a switch */
 #define VIEW_LIGHT_SCALE  0.45f  /* probe ignores shadows and angles: tone it down */
 #define VIEW_LIGHT_MIN    0.25f  /* never fully black */
