@@ -1,5 +1,5 @@
 /*
- * weapon.h — Hitscan weapons driven by a WeaponDef table.
+ * weapon.h — Weapons (hitscan or projectile) driven by a WeaponDef table.
  *
  * Stats live in data (weapon_types.c), not code: a shotgun is a row with
  * more pellets and spread, not a new code path.

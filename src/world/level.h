@@ -1,5 +1,6 @@
 /*
- * level.h — Text-based level file loader.
+ * level.h — Level loading: picks the loader by extension (.map, see
+ * mapfile.h) and reads the .level text format.
  *
  * Parses .level files containing material, geometry (room, box, quad,
  * obj), entity, brush entity (brush) and light definitions. Generates

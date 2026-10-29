@@ -1,6 +1,6 @@
 /*
- * entity.h — Dynamic entities (pickups, doors, props, decor, enemies, exit)
- * driven by a type table.
+ * entity.h — Dynamic entities (pickups, doors, buttons, triggers, props,
+ * decor, enemies, projectiles, exit) driven by a type table.
  *
  * Entities live in a growable array; indices are stable (inactive entities
  * stay in place). Per-type behavior is not hard-coded in switch statements:

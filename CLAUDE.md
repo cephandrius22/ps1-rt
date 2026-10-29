@@ -68,7 +68,7 @@ on the include path, so headers are included by bare name (`"scene.h"`).
 
 ### Core Pipeline
 
-`main.c` per frame: `input_poll()` → menu (Esc opens pause; while a menu is open `menu_update()` runs instead of the game, and main carries out its `MenuAction`) → hot reload check (`filewatch_poll()` → `game_reload()`) → `game_update()` → events to presentation (`play_event_sounds()` placed by `play_at()`, `play_event_effects()` shake/flash, `spawn_event_particles()`) → camera = `game_view()` + shake → view environment faded toward the camera's zone (`fade_view_env()`: fog, reverb, ambience loop) → `render_scene_lit_mt()` (color + depth) → `particles_draw()` → `overlay_draw()` (viewmodel, flash, HUD, F3 lines; an open menu instead of HUD) → `display_present()`
+`main.c` per frame: `input_poll()` → menu (the title menu opens at start over the paused first map; Esc opens pause; while a menu is open `menu_update()` runs instead of the game, and main carries out its `MenuAction`) → hot reload check (`filewatch_poll()` → `game_reload()`) → `game_update()` → events to presentation (`play_event_sounds()` placed by `play_at()`, `play_event_effects()` shake/flash, `spawn_event_particles()`) → camera = `game_view()` + shake → view environment faded toward the camera's zone (`fade_view_env()`: fog, reverb, ambience loop) → `render_scene_lit_mt()` (color + depth) → `particles_draw()` → `overlay_draw()` (viewmodel, flash, HUD, F3 lines; an open menu instead of HUD) → `display_present()`
 
 `game_update()` runs 0..`GAME_MAX_TICKS_PER_FRAME` fixed ticks at `GAME_TICK_HZ` (60). Each `game_tick()`: entities → `logic_update()` (doors, buttons, triggers) → lights → rebuild dynamic BVH + sprites → then by `GameMode`:
 - `GAME_PLAYING`: AI → use (`logic_use()`) → player (exit pad → `GAME_LEVEL_END`; new weapon pickups → switch) → weapon select → weapon (muzzle flash light, noise wakes enemies via `ai_hear()`, rocket launch request) → `resolve_impacts()` → `projectile_update()` → player dead → `GAME_DEAD`. Kills are counted from `EV_ENEMY_DIED` events; on-screen notices (`game_message()`) are written from this tick's events.
@@ -106,6 +106,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `matlib` | Named material registry shared by both loaders; resolves texture names (procedural, else `textures/<name>.tga`, or a `.tga` path), generating/loading on first use; entity default materials; default motion per texture (`texture_motions[]`: slime/water scroll, slime/screen glow) and `matlib_motion()` overrides |
 | `levelcheck` | Load-time warnings (spawn/exit, stuck bodies, no floor, exit unreachable on foot, target wiring, missing keycards) and budget line (`BUDGET_*`) |
 | `filewatch` | Polls a file's mtime; reports a change once it has settled (hot reload) |
+| `level_convert` | `./rt --convert in.level out.map`: each `.level` line to its `.map` form (rooms become wall slabs); warns on what's lost: `quad`/`obj` lines (skipped), flat-color materials (draw untextured), material motion keys |
 | `editor_export` | Writes TrenchBroom textures (TGA) and `rt.fgd` from the proctex generators and `EntityDef` table |
 | `ps1_effects` | Vertex jitter (1/128 grid, applied at level load), 4x4 Bayer dither + 15-bit quantize (per pixel); `ps1_affine_uv()` used by render's F4 affine warp |
 | `save` | Full-state saves (`saves/quick.sav`, `slot1..5.sav`): header with struct sizes (other builds refused), info block for menus (`save_peek()`), game fields, every entity and light; `game_load()` reloads the map, checks entities match, restores state |
@@ -131,7 +132,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 
 ### Key Patterns
 
-- **Level files:** Scenes defined in `levels/*.level` text files. `level_load()` parses materials, generates procedural textures, builds geometry, places entities/lights, and constructs the static BVH.
+- **Level files:** shipped levels are TrenchBroom `levels/*.map`, played in the order of `levels/episode1.txt`; `.level` text is for hand-written tests (`tests/test.level`) and converts to `.map`. `level_load()` picks the loader by extension; both resolve materials, build geometry, place entities/lights, and end in `level_finish()` (static BVH, nav grid).
 - **Two-level BVH:** `scene.static_bvh` is built once at level load. `scene.dynamic_bvh` is rebuilt each tick from entity triangles. `scene_intersect()` tests both.
 - **Procedural textures:** `proctex.c` generates 32x32/64x64 textures in code using hash-based noise. Materials in level files reference them by name (e.g., `concrete`, `brick`).
 - **Multithreaded render:** `render_scene_lit_mt()` splits screen rows across thread pool workers. Each worker gets a pre-assigned chunk — no work stealing.

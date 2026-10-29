@@ -3,13 +3,14 @@
  *
  * Per frame:
  *
- *   input_poll() ──PlayerCmd──> game_update() ──events──> play_event_sounds()
- *                                    │                     (placed by play_at)
- *                     game_view() ──> camera ──> fade_view_env() (zone fog,
- *                                    │           reverb, ambience loop)
- *                                    └──> render_scene_lit_mt(RenderView)
- *                     Game fields ──> OverlayState ──> overlay_draw()
- *                                                        ──> display_present()
+ *   input_poll() ──UiCmd──> menu_update() ──MenuAction──> save, load, quit...
+ *        │                  (while a menu is open the game is paused)
+ *        └──PlayerCmd──> game_update() ──events──> play_event_sounds()
+ *                             │                     (placed by play_at)
+ *                             └──> game_view() ──> camera ──> fade_view_env()
+ *                                                  │   (zone fog, reverb, ambience)
+ *                                                  └──> render_scene_lit_mt()
+ *   Game fields, menu view ──> OverlayState ──> overlay_draw() ──> display_present()
  *
  * The level file is watched: saving it in an editor reloads it in place.
  *

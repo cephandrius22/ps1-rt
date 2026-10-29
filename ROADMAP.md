@@ -27,6 +27,8 @@ playable soonest. Each phase ends in something you can play.
 - 8-voice stereo mixer with reverb, procedural sounds (weapons,
   footsteps, creature voices), sounds placed in space, ambient loops
   per zone
+- Title, pause, options and save/load menus; settings file; save
+  anywhere, F5/F9 quicksave
 - Level file format, procedural textures
 - Multithreaded rendering
 

@@ -1,5 +1,6 @@
 /*
- * overlay.h — 2D layer drawn over the rendered frame (HUD, death tint).
+ * overlay.h — 2D layer over the rendered frame: viewmodel, HUD, messages,
+ * intermission, menus.
  *
  * render/ never includes game headers. main.c copies the few values the
  * overlay needs into OverlayState, keeping gameplay free of drawing code.
