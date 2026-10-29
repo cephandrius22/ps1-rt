@@ -60,6 +60,10 @@ typedef struct {
     /* Switchable: a trigger whose target is this name toggles it */
     char targetname[LIGHT_NAME_MAX];
     bool off;          /* gives no light (zero-init = on) */
+
+    /* Shootable: a bullet through the bulb puts it out for good */
+    bool breakable;
+    bool broken;       /* shot out; triggers can't switch it back on */
 } Light;
 
 typedef struct {
@@ -79,7 +83,8 @@ int  light_add_temporary(LightList *list, Light light, float ttl);
 
 /* Light at pos with shared optional keys from a level line or map entity:
  * shadows, flicker_speed, flicker_amount, swing_speed, swing_angle, cord,
- * targetname, off (1 = starts switched off), cone (half-angle in degrees;
+ * targetname, off (1 = starts switched off), breakable (1 = bullets can
+ * shoot the bulb out), cone (half-angle in degrees;
  * > 0 makes a spot) and aim_x/aim_y/aim_z (spot axis, default straight
  * down). The swing anchor defaults to `cord` straight above pos. */
 Light light_from_keys(Vec3 pos, Vec3 color, float intensity, float radius,
@@ -95,6 +100,14 @@ float light_effective_intensity(const Light *light, float time);
 
 /* Compute attenuation factor based on distance and light radius */
 float light_attenuation(const Light *light, float distance);
+
+/* Radius of the visible bulb: what render draws and bullets can hit */
+float light_bulb_radius(const Light *light);
+
+/* The nearest lit, breakable, permanent bulb the ray passes through
+ * before t_max: its index (valid until temporary lights next expire), or
+ * -1. Writes the distance along the ray to *t. */
+int light_bulb_hit(const LightList *lights, Ray ray, float t_max, float *t);
 
 /* A spot light: cone of half_angle (radians) around aim */
 Light light_spot(Vec3 pos, Vec3 aim, Vec3 color, float intensity, float radius,

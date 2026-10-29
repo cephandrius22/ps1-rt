@@ -517,7 +517,7 @@ static void entity_args(const KeyValues *kvs, const EntityDef *def, char *out, s
 
 static const char *light_keys[] = {
     "intensity", "radius", "color", "shadows", "flicker_speed", "flicker_amount",
-    "cord", "swing_speed", "swing_angle", "targetname", "off", "cone", "aim",
+    "cord", "swing_speed", "swing_angle", "targetname", "off", "cone", "aim", "breakable",
 };
 
 static void warn_unknown_light_keys(const KeyValues *kvs) {
@@ -553,12 +553,12 @@ static void spawn_light(MapLoader *ml, const KeyValues *kvs, Vec3 pos) {
     Vec3 aim = d3_to_engine(aim_map);
     snprintf(args, sizeof(args), "shadows=%s flicker_speed=%s flicker_amount=%s "
              "swing_speed=%s swing_angle=%s cord=%g off=%s targetname=%s "
-             "cone=%s aim_x=%g aim_y=%g aim_z=%g",
+             "cone=%s aim_x=%g aim_y=%g aim_z=%g breakable=%s",
              kv_get(kvs, "shadows", "0"), kv_get(kvs, "flicker_speed", "0"),
              kv_get(kvs, "flicker_amount", "0"), kv_get(kvs, "swing_speed", "0"),
              kv_get(kvs, "swing_angle", "0"), cord, kv_get(kvs, "off", "0"),
              kv_get(kvs, "targetname", ""), kv_get(kvs, "cone", "0"),
-             aim.x, aim.y, aim.z);
+             aim.x, aim.y, aim.z, kv_get(kvs, "breakable", "0"));
 
     Vec3 color = vec3((float)rgb.x, (float)rgb.y, (float)rgb.z);
     light_add(&ml->scene->lights, light_from_keys(pos, color, intensity, radius, args));

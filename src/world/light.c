@@ -112,6 +112,40 @@ float light_attenuation(const Light *light, float distance) {
     return window / (1.0f + distance * falloff);
 }
 
+#define BULB_RADIUS_BASE      0.08f /* meters */
+#define BULB_RADIUS_PER_LIGHT 0.02f /* brighter bulbs look (and are) bigger */
+
+float light_bulb_radius(const Light *light) {
+    return BULB_RADIUS_BASE + BULB_RADIUS_PER_LIGHT * light->intensity;
+}
+
+int light_bulb_hit(const LightList *lights, Ray ray, float t_max, float *t) {
+    int best = -1;
+    for (int i = 0; i < lights->count; i++) {
+        const Light *l = &lights->items[i];
+        if (!l->breakable || l->off || l->ttl_total > 0) {
+            continue;
+        }
+
+        /* Closest approach of the ray to the bulb's center */
+        float along = vec3_dot(vec3_sub(l->position, ray.origin), ray.dir);
+        if (along <= 0 || along >= t_max) {
+            continue;
+        }
+        Vec3 closest = vec3_add(ray.origin, vec3_mul(ray.dir, along));
+        float r = light_bulb_radius(l);
+        if (vec3_length(vec3_sub(closest, l->position)) > r) {
+            continue;
+        }
+        t_max = along;
+        best = i;
+    }
+    if (best >= 0) {
+        *t = t_max;
+    }
+    return best;
+}
+
 Light light_spot(Vec3 pos, Vec3 aim, Vec3 color, float intensity, float radius,
                  float half_angle) {
     return (Light){
@@ -150,6 +184,7 @@ Light light_from_keys(Vec3 pos, Vec3 color, float intensity, float radius,
         .swing_speed = kv_float(args, "swing_speed", 0),
         .swing_angle = kv_float(args, "swing_angle", 0),
         .off = kv_int(args, "off", 0) != 0,
+        .breakable = kv_int(args, "breakable", 0) != 0,
     };
     kv_string(args, "targetname", light.targetname, sizeof(light.targetname));
 

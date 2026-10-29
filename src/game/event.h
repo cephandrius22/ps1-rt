@@ -41,6 +41,7 @@ typedef enum {
     EV_ENEMY_PAIN,    /* pos = enemy feet, entity = enemy, amount = damage */
     EV_ENEMY_DIED,    /* pos = enemy feet, entity = enemy */
     EV_LEVEL_EXIT,    /* pos = player eye, entity = exit pad */
+    EV_LIGHT_SHOT,    /* pos = bulb, entity = light index (this tick); a bullet broke it */
     EV_EXPLOSION,     /* pos = blast, entity = the (now spent) projectile, amount = splash radius */
 } GameEventType;
 

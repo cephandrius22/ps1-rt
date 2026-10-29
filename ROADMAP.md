@@ -199,7 +199,10 @@ Carried forward:
   `env_zone` brushes override ambient (per surface) and fog (per eye,
   faded in over ~0.6 s). e1m1's west corridor and exit passage use them.
 - Ambient soundscapes per zone, simple reverb, stereo panning
-- Shootable lights, flashlight battery
+- ✅ Stage 4 — **Shootable lights, flashlight battery.** `breakable`
+  bulbs go dark for good when shot (glass sound, sparks); e1m1's bare
+  bulbs are breakable. The flashlight drains in 90 s, recharges in 30 s
+  while off, dims and flickers below 20%; HUD bar while not full.
 - Animated textures: flickering screens, water, slime
 - Low health desaturation
 - Affine texture warping in shading (`ps1_affine_uv()` exists, unused)

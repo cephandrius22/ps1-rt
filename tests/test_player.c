@@ -472,6 +472,43 @@ TEST(test_player_flashlight_light) {
     ASSERT(!player_flashlight(&p, view).off);
 }
 
+/* Battery: drains while on, switches off when empty, refuses to come
+ * back on until recharged a little, dims and flickers when low */
+TEST(test_player_flashlight_battery) {
+    Scene s;
+    Mesh m;
+    floor_scene(&s, &m);
+    Player p = grounded_player();
+    PlayerCmd toggle = {.buttons = BTN_FLASHLIGHT};
+    PlayerCmd idle = {0};
+    Pose view = {.pos = vec3(0, 1.6f, 0)};
+    EventQueue q = {0};
+
+    player_update(&p, &toggle, 1.0f / 60.0f, &s, &q);
+    ASSERT(p.flashlight_on);
+    float full = player_flashlight(&p, view).intensity;
+
+    p.battery = 0.1f;   /* low: dimmer, flickering */
+    Light low = player_flashlight(&p, view);
+    ASSERT(low.intensity < full);
+    ASSERT(low.flicker_amount > 0);
+
+    p.battery = 0.001f;
+    player_update(&p, &idle, 0.5f, &s, &q);
+    ASSERT(!p.flashlight_on);           /* ran out */
+    player_update(&p, &toggle, 1.0f / 60.0f, &s, &q);
+    ASSERT(!p.flashlight_on);           /* too flat to start */
+
+    for (int i = 0; i < 180; i++) {      /* 3 s off: recharging */
+        player_update(&p, &idle, 1.0f / 60.0f, &s, &q);
+    }
+    player_update(&p, &toggle, 1.0f / 60.0f, &s, &q);
+    ASSERT(p.flashlight_on);
+
+    mesh_free(&m);
+    scene_free(&s);
+}
+
 int main(void) {
     floor_scene(&floor_world, &floor_mesh);
 
@@ -505,5 +542,6 @@ int main(void) {
     RUN_TEST(test_player_stands_over_untaken_pickup);
     RUN_TEST(test_player_ground_past_steep_surface);
     RUN_TEST(test_player_flashlight_light);
+    RUN_TEST(test_player_flashlight_battery);
     TEST_REPORT();
 }

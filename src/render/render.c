@@ -160,7 +160,7 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
         float dist_sq = vec3_dot(diff, diff);
 
         /* Apparent radius shrinks with distance (billboard) */
-        float glow_radius = 0.08f + 0.02f * pl->intensity;
+        float glow_radius = light_bulb_radius(pl);
         if (dist_sq < glow_radius * glow_radius) {
             float eff = light_effective_intensity(pl, time);
             float brightness = 2.0f * eff;

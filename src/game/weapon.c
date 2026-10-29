@@ -124,12 +124,22 @@ static void fire(Weapon *w, Pose aim, const Scene *scene, EventQueue *ev) {
         return;
     }
 
-    /* One impact event per pellet that hits; damage rides in amount */
+    /* One impact event per pellet that hits; damage rides in amount.
+     * A breakable bulb in front of the hit stops the pellet instead. */
     for (int i = 0; i < def->pellets; i++) {
-        HitRecord hit = scene_trace(scene, weapon_pellet_ray(aim, def, i), 0.0f, def->range,
-                                    TRACE_SOLID);
+        Ray ray = weapon_pellet_ray(aim, def, i);
+        HitRecord hit = scene_trace(scene, ray, 0.0f, def->range, TRACE_SOLID);
         if (i == 0) {
             w->last_hit = hit;
+        }
+
+        float bulb_t;
+        int bulb = light_bulb_hit(&scene->lights, ray, hit.hit ? hit.t : def->range, &bulb_t);
+        if (bulb >= 0) {
+            events_push(ev, (GameEvent){.type = EV_LIGHT_SHOT,
+                                        .pos = scene->lights.items[bulb].position,
+                                        .entity = bulb});
+            continue;
         }
         if (!hit.hit) {
             continue;

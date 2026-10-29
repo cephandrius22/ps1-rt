@@ -51,6 +51,12 @@ static const unsigned char colon_rows[GLYPH_H] = {0, 2, 0, 2, 0};
 #define DEBUG_LINE_GAP  2           /* pixels between debug lines */
 #define MESSAGE_Y       28          /* top of the notice line */
 #define MESSAGE_COLOR   0xFFD8D0B8u /* bone white */
+#define BATTERY_W       30          /* HUD battery bar, pixels */
+#define BATTERY_H       3
+#define BATTERY_GAP     3           /* above the health number */
+#define BATTERY_LOW     0.2f        /* bar turns red below this */
+#define BATTERY_COLOR   0xFFD8D0B8u /* bone white */
+#define BATTERY_EMPTY   0xFF302820u
 #define KEYCARD_W       5           /* HUD keycard icon, pixels */
 #define KEYCARD_H       8
 #define KEYCARD_GAP     3
@@ -232,6 +238,20 @@ static uint32_t to_pixel(Vec3 c) {
     return 0xFF000000u | (r << 16) | (g << 8) | b;
 }
 
+/* Thin bar above the health number */
+static void draw_battery(Framebuffer *fb, float battery, int above_y) {
+    int y = above_y - BATTERY_GAP - BATTERY_H;
+    int filled = (int)(battery * BATTERY_W + 0.5f);
+    uint32_t color = battery < BATTERY_LOW ? HUD_HEALTH : BATTERY_COLOR;
+    for (int dy = -1; dy <= BATTERY_H; dy++) {
+        for (int dx = -1; dx <= BATTERY_W; dx++) {
+            bool edge = dx < 0 || dy < 0 || dx == BATTERY_W || dy == BATTERY_H;
+            uint32_t c = edge ? HUD_SHADOW : (dx < filled ? color : BATTERY_EMPTY);
+            put_pixel(fb, HUD_MARGIN + dx, y + dy, c);
+        }
+    }
+}
+
 /* Small upright cards in a row, right-aligned above the ammo count */
 static void draw_keycards(Framebuffer *fb, const OverlayState *state, int above_y) {
     int y = above_y - KEYCARD_GAP - KEYCARD_H;
@@ -351,6 +371,9 @@ void overlay_draw(Overlay *o, Framebuffer *fb, const OverlayState *state) {
     int ammo_x = SCREEN_W - HUD_MARGIN - number_width(state->ammo, HUD_SCALE);
     draw_number(fb, state->ammo, ammo_x, y, HUD_SCALE, HUD_AMMO);
     draw_keycards(fb, state, y);
+    if (state->show_battery) {
+        draw_battery(fb, state->battery, y);
+    }
 
     draw_debug(fb, state);
 }

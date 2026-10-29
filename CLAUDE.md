@@ -101,7 +101,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `editor_export` | Writes TrenchBroom textures (TGA) and `rt.fgd` from the proctex generators and `EntityDef` table |
 | `ps1_effects` | Vertex jitter (1/128 grid, applied at level load), 4x4 Bayer dither + 15-bit quantize (per pixel). `ps1_affine_uv()` exists but shading doesn't use it |
 | `game` | `Game` struct: owns scene, player, weapon, events, mode, kills, message; fixed-timestep `game_update()`, `game_view()` (view + recoil), weapon selection, muzzle flash, gunfire noise, rocket launch, notices from events |
-| `player` | First-person movement with gravity, steps, ground snap; health, `Inventory`; applies `TouchEffect`s; `player_flashlight()` (spot light from the view) |
+| `player` | First-person movement with gravity, steps, ground snap; health, `Inventory`; applies `TouchEffect`s; `player_flashlight()` (spot light from the view) on a battery (drains while on, recharges while off, dims/flickers when low) |
 | `movement` | Shared walking bodies (`BodyShape`): `movement_slide()` (walls, X then Z), `movement_ground()` (steps, looks past steep faces) — player and enemies |
 | `ai` | Enemy state machine (idle → chase → attack, pain, dead); gravity; chase straight or along nav waypoints; `ai_hear()` wakes idle enemies; `EnemyDef` table: melee or projectile attack, preferred range |
 | `logic` | Doors (open/wait/close, never crush, monsters open plain ones, nav sync), keycard checks, buttons, triggers, `logic_fire()` (target → targetname: doors, hidden monsters, lights) |
@@ -126,6 +126,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 - **Event queue:** gameplay pushes `GameEvent`s (type, pos, entity, amount) into `Game.events`, cleared at the start of each `game_update()`. `main.c` maps them to sounds (per weapon / per enemy type tables), screen effects and particles. Presentation reacts; gameplay code stays untouched.
 - **Presentation vs simulation:** anything cosmetic (viewmodel bob, shake, flash, particles) lives in `main.c`/`render/` and uses frame `dt`; it never changes game state or aim. Simulation only sees `GAME_TICK_DT`.
 - **One light model:** every light — lamps, spots, muzzle flashes, the flashlight — is a `Light` shaded by `render.c:shade_light()` (cone × facing × attenuation × intensity, shadow ray within the per-pixel budget). The flashlight is built each frame by `player_flashlight()` and passed to render as the *carried* light; it is not in the scene's list.
+- **Shootable lights:** a hitscan pellet that passes a lit `breakable` bulb (`light_bulb_hit()`, bulb radius = what render draws) before hitting anything stops there: `EV_LIGHT_SHOT` (entity = light index, valid that tick) → `game.c:break_lights()` sets `off` + `broken`; triggers skip broken lights.
 - **Temporary lights:** muzzle flashes, projectile glows and explosions are `light_add_temporary()` lights (no shadows, no billboard); they fade and are swap-removed, so never hold a light index.
 - **Runtime spawns:** `scene_spawn()` reuses a spent slot of the same type and uses `scene.type_material[type]` (prepared by `level_finish()` for `runtime_only` types). Spawning can grow the entity array: re-fetch any `Entity *` held across a spawn (see `spit()` in `ai.c`).
 - **Weapon switching:** `PlayerCmd.weapon_slot` / `weapon_cycle` are impulses (applied once, see `cmd_accumulate`); `game.c:select_weapon()` → `weapon_request()`; only `WEAPON_READY` fires. Projectile weapons set `Weapon.launch_this_tick`; `game.c` fires (weapon only gets a read-only scene).
@@ -211,7 +212,7 @@ Setup once: `make editor`, then in TrenchBroom Preferences → RT → Game Path 
 
 **New enemy:** `EntityType` + `EntityDef` row (`RENDER_SPRITE`, `spawn` via `enemy_spawn()`, `damage = enemy_damage`, `sprite` via `enemy_sprite()` with its size, `default_texture`) + `EnemyDef` row in `game/ai.c` (melee or projectile) + an `EnemyFrame` sheet in `proctex.c` + a row in `enemy_sounds[]` in `main.c`.
 
-**New light:** Use the `light` directive in a level file. Keys: `shadows`, `flicker_speed`, `flicker_amount`, `anchor_x/y/z`, `cord`, `swing_speed`, `swing_angle`, `targetname`, `off`, `cone` (spot half-angle in degrees) with `aim_x/y/z` (default straight down; `.map`: `aim` in map axes).
+**New light:** Use the `light` directive in a level file. Keys: `shadows`, `flicker_speed`, `flicker_amount`, `anchor_x/y/z`, `cord`, `swing_speed`, `swing_angle`, `targetname`, `off`, `breakable` (bullets shoot the bulb out for good), `cone` (spot half-angle in degrees) with `aim_x/y/z` (default straight down; `.map`: `aim` in map axes).
 
 **New brush entity:** `EntityDef` row with `.brush = true` (and `RENDER_MESH` to draw its faces, `RENDER_NONE` for bounds only). Its behavior goes in `game/logic.c` (state on the entity, transitions in game), never in the loaders.
 

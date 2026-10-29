@@ -14,6 +14,7 @@ Player player_create(Vec3 pos) {
     p.velocity = vec3(0, 0, 0);
     p.on_ground = false;
     p.flashlight_on = false;
+    p.battery = 1.0f;
     p.walk_distance = 0;
     p.health = PLAYER_MAX_HEALTH;
     p.inv = inventory_create();
@@ -174,6 +175,31 @@ static void touch_entities(Player *p, Scene *scene, EventQueue *ev) {
     }
 }
 
+/* --- Flashlight battery --- */
+
+#define BATTERY_DRAIN    (1.0f / 90.0f) /* per second on: 90 s from full */
+#define BATTERY_RECHARGE (1.0f / 30.0f) /* per second off: 30 s from empty */
+#define BATTERY_MIN_ON   0.05f          /* won't switch on below this */
+#define BATTERY_LOW      0.2f           /* dims and flickers below this */
+
+static void toggle_flashlight(Player *p) {
+    if (!p->flashlight_on && p->battery < BATTERY_MIN_ON) {
+        return; /* dead: click, nothing */
+    }
+    p->flashlight_on = !p->flashlight_on;
+}
+
+static void drain_battery(Player *p, float dt) {
+    if (!p->flashlight_on) {
+        p->battery = fminf(p->battery + BATTERY_RECHARGE * dt, 1.0f);
+        return;
+    }
+    p->battery = fmaxf(p->battery - BATTERY_DRAIN * dt, 0.0f);
+    if (p->battery <= 0) {
+        p->flashlight_on = false;
+    }
+}
+
 /* --- Tick --- */
 
 void player_update(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
@@ -205,8 +231,9 @@ void player_update(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
     p->view.pos = pos;
 
     if (cmd_has(cmd, BTN_FLASHLIGHT)) {
-        p->flashlight_on = !p->flashlight_on;
+        toggle_flashlight(p);
     }
+    drain_battery(p, dt);
 
     touch_entities(p, scene, ev);
 }
@@ -217,6 +244,9 @@ void player_update(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
 #define FLASHLIGHT_INTENSITY 2.5f
 #define FLASHLIGHT_RADIUS    30.0f  /* meters; fog hides it well before */
 #define FLASHLIGHT_FALLOFF   0.15f  /* dims slower than lamps: it's focused */
+#define FLASHLIGHT_LOW_FLICKER_SPEED  9.0f
+#define FLASHLIGHT_LOW_FLICKER_AMOUNT 0.7f /* at empty; none at BATTERY_LOW */
+#define FLASHLIGHT_LOW_DIM            0.5f /* brightness lost at empty */
 
 static const Vec3 flashlight_color = {1.0f, 1.0f, 0.9f};
 
@@ -226,6 +256,12 @@ Light player_flashlight(const Player *p, Pose view) {
                              FLASHLIGHT_RADIUS, FLASHLIGHT_CONE);
     light.falloff = FLASHLIGHT_FALLOFF;
     light.off = !p->flashlight_on;
+
+    /* Low battery: fainter, and an unsteady flicker */
+    float low = clampf(1.0f - p->battery / BATTERY_LOW, 0, 1);
+    light.intensity *= 1.0f - low * FLASHLIGHT_LOW_DIM;
+    light.flicker_speed = low > 0 ? FLASHLIGHT_LOW_FLICKER_SPEED : 0;
+    light.flicker_amount = low * FLASHLIGHT_LOW_FLICKER_AMOUNT;
     return light;
 }
 

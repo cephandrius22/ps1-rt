@@ -1,4 +1,5 @@
 #include "test_framework.h"
+#include "logic.h"
 #include <string.h>
 #include "game.h"
 #include <math.h>
@@ -243,6 +244,25 @@ TEST(test_game_locked_door_message) {
     game_free(&g);
 }
 
+/* Shooting a breakable bulb puts it out for good: triggers can't relight it */
+TEST(test_game_shoot_out_light) {
+    ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
+    Pose view = g.player.view;
+    Vec3 ahead = vec3_add(view.pos, vec3_mul(pose_to_world_dir(view, vec3(0, 0, -1)), 3.0f));
+    int i = light_add(&g.scene.lights, light_from_keys(ahead, vec3(1, 1, 1), 1, 5,
+                                                       "breakable=1 targetname=lamp"));
+    g.player.on_ground = true;
+
+    PlayerCmd fire = {.buttons = BTN_ATTACK};
+    game_update(&g, &fire, GAME_TICK_DT);
+    ASSERT(g.scene.lights.items[i].broken);
+    ASSERT(g.scene.lights.items[i].off);
+
+    logic_fire(&g.scene, "lamp", &g.events);
+    ASSERT(g.scene.lights.items[i].off);
+    game_free(&g);
+}
+
 /* A trigger's message shows when the player walks in */
 TEST(test_game_trigger_message) {
     ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
@@ -358,6 +378,7 @@ int main(void) {
     RUN_TEST(test_game_reload_keeps_pose);
     RUN_TEST(test_game_locked_door_message);
     RUN_TEST(test_game_trigger_message);
+    RUN_TEST(test_game_shoot_out_light);
     RUN_TEST(test_game_weapon_select);
     RUN_TEST(test_game_weapon_slot_impulse_once);
     RUN_TEST(test_game_weapon_pickup_switches);

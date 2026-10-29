@@ -125,27 +125,28 @@ entity keycard -12.5 0 -5 color=blue
 entity exit 0 0 -18
 
 # =====================
-# Lights — sparse, sickly yellow, eerie
+# Lights — sparse, sickly yellow, eerie. Bare bulbs are breakable: shoot
+# them out to hide in the dark (enemies still hear you)
 # =====================
 
 # Single dim bulb near spawn — off-white yellow
 light 0 3.5 1 1.0 0.9 0.5 2.0 15.0 shadows=1 flicker_speed=1.5 flicker_amount=0.1
 
 # Flickering dying bulb near health pickup — harsh yellow
-light 3 2.5 -3 1.0 0.8 0.3 1.8 10.0 shadows=1 flicker_speed=7.0 flicker_amount=0.6
+light 3 2.5 -3 1.0 0.8 0.3 1.8 10.0 shadows=1 flicker_speed=7.0 flicker_amount=0.6 breakable=1
 
 # Deep in main hall — single weak sickly light
 # It dies when the ambush springs
 light -2 3.0 -13 0.9 0.8 0.4 1.5 12.0 shadows=1 flicker_speed=2.5 flicker_amount=0.3 targetname=lockdown
 
 # Bare bulb on a string from the ceiling — slow, subtle swing
-light 0 3.0 -8 1.0 0.85 0.4 2.5 13.0 shadows=1 flicker_speed=6.0 flicker_amount=0.2 anchor_x=0 anchor_y=3.95 anchor_z=-8 cord=0.95 swing_speed=0.8 swing_angle=0.15
+light 0 3.0 -8 1.0 0.85 0.4 2.5 13.0 shadows=1 flicker_speed=6.0 flicker_amount=0.2 anchor_x=0 anchor_y=3.95 anchor_z=-8 cord=0.95 swing_speed=0.8 swing_angle=0.15 breakable=1
 
 # Dying fluorescent in back passage — buzzing, unstable
 light -1 2.5 -17 0.8 0.9 0.5 1.5 10.0 shadows=1 flicker_speed=12.0 flicker_amount=0.7
 
 # Storage room — single weak bulb, swinging slightly
-light 11 2.8 -8 1.0 0.85 0.45 1.8 12.0 shadows=1 flicker_speed=4.0 flicker_amount=0.35 anchor_x=11 anchor_y=3.3 anchor_z=-8 cord=0.5 swing_speed=0.8 swing_angle=0.15
+light 11 2.8 -8 1.0 0.85 0.45 1.8 12.0 shadows=1 flicker_speed=4.0 flicker_amount=0.35 anchor_x=11 anchor_y=3.3 anchor_z=-8 cord=0.5 swing_speed=0.8 swing_angle=0.15 breakable=1
 
 # Exit — low red glow over the pad
 light 0 1.2 -18 1.0 0.1 0.05 2.0 6.0 flicker_speed=1.0 flicker_amount=0.2

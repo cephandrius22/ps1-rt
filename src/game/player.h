@@ -33,6 +33,7 @@ typedef struct {
     float foot_y;
     bool on_ground;
     bool flashlight_on;
+    float battery;        /* flashlight charge, 0..1; drains while on */
     float walk_distance;  /* distance since last footstep event */
     float move_speed;     /* horizontal speed last tick, m/s (viewmodel bob) */
     float health;         /* 0 = dead */
@@ -47,7 +48,15 @@ void player_update(Player *p, const PlayerCmd *cmd, float dt, struct Scene *scen
                    EventQueue *ev);
 
 /* The flashlight as a spot light from view along its forward axis;
- * switched off (contributes nothing) while flashlight_on is false */
+ * switched off (contributes nothing) while flashlight_on is false.
+ * Runs on a battery: drains while on, recharges while off, and dims and
+ * flickers when low; at empty it switches off and won't come back on
+ * until it has recharged a little:
+ *
+ *   1.0 ─╲ on (90 s)            ╱─ off (recharges in 30 s)
+ *   0.2 ──╲ dims, flickers     ╱
+ *   0.0 ───╲_ off ____________╱
+ */
 Light player_flashlight(const Player *p, Pose view);
 
 /* Apply damage; pushes EV_PLAYER_HURT, or EV_PLAYER_DIED when health

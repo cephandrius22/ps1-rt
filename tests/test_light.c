@@ -189,6 +189,31 @@ TEST(test_light_falloff_default) {
     ASSERT(light_attenuation(&far, 3) > light_attenuation(&a, 3));
 }
 
+/* Bullets find the nearest lit, breakable bulb in front of the wall */
+TEST(test_light_bulb_hit) {
+    LightList list;
+    light_list_init(&list);
+    Light near = light_from_keys(vec3(0, 0, -3), vec3(1, 1, 1), 1, 5, "breakable=1");
+    Light far = light_from_keys(vec3(0, 0, -6), vec3(1, 1, 1), 1, 5, "breakable=1");
+    Light solid = light_from_keys(vec3(0, 0, -1), vec3(1, 1, 1), 1, 5, "");
+    light_add(&list, far);
+    light_add(&list, near);
+    light_add(&list, solid);   /* not breakable: bullets pass it */
+
+    Ray ray = {vec3(0, 0, 0), vec3(0, 0, -1)};
+    float t;
+    ASSERT_EQ_INT(light_bulb_hit(&list, ray, 100, &t), 1);
+    ASSERT_NEAR(t, 3.0f, 1e-5f);
+    ASSERT_EQ_INT(light_bulb_hit(&list, ray, 2.0f, &t), -1);    /* wall first */
+
+    Ray aside = {vec3(1, 0, 0), vec3(0, 0, -1)};
+    ASSERT_EQ_INT(light_bulb_hit(&list, aside, 100, &t), -1);   /* misses the bulbs */
+
+    list.items[1].off = true;   /* dark bulbs can't be hit */
+    ASSERT_EQ_INT(light_bulb_hit(&list, ray, 100, &t), 0);
+    light_list_free(&list);
+}
+
 int main(void) {
     TEST_SUITE("light");
     RUN_TEST(test_light_list_init);
@@ -206,5 +231,6 @@ int main(void) {
     RUN_TEST(test_light_cone);
     RUN_TEST(test_light_keys_spot);
     RUN_TEST(test_light_falloff_default);
+    RUN_TEST(test_light_bulb_hit);
     TEST_REPORT();
 }

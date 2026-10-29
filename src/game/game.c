@@ -78,6 +78,7 @@ GameLoadResult game_reload(Game *g) {
     g->player.foot_y = kept.foot_y;
     g->player.on_ground = kept.on_ground;
     g->player.flashlight_on = kept.flashlight_on;
+    g->player.battery = kept.battery;
     return GAME_LOAD_OK;
 }
 
@@ -154,6 +155,19 @@ static void post_messages(Game *g, int first_event) {
         } else if (ev->type == EV_TRIGGERED) {
             set_message(g, "%s", e->message);
         }
+    }
+}
+
+/* Bullets through a bulb put it out for good */
+static void break_lights(Game *g, int first_event) {
+    for (int i = first_event; i < g->events.count; i++) {
+        const GameEvent *ev = &g->events.items[i];
+        if (ev->type != EV_LIGHT_SHOT) {
+            continue;
+        }
+        Light *light = &g->scene.lights.items[ev->entity];
+        light->off = true;
+        light->broken = true;
     }
 }
 
@@ -281,6 +295,7 @@ static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
         launch(g);
     }
     resolve_impacts(g, first_event);
+    break_lights(g, first_event);
     projectile_update(&g->scene, &g->player, dt, &g->events);
 
     if (!player_alive(&g->player)) {

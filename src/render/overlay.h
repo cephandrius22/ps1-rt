@@ -17,7 +17,7 @@
  *   │ TRI 252/30000                │
  *   │   YOU NEED THE RED KEYCARD   │  message (5x7 font, font.h)
  *   │            3/4               │  kills/total (level end only)
- *   │                      ▮ ▮     │  keycards held
+ *   │ ▬▬▬▬▬                ▮ ▮     │  flashlight battery, keycards held
  *   │ + 100                    50  │  health (left), ammo (right)
  *   └──────────────────────────────┘
  */
@@ -70,6 +70,8 @@ typedef struct {
     Vec3 flash_color;
     float weapon_kick;    /* current recoil, radians (viewmodel, later) */
     const char *message;  /* notice centered near the top; NULL = none */
+    bool show_battery;    /* draw the flashlight battery bar */
+    float battery;        /* its charge, 0..1 */
     int keycard_count;    /* keycard icons, drawn in this order */
     Vec3 keycard_colors[OVERLAY_KEYCARDS];
     int debug_count;      /* 0 = debug overlay hidden */

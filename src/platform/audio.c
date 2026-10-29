@@ -141,6 +141,21 @@ static void gen_switch(Sound *s) {
     }
 }
 
+/* Bright noise burst over a few high, quickly dying rings: breaking glass */
+static void gen_glass(Sound *s) {
+    *s = make_sound(AUDIO_SAMPLE_RATE, 0.35f);
+    if (!s->samples) {
+        return;
+    }
+    for (int i = 0; i < s->length; i++) {
+        float t = (float)i / s->sample_rate;
+        float noise = ((float)(rand() % 20000) - 10000) / 10000.0f;
+        float rings = sinf(t * 3100.0f * 6.28f) + sinf(t * 4700.0f * 6.28f) * 0.7f;
+        float val = noise * expf(-t * 30.0f) * 0.6f + rings * expf(-t * 12.0f) * 0.25f;
+        s->samples[i] = (int16_t)(val * 12000.0f);
+    }
+}
+
 static void gen_ambient(Sound *s) {
     *s = make_sound(AUDIO_SAMPLE_RATE, 3.0f);
     if (!s->samples) {
@@ -274,6 +289,7 @@ void audio_generate_sounds(Sound sounds[SND_COUNT]) {
     gen_door_close(&sounds[SND_DOOR_CLOSE]);
     gen_door_locked(&sounds[SND_DOOR_LOCKED]);
     gen_switch(&sounds[SND_SWITCH]);
+    gen_glass(&sounds[SND_GLASS]);
     gen_ambient(&sounds[SND_AMBIENT]);
     gen_dry_fire(&sounds[SND_DRY_FIRE]);
 

@@ -123,6 +123,19 @@ TEST(test_overlay_message_and_keycards) {
     ASSERT(red);
 }
 
+/* Battery bar sits above the health number, only when asked for */
+TEST(test_overlay_battery_bar) {
+    framebuffer_clear(&fb, BG);
+    OverlayState hidden = {.mode = OVERLAY_PLAYING, .battery = 0.5f};
+    overlay_draw(&ov, &fb, &hidden);
+    int bar_rows = count_changed(0, SCREEN_H - 30, 50, SCREEN_H - 20);
+
+    framebuffer_clear(&fb, BG);
+    OverlayState shown = {.mode = OVERLAY_PLAYING, .show_battery = true, .battery = 0.5f};
+    overlay_draw(&ov, &fb, &shown);
+    ASSERT(count_changed(0, SCREEN_H - 30, 50, SCREEN_H - 20) > bar_rows);
+}
+
 TEST(test_overlay_flash_tints) {
     framebuffer_clear(&fb, BG);
     OverlayState s = {.mode = OVERLAY_PLAYING, .flash = 1.0f, .flash_color = {1, 0, 0}};
@@ -142,6 +155,7 @@ int main(void) {
     RUN_TEST(test_overlay_debug_text_top_left);
     RUN_TEST(test_overlay_viewmodel);
     RUN_TEST(test_overlay_message_and_keycards);
+    RUN_TEST(test_overlay_battery_bar);
     RUN_TEST(test_overlay_flash_tints);
     overlay_free(&ov);
     TEST_REPORT();

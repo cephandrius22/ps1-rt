@@ -102,7 +102,8 @@ static void spawn_event_particles(ParticleSystem *ps, const EventQueue *events, 
         const GameEvent *ev = &events->items[i];
         Vec3 toward_eye = vec3_sub(eye, ev->pos);
 
-        if (ev->type == EV_WEAPON_IMPACT && ev->entity == ENTITY_INDEX_NONE) {
+        bool wall_hit = ev->type == EV_WEAPON_IMPACT && ev->entity == ENTITY_INDEX_NONE;
+        if (wall_hit || ev->type == EV_LIGHT_SHOT) {
             particles_burst(ps, PARTICLE_SPARK, ev->pos, toward_eye,
                             SPARK_COUNT, SPARK_SPEED, 0.8f, floor_y);
         } else if (ev->type == EV_WEAPON_IMPACT) {
@@ -168,6 +169,7 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events, cons
         case EV_DOOR_CLOSED:   audio_play(audio, SND_DOOR_CLOSE, 0.7f);   break;
         case EV_LOCKED:        audio_play(audio, SND_DOOR_LOCKED, 0.7f);  break;
         case EV_BUTTON_PRESSED: audio_play(audio, SND_SWITCH, 0.7f);      break;
+        case EV_LIGHT_SHOT:    audio_play(audio, SND_GLASS, 0.8f);        break;
         case EV_TRIGGERED:     break; /* game.c shows its message */
         case EV_PLAYER_HURT:   audio_play(audio, SND_PLAYER_PAIN, 0.7f);  break;
         case EV_PLAYER_DIED:   audio_play(audio, SND_PLAYER_DEATH, 0.8f); break;
@@ -464,6 +466,9 @@ int main(int argc, char *argv[]) {
             .flash_color = fx.flash_color,
         };
         overlay.message = game_message(&game);
+        /* Battery bar only while it isn't full: in use, or recharging */
+        overlay.show_battery = game.player.battery < 1.0f;
+        overlay.battery = game.player.battery;
         fill_keycards(&overlay, &game.player.inv);
         fill_viewmodel(&overlay.viewmodel, &view_anim, &game, dt);
         if (show_debug) {
