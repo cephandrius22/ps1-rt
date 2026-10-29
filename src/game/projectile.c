@@ -166,7 +166,7 @@ static void explode(Scene *s, Player *p, int index, Vec3 at, TargetKind target,
     }
     splash(s, p, def, at, ev);
 
-    PointLight burst = {
+    Light burst = {
         .position = at, .color = def->burst_color,
         .intensity = def->burst_intensity, .radius = def->burst_radius,
     };
@@ -212,7 +212,7 @@ static void fly(Scene *s, Player *p, int index, float dt, EventQueue *ev) {
     }
 
     if (def->glow_intensity > 0) {
-        PointLight glow = {
+        Light glow = {
             .position = e->position, .color = def->glow_color,
             .intensity = def->glow_intensity, .radius = def->glow_radius,
         };

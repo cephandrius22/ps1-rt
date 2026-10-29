@@ -252,12 +252,12 @@ cue. It also gives Step 6 explosions for free.
 ### 3a. Lights with a lifetime — `src/world/light.h/.c`
 
 ```c
-/* in PointLight: */
+/* in Light: */
 float ttl;   /* seconds left; 0 = permanent */
 
 /* replaces light_update(list, time): */
 void light_update(LightList *list, float time, float dt);
-int  light_add_temporary(LightList *list, PointLight light, float ttl);
+int  light_add_temporary(LightList *list, Light light, float ttl);
 ```
 `light_update()` decrements `ttl` for temporary lights and removes expired ones by
 **swap-remove** (copy the last light over it, `count--`). Nothing references lights by

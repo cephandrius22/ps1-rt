@@ -12,6 +12,7 @@
 #include "cmd.h"
 #include "event.h"
 #include "inventory.h"
+#include "light.h"
 
 struct Scene;
 
@@ -44,6 +45,10 @@ Player player_create(Vec3 pos);
 /* One tick: look, move with collision, footsteps, touch and use entities */
 void player_update(Player *p, const PlayerCmd *cmd, float dt, struct Scene *scene,
                    EventQueue *ev);
+
+/* The flashlight as a spot light from view along its forward axis;
+ * switched off (contributes nothing) while flashlight_on is false */
+Light player_flashlight(const Player *p, Pose view);
 
 /* Apply damage; pushes EV_PLAYER_HURT, or EV_PLAYER_DIED when health
  * reaches 0. Ignored once dead. */

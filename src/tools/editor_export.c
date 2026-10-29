@@ -130,7 +130,9 @@ static void write_builtin_classes(FILE *out) {
                  "\tswing_speed(float) : \"Swing speed (0 = still)\" : \"0\"\n"
                  "\tswing_angle(float) : \"Max swing, radians\" : \"0\"\n"
                  "\ttargetname(target_source) : \"Name; triggers targeting it toggle it\"\n"
-                 "\toff(choices) : \"Starts switched off\" : 0 = [ 0 : \"No\" 1 : \"Yes\" ]\n]\n\n");
+                 "\toff(choices) : \"Starts switched off\" : 0 = [ 0 : \"No\" 1 : \"Yes\" ]\n"
+                 "\tcone(float) : \"Spot half-angle, degrees (0 = all around)\" : \"0\"\n"
+                 "\taim(string) : \"Spot direction, map axes\" : \"0 0 -1\"\n]\n\n");
 }
 
 int editor_write_fgd(FILE *out) {

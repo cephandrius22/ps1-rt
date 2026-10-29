@@ -211,6 +211,24 @@ void player_update(Player *p, const PlayerCmd *cmd, float dt, Scene *scene,
     touch_entities(p, scene, ev);
 }
 
+/* --- Flashlight: a narrow, warm-white cone with a long reach --- */
+
+#define FLASHLIGHT_CONE      (25.0f * (float)MATH_PI / 180.0f) /* half-angle */
+#define FLASHLIGHT_INTENSITY 2.5f
+#define FLASHLIGHT_RADIUS    30.0f  /* meters; fog hides it well before */
+#define FLASHLIGHT_FALLOFF   0.15f  /* dims slower than lamps: it's focused */
+
+static const Vec3 flashlight_color = {1.0f, 1.0f, 0.9f};
+
+Light player_flashlight(const Player *p, Pose view) {
+    Vec3 forward = pose_to_world_dir(view, vec3(0, 0, -1));
+    Light light = light_spot(view.pos, forward, flashlight_color, FLASHLIGHT_INTENSITY,
+                             FLASHLIGHT_RADIUS, FLASHLIGHT_CONE);
+    light.falloff = FLASHLIGHT_FALLOFF;
+    light.off = !p->flashlight_on;
+    return light;
+}
+
 /* --- Damage --- */
 
 void player_damage(Player *p, float amount, EventQueue *ev) {

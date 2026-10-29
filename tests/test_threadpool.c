@@ -105,7 +105,7 @@ TEST(test_mt_render_matches_st) {
     scene_build_static(&scene, m.tris, m.count);
 
     /* Add a light */
-    light_add(&scene.lights, (PointLight){
+    light_add(&scene.lights, (Light){
         .position = vec3(0, 3, 0), .color = vec3(1, 1, 1),
         .intensity = 2.0f, .radius = 15.0f, .cast_shadows = false,
         .flicker_speed = 0, .flicker_amount = 0
@@ -116,13 +116,13 @@ TEST(test_mt_render_matches_st) {
 
     /* Render single-threaded */
     Framebuffer fb_st;
-    render_scene_lit(&fb_st, &cam, &scene, time, false);
+    render_scene_lit(&fb_st, &cam, &scene, time, NULL);
 
     /* Render multi-threaded */
     ThreadPool pool;
     threadpool_create(&pool, 4);
     Framebuffer fb_mt;
-    render_scene_lit_mt(&fb_mt, &cam, &scene, time, &pool, false);
+    render_scene_lit_mt(&fb_mt, &cam, &scene, time, &pool, NULL);
     threadpool_destroy(&pool);
 
     /* Compare pixel-by-pixel */
@@ -149,7 +149,7 @@ TEST(test_mt_render_various_thread_counts) {
 
     /* Get reference from single-threaded */
     Framebuffer fb_ref;
-    render_scene_lit(&fb_ref, &cam, &scene, 0, false);
+    render_scene_lit(&fb_ref, &cam, &scene, 0, NULL);
 
     /* Test with 1, 2, 3, 7 threads (including non-power-of-two) */
     int counts[] = {1, 2, 3, 7};
@@ -157,7 +157,7 @@ TEST(test_mt_render_various_thread_counts) {
         ThreadPool pool;
         threadpool_create(&pool, counts[c]);
         Framebuffer fb;
-        render_scene_lit_mt(&fb, &cam, &scene, 0, &pool, false);
+        render_scene_lit_mt(&fb, &cam, &scene, 0, &pool, NULL);
         threadpool_destroy(&pool);
 
         for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {

@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <math.h>
 
+#define DEG_TO_RAD ((float)MATH_PI / 180.0f)
+
 void light_list_init(LightList *list) {
     list->items = NULL;
     list->count = 0;
@@ -16,10 +18,10 @@ void light_list_free(LightList *list) {
     list->capacity = 0;
 }
 
-int light_add(LightList *list, PointLight light) {
+int light_add(LightList *list, Light light) {
     if (list->count >= list->capacity) {
         int new_cap = list->capacity == 0 ? 8 : list->capacity * 2;
-        PointLight *new_items = realloc(list->items, (size_t)new_cap * sizeof(PointLight));
+        Light *new_items = realloc(list->items, (size_t)new_cap * sizeof(Light));
         if (!new_items) {
             return -1;
         }
@@ -31,7 +33,7 @@ int light_add(LightList *list, PointLight light) {
     return idx;
 }
 
-int light_add_temporary(LightList *list, PointLight light, float ttl) {
+int light_add_temporary(LightList *list, Light light, float ttl) {
     light.ttl = ttl;
     light.ttl_total = ttl;
     return light_add(list, light);
@@ -40,7 +42,7 @@ int light_add_temporary(LightList *list, PointLight light, float ttl) {
 /* Remove expired temporary lights: swap the last light into the hole */
 static void retire_expired(LightList *list, float dt) {
     for (int i = 0; i < list->count;) {
-        PointLight *l = &list->items[i];
+        Light *l = &list->items[i];
         if (l->ttl_total <= 0) {
             i++;
             continue;
@@ -58,7 +60,7 @@ void light_update(LightList *list, float time, float dt) {
     retire_expired(list, dt);
 
     for (int i = 0; i < list->count; i++) {
-        PointLight *l = &list->items[i];
+        Light *l = &list->items[i];
         if (l->swing_speed <= 0) {
             continue;
         }
@@ -78,7 +80,7 @@ void light_update(LightList *list, float time, float dt) {
     }
 }
 
-float light_effective_intensity(const PointLight *light, float time) {
+float light_effective_intensity(const Light *light, float time) {
     if (light->off) {
         return 0;
     }
@@ -98,7 +100,7 @@ float light_effective_intensity(const PointLight *light, float time) {
     return intensity * (1.0f - light->flicker_amount * f);
 }
 
-float light_attenuation(const PointLight *light, float distance) {
+float light_attenuation(const Light *light, float distance) {
     if (distance >= light->radius) {
         return 0;
     }
@@ -106,13 +108,36 @@ float light_attenuation(const PointLight *light, float distance) {
     float d = distance / light->radius;
     float window = 1.0f - d * d;
     window = window * window; /* smooth fade at edge */
-    return window / (1.0f + distance * 0.5f);
+    float falloff = light->falloff > 0 ? light->falloff : LIGHT_FALLOFF_DEF;
+    return window / (1.0f + distance * falloff);
 }
 
-PointLight light_from_keys(Vec3 pos, Vec3 color, float intensity, float radius,
+Light light_spot(Vec3 pos, Vec3 aim, Vec3 color, float intensity, float radius,
+                 float half_angle) {
+    return (Light){
+        .kind = LIGHT_SPOT,
+        .position = pos,
+        .color = color,
+        .intensity = intensity,
+        .radius = radius,
+        .aim = vec3_normalize(aim),
+        .cone_cos = cosf(half_angle),
+    };
+}
+
+float light_cone(const Light *light, Vec3 dir) {
+    if (light->kind != LIGHT_SPOT) {
+        return 1.0f;
+    }
+    float t = (vec3_dot(dir, light->aim) - light->cone_cos) / (1.0f - light->cone_cos);
+    t = clampf(t, 0, 1);
+    return t * t;
+}
+
+Light light_from_keys(Vec3 pos, Vec3 color, float intensity, float radius,
                            const char *args) {
     float cord = kv_float(args, "cord", 0);
-    PointLight light = {
+    Light light = {
         .position = pos,
         .color = color,
         .intensity = intensity,
@@ -127,5 +152,15 @@ PointLight light_from_keys(Vec3 pos, Vec3 color, float intensity, float radius,
         .off = kv_int(args, "off", 0) != 0,
     };
     kv_string(args, "targetname", light.targetname, sizeof(light.targetname));
+
+    float cone = kv_float(args, "cone", 0);
+    if (cone > 0) {
+        Vec3 aim = vec3(kv_float(args, "aim_x", 0), kv_float(args, "aim_y", -1),
+                        kv_float(args, "aim_z", 0));
+        Light spot = light_spot(pos, aim, color, intensity, radius, cone * DEG_TO_RAD);
+        light.kind = spot.kind;
+        light.aim = spot.aim;
+        light.cone_cos = spot.cone_cos;
+    }
     return light;
 }

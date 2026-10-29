@@ -45,7 +45,7 @@ TEST(test_map_spawn_and_light) {
     ASSERT_NEAR(info.spawn_yaw, 0.0f, 1e-5f);
 
     ASSERT_EQ_INT(s.lights.count, 1);
-    const PointLight *l = &s.lights.items[0];
+    const Light *l = &s.lights.items[0];
     ASSERT_NEAR(l->position.y, 3.0f, 1e-5f);
     ASSERT_NEAR(l->radius, 10.0f, 1e-5f);          /* 320 units */
     ASSERT_NEAR(l->color.x, 1.0f, 1e-5f);          /* 0..255 color normalized */

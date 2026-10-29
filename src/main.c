@@ -299,7 +299,8 @@ static void fill_viewmodel(ViewmodelState *vm, ViewAnim *anim, const Game *g, fl
                  + g->weapon.kick * RECOIL_PX_PER_RAD
                  + weapon_lowered(&g->weapon) * VIEW_LOWER_PX;
 
-    float light = render_light_at(&g->scene, p->view.pos, g->time, p->flashlight_on);
+    Light flashlight = player_flashlight(p, game_view(g));
+    float light = render_light_at(&g->scene, p->view.pos, g->time, &flashlight);
     vm->light = fminf(fmaxf(light * VIEW_LIGHT_SCALE, VIEW_LIGHT_MIN), VIEW_LIGHT_MAX);
 }
 
@@ -427,8 +428,8 @@ int main(int argc, char *argv[]) {
         view.yaw += shake_yaw;
         view.pitch += shake_pitch;
         Camera cam = camera_from_pose(view, VIEW_FOV);
-        render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool,
-                            game.player.flashlight_on);
+        Light flashlight = player_flashlight(&game.player, view);
+        render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool, &flashlight);
         particles_draw(&particles, &fb, &cam, &game.scene.env);
         OverlayState overlay = {
             .mode = overlay_mode(game.mode),

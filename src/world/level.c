@@ -308,7 +308,7 @@ static void parse_light(const char *line, Scene *scene) {
     }
 
     Vec3 pos = vec3(x, y, z);
-    PointLight pl = light_from_keys(pos, vec3(r, g, b), intensity, radius, line);
+    Light pl = light_from_keys(pos, vec3(r, g, b), intensity, radius, line);
 
     /* .level files may place the swing anchor explicitly */
     pl.anchor = vec3(kv_float(line, "anchor_x", pl.anchor.x),

@@ -228,7 +228,7 @@ static void spawn_muzzle_flash(Game *g) {
 
     Pose view = game_view(g);
     Vec3 ahead = pose_to_world_dir(view, vec3(0, 0, -1));
-    PointLight flash = {
+    Light flash = {
         .position = vec3_add(view.pos, vec3_mul(ahead, MUZZLE_FORWARD)),
         .color = def->flash_color,
         .intensity = def->flash_intensity,

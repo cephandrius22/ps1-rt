@@ -6,7 +6,7 @@
  *
  *   worldspawn, func_group, func_detail ── brushes ──> static triangles
  *   info_player_start  origin (feet), angle ──> spawn
- *   light              origin + intensity, radius (units), color, ... ──> PointLight
+ *   light              origin + intensity, radius (units), color, ... ──> Light
  *   <entity type name> origin, angle, keys ──> entity_spawn() (e.g. "ghoul")
  *   <brush type name>  brushes, angle, keys ──> level_add_brush_entity()
  *                      (func_door, func_button, trigger_*: bounds + model)

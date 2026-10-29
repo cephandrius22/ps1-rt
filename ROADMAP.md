@@ -190,9 +190,11 @@ Carried forward:
   ambient, sun, fog, sky; `.level` lines and `.map` worldspawn keys.
   Sun intensity 0 skips the sun's shadow ray: e1m1 and arena turned it
   off (invisible underground, ~15% faster single-threaded).
-- **One light model.** Fold the flashlight into the light list as a
-  spot light (`Light.kind` = point | spot). Muzzle flash and enemy glow
-  reuse it.
+- ✅ Stage 2 — **One light model.** `PointLight` became `Light` with
+  `kind` point | spot (`aim`, cone) and per-light `falloff`; one shading
+  function for all. The flashlight is a spot built by
+  `player_flashlight()` and passed to render as the carried light. Levels
+  can place spots (`cone`, `aim`).
 - Per-area light level and fog color (Doom sectors)
 - Ambient soundscapes per zone, simple reverb, stereo panning
 - Shootable lights, flashlight battery

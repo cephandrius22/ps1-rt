@@ -459,6 +459,19 @@ TEST(test_player_ground_past_steep_surface) {
     scene_free(&s);
 }
 
+/* The flashlight is a spot along the view, off until toggled */
+TEST(test_player_flashlight_light) {
+    Player p = grounded_player();
+    Pose view = {.pos = vec3(0, 1.6f, 0), .yaw = 0, .pitch = 0};
+    Light l = player_flashlight(&p, view);
+    ASSERT_EQ_INT(l.kind, LIGHT_SPOT);
+    ASSERT(l.off);
+    ASSERT_NEAR(l.aim.z, -1.0f, 1e-5f);   /* yaw 0 looks down -Z */
+
+    p.flashlight_on = true;
+    ASSERT(!player_flashlight(&p, view).off);
+}
+
 int main(void) {
     floor_scene(&floor_world, &floor_mesh);
 
@@ -491,5 +504,6 @@ int main(void) {
     RUN_TEST(test_player_named_pickups);
     RUN_TEST(test_player_stands_over_untaken_pickup);
     RUN_TEST(test_player_ground_past_steep_surface);
+    RUN_TEST(test_player_flashlight_light);
     TEST_REPORT();
 }

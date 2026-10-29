@@ -52,10 +52,38 @@ typedef struct {
     const Material *materials;
     const Texture *textures;
     int mat_count, tex_count;
-    bool flashlight;
-    Vec3 flashlight_pos;
-    Vec3 flashlight_dir;
+    const Light *carried;   /* light moving with the viewer (flashlight); NULL = none */
 } RenderParams;
+
+/* One light's color on a surface point: cone, distance, facing, and a
+ * shadow ray while the pixel's shadow budget (MAX_SHADOW_LIGHTS) lasts */
+static Vec3 shade_light(const Light *pl, const Scene *scene, Vec3 hit_pos, Vec3 normal,
+                        float time, int *shadow_count) {
+    Vec3 none = vec3(0, 0, 0);
+    Vec3 to_light = vec3_sub(pl->position, hit_pos);
+    float dist = vec3_length(to_light);
+    if (pl->off || dist >= pl->radius || dist < 1e-4f) {
+        return none;
+    }
+
+    Vec3 light_dir = vec3_mul(to_light, 1.0f / dist);
+    float ndl = vec3_dot(normal, light_dir);
+    float cone = light_cone(pl, vec3_neg(light_dir));
+    if (ndl <= 0 || cone <= 0) {
+        return none;
+    }
+
+    if (pl->cast_shadows && *shadow_count < MAX_SHADOW_LIGHTS) {
+        (*shadow_count)++;
+        Ray shadow_ray = {vec3_add(hit_pos, vec3_mul(normal, 0.01f)), light_dir};
+        if (scene_occluded(scene, shadow_ray, 0.001f, dist - 0.01f)) {
+            return none;
+        }
+    }
+
+    float amount = ndl * cone * light_attenuation(pl, dist) * light_effective_intensity(pl, time);
+    return vec3_mul(pl->color, amount);
+}
 
 /* Shade one pixel; writes its hit distance (RENDER_FAR for sky) to *depth */
 static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
@@ -90,62 +118,15 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
             }
         }
 
-        /* Point lights */
+        /* Lamps, flashes, then the light the viewer carries */
         int shadow_count = 0;
         for (int i = 0; i < scene->lights.count; i++) {
-            const PointLight *pl = &scene->lights.items[i];
-            Vec3 to_light = vec3_sub(pl->position, hit_pos);
-            float dist = vec3_length(to_light);
-
-            if (pl->off || dist >= pl->radius) {
-                continue;
-            }
-
-            Vec3 light_dir = vec3_mul(to_light, 1.0f / dist);
-            float ndl = vec3_dot(normal, light_dir);
-            if (ndl <= 0) {
-                continue;
-            }
-
-            float atten = light_attenuation(pl, dist);
-            float eff_intensity = light_effective_intensity(pl, time);
-            float contribution = ndl * atten * eff_intensity;
-
-            if (pl->cast_shadows && shadow_count < MAX_SHADOW_LIGHTS) {
-                Ray shadow_ray = {vec3_add(hit_pos, vec3_mul(normal, 0.01f)), light_dir};
-                if (scene_occluded(scene, shadow_ray, 0.001f, dist - 0.01f)) {
-                    shadow_count++;
-                    continue;
-                }
-                shadow_count++;
-            }
-
-            lighting.x += pl->color.x * contribution;
-            lighting.y += pl->color.y * contribution;
-            lighting.z += pl->color.z * contribution;
+            lighting = vec3_add(lighting, shade_light(&scene->lights.items[i], scene, hit_pos,
+                                                      normal, time, &shadow_count));
         }
-
-        /* Flashlight (player-held spotlight) */
-        if (params->flashlight) {
-            Vec3 to_hit = vec3_sub(hit_pos, params->flashlight_pos);
-            float dist = vec3_length(to_hit);
-            if (dist > 0.01f && dist < 20.0f) {
-                Vec3 light_dir = vec3_mul(to_hit, 1.0f / dist);
-                float spot = vec3_dot(light_dir, params->flashlight_dir);
-                /* Cone: ~25 degree half-angle (cos 25 ~ 0.9) */
-                if (spot > 0.9f) {
-                    float ndl = vec3_dot(normal, vec3_mul(light_dir, -1.0f));
-                    if (ndl > 0) {
-                        float falloff = (spot - 0.9f) / 0.1f; /* 0 at edge, 1 at center */
-                        falloff *= falloff;
-                        float atten = 1.0f / (1.0f + dist * 0.15f);
-                        float contrib = ndl * falloff * atten * 2.5f;
-                        lighting.x += contrib;
-                        lighting.y += contrib;
-                        lighting.z += contrib * 0.9f; /* slightly warm */
-                    }
-                }
-            }
+        if (params->carried) {
+            lighting = vec3_add(lighting, shade_light(params->carried, scene, hit_pos, normal,
+                                                      time, &shadow_count));
         }
 
         col.x = surface_col.x * lighting.x;
@@ -161,7 +142,7 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
      * Temporary lights (muzzle flashes, explosions) have no bulb to show. */
     float hit_t = rec.hit ? rec.t : RENDER_FAR;
     for (int i = 0; i < scene->lights.count; i++) {
-        const PointLight *pl = &scene->lights.items[i];
+        const Light *pl = &scene->lights.items[i];
         if (pl->ttl_total > 0 || pl->off) {
             continue;
         }
@@ -194,44 +175,40 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
     return ps1_dither_color(cr, cg, cb, x, y);
 }
 
-static RenderParams make_render_params(const Scene *scene, const Camera *cam,
-                                       bool flashlight) {
-    RenderParams p = {
+static RenderParams make_render_params(const Scene *scene, const Light *carried) {
+    return (RenderParams){
         .env       = &scene->env,
         .materials = scene->materials,
         .textures  = scene->textures,
         .mat_count = scene->material_count,
         .tex_count = scene->texture_count,
-        .flashlight = flashlight,
+        .carried   = carried,
     };
-    if (flashlight) {
-        p.flashlight_pos = cam->position;
-        Pose view = {cam->position, cam->yaw, cam->pitch};
-        p.flashlight_dir = pose_to_world_dir(view, vec3(0, 0, -1));
-    }
-    return p;
 }
 
-#define FLASHLIGHT_SELF_LIGHT 0.35f /* flashlight's spill on what you hold */
+#define CARRIED_SPILL 0.14f /* share of a carried light falling on what you hold */
 
-float render_light_at(const Scene *scene, Vec3 p, float time, bool flashlight) {
+float render_light_at(const Scene *scene, Vec3 p, float time, const Light *carried) {
     float light = scene->env.ambient;
     for (int i = 0; i < scene->lights.count; i++) {
-        const PointLight *pl = &scene->lights.items[i];
+        const Light *pl = &scene->lights.items[i];
         float dist = vec3_length(vec3_sub(pl->position, p));
         if (dist >= pl->radius) {
             continue;
         }
         light += light_attenuation(pl, dist) * light_effective_intensity(pl, time);
     }
-    return flashlight ? light + FLASHLIGHT_SELF_LIGHT : light;
+    if (carried) {
+        light += light_effective_intensity(carried, time) * CARRIED_SPILL;
+    }
+    return light;
 }
 
 /* --- Single-threaded lit render --- */
 
 void render_scene_lit(Framebuffer *fb, const Camera *cam, const Scene *scene,
-                      float time, bool flashlight) {
-    RenderParams params = make_render_params(scene, cam, flashlight);
+                      float time, const Light *carried) {
+    RenderParams params = make_render_params(scene, carried);
 
     for (int y = 0; y < SCREEN_H; y++) {
         for (int x = 0; x < SCREEN_W; x++) {
@@ -266,11 +243,11 @@ static void render_chunk_func(void *arg) {
 }
 
 void render_scene_lit_mt(Framebuffer *fb, const Camera *cam, const Scene *scene,
-                         float time, ThreadPool *pool, bool flashlight) {
+                         float time, ThreadPool *pool, const Light *carried) {
     int n = pool->worker_count;
     RenderChunk chunks[THREADPOOL_MAX_WORKERS];
     void *args[THREADPOOL_MAX_WORKERS];
-    RenderParams params = make_render_params(scene, cam, flashlight);
+    RenderParams params = make_render_params(scene, carried);
 
     int rows_per = SCREEN_H / n;
     for (int i = 0; i < n; i++) {

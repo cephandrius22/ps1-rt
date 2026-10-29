@@ -197,7 +197,7 @@ void logic_fire(Scene *s, const char *name, EventQueue *ev) {
         }
     }
     for (int i = 0; i < s->lights.count; i++) {
-        PointLight *light = &s->lights.items[i];
+        Light *light = &s->lights.items[i];
         if (strcmp(light->targetname, name) == 0) {
             light->off = !light->off;
         }
