@@ -238,8 +238,9 @@ Carried forward:
 - ✅ Step 3 — **Scripting extras.** `delay` on any firer, `trigger_relay`,
   doors that fire their `target` and `toggle` doors, `trigger_hurt`
   (e1m1's slime now burns); relay loops stop after 16 links.
-- Monster movement as levels demand: avoid each other, jump-down links
-  in the nav grid
+- ✅ Step 4 — **Monster movement.** Chasers steer apart instead of
+  stacking; the nav grid has one-way drop links off ledges up to 3 m, so
+  monsters jump down after you (never path back up).
 - TGA textures from level materials (loader exists, not reachable from
   `.level` files)
 

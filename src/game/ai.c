@@ -114,8 +114,37 @@ static Vec3 steer_target(Entity *e, const Player *p, Scene *scene, float dt) {
     return e->enemy.routed ? e->enemy.waypoint : feet;
 }
 
-/* Walk toward the steer target, sliding along walls axis by axis */
-static void chase(Entity *e, const EnemyDef *def, const Player *p, Scene *scene, float dt) {
+#define SEPARATION_GAP    0.2f /* meters kept between two monsters' bodies */
+#define SEPARATION_WEIGHT 1.5f /* how hard a crowded monster sidesteps */
+
+/* Push away from monsters whose bodies (plus a gap) overlap this one's,
+ * stronger the deeper the overlap: a crowd spreads out instead of
+ * stacking in a doorway. Flat (XZ), unit-ish scale. */
+static Vec3 separation(const Scene *scene, int self, const EnemyDef *def) {
+    const Entity *me = &scene->entities.items[self];
+    Vec3 push = vec3(0, 0, 0);
+    for (int i = 0; i < scene->entities.count; i++) {
+        const Entity *other = &scene->entities.items[i];
+        const EnemyDef *odef = enemy_def(other->type);
+        if (i == self || !other->active || !odef || other->enemy.state == ENEMY_DEAD) {
+            continue;
+        }
+        Vec3 away = vec3(me->position.x - other->position.x, 0,
+                         me->position.z - other->position.z);
+        float dist = vec3_length(away);
+        float room = def->radius + odef->radius + SEPARATION_GAP;
+        if (dist >= room || dist < 1e-4f) {
+            continue;
+        }
+        push = vec3_add(push, vec3_mul(away, (room - dist) / (room * dist)));
+    }
+    return push;
+}
+
+/* Walk toward the steer target, sidestepping crowding monsters, sliding
+ * along walls axis by axis */
+static void chase(Scene *scene, int index, const EnemyDef *def, const Player *p, float dt) {
+    Entity *e = &scene->entities.items[index];
     Vec3 target = steer_target(e, p, scene, dt);
     Vec3 to = vec3(target.x - e->position.x, 0, target.z - e->position.z);
     float dist = vec3_length(to);
@@ -123,8 +152,14 @@ static void chase(Entity *e, const EnemyDef *def, const Player *p, Scene *scene,
         return;
     }
 
+    Vec3 heading = vec3_add(vec3_mul(to, 1.0f / dist),
+                            vec3_mul(separation(scene, index, def), SEPARATION_WEIGHT));
+    float len = vec3_length(heading);
+    if (len < 1e-4f) {
+        return;
+    }
     float step = fminf(def->speed * dt, dist);
-    Vec3 move = vec3_mul(to, step / dist);
+    Vec3 move = vec3_mul(heading, step / len);
     e->position = movement_slide(scene, e->position, move, enemy_shape(def));
 }
 
@@ -200,7 +235,7 @@ static void tick_enemy(Entity *e, int index, const EnemyDef *def, Player *p,
                          ? dist <= def->melee_range
                          : dist <= def->preferred_range && sees_player(e, def, p, scene);
         if (!in_position) {
-            chase(e, def, p, scene, dt);
+            chase(scene, index, def, p, dt);
         }
         return;
     }

@@ -15,8 +15,15 @@
  * Neighbouring floors (8 directions) are linked when the step between
  * them is climbable, nothing solid stands in between, and there's no
  * hole. Diagonals also need both side links, so paths never cut
- * corners. A roof or a crate top never links down to the floor, so
+ * corners. A roof or a crate top never links up from the floor, so
  * nothing paths onto it.
+ *
+ * Ledges get one-way drop links (straight directions only): from a floor
+ * to a lower one next to it, up to NAV_DROP_MAX below, through open air.
+ * Monsters path off a platform after you; never back up it:
+ *
+ *    ▔▔▔▔▔│ ──drop──>
+ *         │         ▔▔▔▔▔   (no link the other way)
  *
  * Floors near a wall cost more, keeping paths in the middle of halls.
  * Doors aren't static geometry, so doorways are open floor; at runtime
@@ -33,6 +40,7 @@
 #define NAV_LAYERS    4
 #define NAV_HEADROOM  1.4f   /* clear height needed above a floor */
 #define NAV_STEP      0.6f   /* highest step between neighbours (= walking bodies) */
+#define NAV_DROP_MAX  3.0f   /* deepest ledge a monster jumps down */
 #define NAV_NONE      (-1)
 
 typedef enum {
@@ -53,6 +61,7 @@ typedef struct {
     /* Per node; index = (cz * nx + cx) * NAV_LAYERS + layer */
     float *height;          /* floor height; NAN = no floor */
     uint8_t *links;         /* bit d = can walk to the neighbour in direction d */
+    uint8_t *drops;         /* bit d = can drop to the lower floor in direction d */
     uint8_t *tight;         /* 1 = a wall is close (costs more) */
     uint8_t *closed;        /* closed doors covering the node (sound stops) */
     uint8_t *locked;        /* closed locked doors covering it (paths stop) */

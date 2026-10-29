@@ -188,6 +188,62 @@ static void link_diagonal(NavGrid *nav, int node) {
     }
 }
 
+/* The floor a body falls to stepping off `node` in direction d: the
+ * highest one more than a step lower, no deeper than NAV_DROP_MAX */
+static int drop_target(const NavGrid *nav, int node, int d) {
+    int cx = node_cx(nav, node) + dir_x[d];
+    int cz = node_cz(nav, node) + dir_z[d];
+    if (!in_grid(nav, cx, cz)) {
+        return NAV_NONE;
+    }
+    float h = nav->height[node];
+    for (int l = 0; l < NAV_LAYERS; l++) {   /* layers are highest first */
+        int n = node_index(nav, cx, cz, l);
+        if (!has_floor(nav, n)) {
+            continue;
+        }
+        float below = h - nav->height[n];
+        if (below > NAV_STEP && below <= NAV_DROP_MAX) {
+            return n;
+        }
+    }
+    return NAV_NONE;
+}
+
+#define DROP_LAND_SLACK 0.05f /* the fall must meet nothing but the floor */
+
+/* Walk off the edge at the top floor's height, then fall straight onto
+ * the lower floor: no wall in the way, no lip to land on first */
+static bool droppable(const NavGrid *nav, const BVH *world, int top, int bottom) {
+    Vec3 pa = nav_node_pos(nav, top);
+    Vec3 pb = nav_node_pos(nav, bottom);
+    Vec3 span = vec3(pb.x - pa.x, 0, pb.z - pa.z);
+    float len = vec3_length(span);
+    Vec3 dir = vec3_mul(span, 1.0f / len);
+    if (hits(world, vec3(pa.x, pa.y + PROBE_LOW, pa.z), dir, len) ||
+        hits(world, vec3(pa.x, pa.y + PROBE_HIGH, pa.z), dir, len)) {
+        return false;
+    }
+
+    float fall = pa.y + PROBE_LOW - pb.y;
+    Ray down = {vec3(pb.x, pa.y + PROBE_LOW, pb.z), vec3(0, -1, 0)};
+    HitRecord rec = bvh_intersect(world, down, 0.0f, fall + DROP_LAND_SLACK);
+    return rec.hit && rec.t >= fall - DROP_LAND_SLACK;
+}
+
+/* Drops only where the floor doesn't simply continue that way */
+static void link_drops(NavGrid *nav, const BVH *world, int node) {
+    for (int d = 0; d < ORTHO_DIRS; d++) {
+        if (linked(nav, node, d)) {
+            continue;
+        }
+        int below = drop_target(nav, node, d);
+        if (below != NAV_NONE && droppable(nav, world, node, below)) {
+            nav->drops[node] |= (uint8_t)(1 << d);
+        }
+    }
+}
+
 static bool near_wall(const NavGrid *nav, const BVH *world, int node) {
     Vec3 p = nav_node_pos(nav, node);
     Vec3 probe = vec3(p.x, p.y + PROBE_LOW + NAV_STEP, p.z);
@@ -206,6 +262,7 @@ static bool alloc_grid(NavGrid *nav) {
     nav->height = malloc(sizeof(float) * n);
     nav->links = calloc(n, 1);
     nav->tight = calloc(n, 1);
+    nav->drops = calloc(n, 1);
     nav->closed = calloc(n, 1);
     nav->locked = calloc(n, 1);
     nav->seen = calloc(n, sizeof(uint32_t));
@@ -215,7 +272,7 @@ static bool alloc_grid(NavGrid *nav) {
     nav->heap = malloc(sizeof(NavHeapItem) * nav->heap_cap);
     nav->flood_seen = calloc(n, sizeof(uint32_t));
 
-    return nav->height && nav->links && nav->tight && nav->closed && nav->locked && nav->seen &&
+    return nav->height && nav->links && nav->tight && nav->drops && nav->closed && nav->locked && nav->seen &&
            nav->done && nav->cost && nav->parent && nav->heap && nav->flood_seen;
 }
 
@@ -255,6 +312,11 @@ void nav_build(NavGrid *nav, const BVH *world) {
     }
     for (int i = 0; i < nav->node_count; i++) {
         if (has_floor(nav, i)) {
+            link_drops(nav, world, i);
+        }
+    }
+    for (int i = 0; i < nav->node_count; i++) {
+        if (has_floor(nav, i)) {
             link_diagonal(nav, i);
         }
     }
@@ -264,6 +326,7 @@ void nav_free(NavGrid *nav) {
     free(nav->height);
     free(nav->links);
     free(nav->tight);
+    free(nav->drops);
     free(nav->closed);
     free(nav->locked);
     free(nav->seen);
@@ -395,6 +458,34 @@ static void relax(NavGrid *nav, int n, int m, int d, int goal, float g) {
     heap_push(nav, c + estimate(nav, m, goal), m);
 }
 
+/* Can a body on m get to n, which is in direction `back` from m: a walk
+ * link, or a drop link that lands exactly on n */
+static bool reaches(const NavGrid *nav, int m, int back, int n) {
+    if (linked(nav, m, back) && neighbor(nav, m, back) == n) {
+        return true;
+    }
+    bool drop = back < ORTHO_DIRS && ((nav->drops[m] >> back) & 1);
+    return drop && drop_target(nav, m, back) == n;
+}
+
+/* Every floor in n's neighbouring column (direction d) that can reach n */
+static void relax_column(NavGrid *nav, int n, int d, int start) {
+    int cx = node_cx(nav, n) + dir_x[d];
+    int cz = node_cz(nav, n) + dir_z[d];
+    if (!in_grid(nav, cx, cz)) {
+        return;
+    }
+    for (int l = 0; l < NAV_LAYERS; l++) {
+        int m = node_index(nav, cx, cz, l);
+        if (!has_floor(nav, m) || nav->locked[m] || nav->done[m] == nav->search) {
+            continue;
+        }
+        if (reaches(nav, m, dir_opposite[d], n)) {
+            relax(nav, n, m, d, start, nav->cost[n]);
+        }
+    }
+}
+
 /* A* run backwards, from the goal to the start: each node's parent then
  * points one step closer to the goal, so the start reads its path off
  * directly. Moves are checked in the walking direction (m → n). */
@@ -417,13 +508,7 @@ static bool search(NavGrid *nav, int start, int goal) {
         }
 
         for (int d = 0; d < DIRS; d++) {
-            int m = neighbor(nav, n, d);
-            if (m == NAV_NONE || nav->locked[m] || !linked(nav, m, dir_opposite[d])) {
-                continue;
-            }
-            if (nav->done[m] != nav->search) {
-                relax(nav, n, m, d, start, nav->cost[n]);
-            }
+            relax_column(nav, n, d, start);
         }
     }
     return false;

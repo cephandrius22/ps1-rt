@@ -34,7 +34,7 @@ where it's heading.
 - **Procedural textures** — concrete, brick, metal, grate, rust, tile, pipe, plus animated slime, water and flickering screens; generated in code
 - **Sprites** — Doom-style billboards with color-keyed holes and frame sheets (ghouls, spitters, rockets, toxic barrels)
 - **Weapons** — pistol, shotgun and rocket launcher (splash damage, including to you), each with its own viewmodel, ammo, muzzle flash that lights the room, recoil and screen shake
-- **Enemies** — ghouls that rush you, spitters that hold their distance and spit dodgeable acid; they path around walls and up stairs, open doors, and come running when they hear gunfire
+- **Enemies** — ghouls that rush you, spitters that hold their distance and spit dodgeable acid; they path around walls and up stairs, jump down ledges, spread out instead of queueing, open doors, and come running when they hear gunfire
 - **Level logic** — Doom-style doors, red/blue/yellow keycards, buttons, triggers, hidden monster ambushes and switchable lights, wired Quake-style with `target`/`targetname`
 - **Gore and feedback** — blood, gibs and sparks as depth-tested particles; red damage flash; explosions that light the room
 - **Gameplay** — fixed 60 Hz simulation, first-person movement with collision, pickups, death/respawn, exit pad with kill count

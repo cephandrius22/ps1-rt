@@ -210,6 +210,22 @@ TEST(test_ai_hears_around_walls) {
     free_world();
 }
 
+/* Two ghouls spawned on top of each other spread out while chasing */
+TEST(test_ai_monsters_spread_out) {
+    build_world(false);
+    entity_add(&s.entities, entity_spawn(ENTITY_GHOUL, vec3(0, 0, -12), ""));
+    entity_add(&s.entities, entity_spawn(ENTITY_GHOUL, vec3(0.05f, 0, -12), ""));
+    enemy_set_state(&s.entities.items[0], ENEMY_CHASE);
+    enemy_set_state(&s.entities.items[1], ENEMY_CHASE);
+    Player p = player_at_origin();
+
+    run_ai(&p, 60);
+    Vec3 a = s.entities.items[0].position, b = s.entities.items[1].position;
+    float apart = sqrtf((a.x - b.x) * (a.x - b.x) + (a.z - b.z) * (a.z - b.z));
+    ASSERT(apart > 0.6f);
+    free_world();
+}
+
 /* Enemies fall onto the floor and chase across it */
 TEST(test_ai_enemy_falls_to_floor) {
     build_world(false);
@@ -230,6 +246,7 @@ int main(void) {
     RUN_TEST(test_ai_pain_then_death);
     RUN_TEST(test_ai_paths_around_wall);
     RUN_TEST(test_ai_hears_around_walls);
+    RUN_TEST(test_ai_monsters_spread_out);
     RUN_TEST(test_ai_enemy_falls_to_floor);
     RUN_TEST(test_ai_spitter_holds_and_spits);
     RUN_TEST(test_ai_spitter_approaches_from_afar);

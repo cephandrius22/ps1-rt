@@ -140,6 +140,36 @@ TEST(test_nav_locked_door_blocks_path) {
     free_world();
 }
 
+/* A 1.5 m platform with no stairs: monsters can drop off it, never climb it */
+TEST(test_nav_drop_links) {
+    scene_init(&s);
+    mesh_init(&m);
+    add_box(vec3(-10, -1, -10), vec3(10, 0, 10));
+    add_box(vec3(-2, 0, -2), vec3(2, 1.5f, 2));
+    scene_build_static(&s, m.tris, m.count);
+    nav_build(&s.nav, &s.static_bvh);
+
+    Vec3 wp;
+    Vec3 top = vec3(0, 1.5f, 0), floor = vec3(6, 0, 0);
+    ASSERT(nav_next_waypoint(&s.nav, top, floor, &wp));    /* jump down */
+    ASSERT(!nav_next_waypoint(&s.nav, floor, top, &wp));   /* no way up */
+    free_world();
+}
+
+/* Too deep to drop: no link */
+TEST(test_nav_no_drop_from_height) {
+    scene_init(&s);
+    mesh_init(&m);
+    add_box(vec3(-10, -1, -10), vec3(10, 0, 10));
+    add_box(vec3(-2, 0, -2), vec3(2, NAV_DROP_MAX + 1, 2));
+    scene_build_static(&s, m.tris, m.count);
+    nav_build(&s.nav, &s.static_bvh);
+
+    Vec3 wp;
+    ASSERT(!nav_next_waypoint(&s.nav, vec3(0, NAV_DROP_MAX + 1, 0), vec3(6, 0, 0), &wp));
+    free_world();
+}
+
 TEST(test_nav_empty_world) {
     scene_init(&s);
     nav_build(&s.nav, &s.static_bvh);
@@ -157,6 +187,8 @@ int main(void) {
     RUN_TEST(test_nav_crate_unreachable);
     RUN_TEST(test_nav_flood_walls_and_doors);
     RUN_TEST(test_nav_locked_door_blocks_path);
+    RUN_TEST(test_nav_drop_links);
+    RUN_TEST(test_nav_no_drop_from_height);
     RUN_TEST(test_nav_empty_world);
     TEST_REPORT();
 }
