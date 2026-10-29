@@ -42,7 +42,7 @@ static Player player_at(Vec3 feet) {
     return p;
 }
 
-static void run(const Player *p, float seconds) {
+static void run(Player *p, float seconds) {
     for (float t = 0; t < seconds; t += TICK) {
         logic_update(&s, p, TICK, &ev);
     }
@@ -168,6 +168,59 @@ TEST(test_logic_button_fires_target) {
     free_world();
 }
 
+/* A relay passes a firing on after its delay */
+TEST(test_logic_relay_with_delay) {
+    int d = build_world("targetname=gate");
+    entity_add(&s.entities, entity_spawn(ENTITY_TRIGGER_RELAY, vec3(0, 0, 0),
+                                         "targetname=alarm target=gate delay=1"));
+    Player p = player_at(vec3(0, 0, 5));
+
+    logic_fire(&s, "alarm", &ev);
+    run(&p, 0.5f);
+    ASSERT_EQ_INT(door(d)->mover.state, MOVER_CLOSED);   /* still waiting */
+    run(&p, 0.6f);
+    ASSERT(door(d)->mover.state != MOVER_CLOSED);
+    free_world();
+}
+
+/* A toggle door flips on each firing; a door with a target fires it as it opens */
+TEST(test_logic_toggle_and_door_target) {
+    int d = build_world("targetname=gate toggle=1 wait=-1 target=lamp");
+    light_add(&s.lights, light_from_keys(vec3(0, 2, 0), vec3(1, 1, 1), 1, 5, "targetname=lamp"));
+    Player p = player_at(vec3(0, 0, 5));
+
+    logic_fire(&s, "gate", &ev);
+    ASSERT_EQ_INT(door(d)->mover.state, MOVER_OPENING);
+    ASSERT(s.lights.items[0].off);                      /* the door fired "lamp" */
+    run(&p, 2.0f);
+    logic_fire(&s, "gate", &ev);
+    ASSERT_EQ_INT(door(d)->mover.state, MOVER_CLOSING);
+    free_world();
+}
+
+/* Two relays firing each other stop instead of recursing forever */
+TEST(test_logic_relay_loop_stops) {
+    build_world("");
+    entity_add(&s.entities, entity_spawn(ENTITY_TRIGGER_RELAY, vec3(0, 0, 0), "targetname=a target=b"));
+    entity_add(&s.entities, entity_spawn(ENTITY_TRIGGER_RELAY, vec3(0, 0, 0), "targetname=b target=a"));
+    logic_fire(&s, "a", &ev);   /* returning at all is the test */
+    free_world();
+}
+
+/* trigger_hurt bites on entry, then every half second while inside */
+TEST(test_logic_hurt) {
+    build_world("");
+    entity_add(&s.entities, entity_spawn_brush(ENTITY_TRIGGER_HURT, vec3(0, 0.5f, 3),
+                                               vec3(1, 0.5f, 1), "damage=10"));
+    Player p = player_at(vec3(0, 0, 3));
+    run(&p, 0.9f);   /* bites at 0 and 0.5 s: 5 each */
+    ASSERT_NEAR(p.health, PLAYER_MAX_HEALTH - 10, 1e-3f);
+    Player away = player_at(vec3(0, 0, -6));
+    run(&away, 1.0f);
+    ASSERT_NEAR(away.health, PLAYER_MAX_HEALTH, 1e-6f);
+    free_world();
+}
+
 /* Doom: a closing door that meets a body goes back up */
 TEST(test_logic_door_reverses_on_player) {
     int d = build_world("wait=0");
@@ -235,6 +288,10 @@ int main(void) {
     RUN_TEST(test_logic_trigger_once_opens_named_door);
     RUN_TEST(test_logic_trigger_multiple_rearms);
     RUN_TEST(test_logic_button_fires_target);
+    RUN_TEST(test_logic_relay_with_delay);
+    RUN_TEST(test_logic_toggle_and_door_target);
+    RUN_TEST(test_logic_relay_loop_stops);
+    RUN_TEST(test_logic_hurt);
     RUN_TEST(test_logic_monsters_open_plain_doors);
     RUN_TEST(test_logic_closed_door_muffles);
     TEST_REPORT();

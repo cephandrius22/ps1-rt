@@ -174,6 +174,7 @@ static void mover_spawn(Entity *e, const char *args, const MoverDefaults *def) {
     snprintf(opens, sizeof(opens), "%s", def->opens);
     kv_string(args, "opens", opens, sizeof(opens));
     kv_string(args, "key", e->mover.key, sizeof(e->mover.key));
+    e->mover.toggle = kv_int(args, "toggle", 0) != 0;
 
     Vec3 dir = door_dir(e, opens);
     Vec3 size = vec3_mul(e->half_size, 2.0f);
@@ -204,6 +205,12 @@ static void button_spawn(Entity *e, const char *args) {
 static void trigger_once_spawn(Entity *e, const char *args) {
     (void)args;
     e->trigger.wait = TRIGGER_ONCE;
+}
+
+#define HURT_DAMAGE_DEF 10.0f /* per second */
+
+static void trigger_hurt_spawn(Entity *e, const char *args) {
+    e->trigger.damage = kv_float(args, "damage", HURT_DAMAGE_DEF);
 }
 
 static void trigger_multiple_spawn(Entity *e, const char *args) {
@@ -413,6 +420,9 @@ static const EntityKey door_keys[] = {
     {"lip", KEY_LENGTH, DOOR_LIP_DEF, "Left showing when open", NULL},
     {"key", KEY_STRING, 0, "Keycard needed: red, blue, yellow (empty = none)", ""},
     {"targetname", KEY_STRING, 0, "Name; a named door opens only when triggered", ""},
+    {"toggle", KEY_BOOL, 0, "Named door: each firing flips it open/shut", NULL},
+    {"target", KEY_STRING, 0, "Fires everything with this name when it opens", ""},
+    {"delay", KEY_FLOAT, 0, "Seconds before firing its target", NULL},
     {.type = KEY_END},
 };
 
@@ -424,18 +434,34 @@ static const EntityKey button_keys[] = {
     {"wait", KEY_FLOAT, BUTTON_WAIT_DEF, "Seconds before it pops back (-1 = stays in)", NULL},
     {"lip", KEY_LENGTH, BUTTON_LIP_DEF, "Left showing when pressed", NULL},
     {"key", KEY_STRING, 0, "Keycard needed: red, blue, yellow (empty = none)", ""},
+    {"delay", KEY_FLOAT, 0, "Seconds before firing its target", NULL},
     {.type = KEY_END},
 };
 
 static const EntityKey trigger_once_keys[] = {
     {"target", KEY_STRING, 0, "Fires everything with this name", ""},
     {"message", KEY_STRING, 0, "Shown when entered", ""},
+    {"delay", KEY_FLOAT, 0, "Seconds before firing its target", NULL},
+    {.type = KEY_END},
+};
+
+static const EntityKey trigger_hurt_keys[] = {
+    {"damage", KEY_FLOAT, HURT_DAMAGE_DEF, "Damage per second while inside", NULL},
+    {.type = KEY_END},
+};
+
+static const EntityKey trigger_relay_keys[] = {
+    {"targetname", KEY_STRING, 0, "Fires when this name is fired", ""},
+    {"target", KEY_STRING, 0, "Fires everything with this name", ""},
+    {"delay", KEY_FLOAT, 0, "Seconds before passing it on", NULL},
+    {"message", KEY_STRING, 0, "Shown when it fires", ""},
     {.type = KEY_END},
 };
 
 static const EntityKey trigger_secret_keys[] = {
     {"target", KEY_STRING, 0, "Fires everything with this name when found", ""},
     {"message", KEY_STRING, 0, "Shown when found (empty = \"A secret area!\")", ""},
+    {"delay", KEY_FLOAT, 0, "Seconds before firing its target", NULL},
     {.type = KEY_END},
 };
 
@@ -443,6 +469,7 @@ static const EntityKey trigger_multiple_keys[] = {
     {"target", KEY_STRING, 0, "Fires everything with this name", ""},
     {"message", KEY_STRING, 0, "Shown when entered", ""},
     {"wait", KEY_FLOAT, TRIGGER_WAIT_DEF, "Seconds before it can fire again", NULL},
+    {"delay", KEY_FLOAT, 0, "Seconds before firing its target", NULL},
     {.type = KEY_END},
 };
 
@@ -557,6 +584,18 @@ static const EntityDef entity_defs[ENTITY_TYPE_COUNT] = {
         .default_texture = "none", .default_color = {0.9f, 0.8f, 0.2f},
         .desc = "Invisible brush around a secret area: counted for the intermission",
         .keys = trigger_secret_keys, .spawn = trigger_once_spawn,
+    },
+    [ENTITY_TRIGGER_HURT] = {
+        .name = "trigger_hurt", .render = RENDER_NONE, .brush = true,
+        .default_texture = "none", .default_color = {0.9f, 0.2f, 0.1f},
+        .desc = "Invisible brush: hurts the player while inside (slime, fire)",
+        .keys = trigger_hurt_keys, .spawn = trigger_hurt_spawn,
+    },
+    [ENTITY_TRIGGER_RELAY] = {
+        .name = "trigger_relay", .render = RENDER_NONE,
+        .default_texture = "none", .default_color = {0.6f, 0.6f, 0.9f},
+        .desc = "Point: when its name fires, fires its own target after delay",
+        .keys = trigger_relay_keys,
     },
     [ENTITY_TRIGGER_MULTIPLE] = {
         .name = "trigger_multiple", .render = RENDER_NONE, .brush = true,

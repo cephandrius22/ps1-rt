@@ -1,6 +1,7 @@
 #include "logic.h"
 #include "ai.h"
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 #define MONSTER_DOOR_REACH 0.5f /* monsters open doors this close to their body */
@@ -106,9 +107,17 @@ static bool has_keycard_for(const Entity *e, const Player *p) {
            inventory_has_keycard(&p->inv, keycard_by_name(e->mover.key));
 }
 
+/* --- Firing targets --- */
+
+#define FIRE_DEPTH_MAX 16 /* relays firing relays: past this it's a loop */
+
+static void fire_from(Scene *s, int i, EventQueue *ev, int depth);
+
 /* --- Doors --- */
 
-static void door_open(Entity *e, int i, EventQueue *ev) {
+/* Start opening; a door with a target fires it as it starts to move */
+static void door_open(Scene *s, int i, EventQueue *ev, int depth) {
+    Entity *e = &s->entities.items[i];
     if (e->mover.state == MOVER_OPENING) {
         return;
     }
@@ -118,6 +127,9 @@ static void door_open(Entity *e, int i, EventQueue *ev) {
     }
     e->mover.state = MOVER_OPENING;
     push(ev, EV_DOOR_OPENED, i, e);
+    if (e->target[0] != '\0') {
+        fire_from(s, i, ev, depth);
+    }
 }
 
 static void door_close(Entity *e, int i, EventQueue *ev) {
@@ -144,7 +156,7 @@ static void door_tick(Scene *s, int i, const Player *p, float dt, EventQueue *ev
     /* Doom: monsters open plain doors they walk into */
     bool closed = e->mover.state == MOVER_CLOSED;
     if (closed && !door_locked(e) && monster_touches(s, e, MONSTER_DOOR_REACH, CHASERS)) {
-        door_open(e, i, ev);
+        door_open(s, i, ev, 0);
     }
 
     if (mover_wait_over(e, dt)) {
@@ -154,7 +166,7 @@ static void door_tick(Scene *s, int i, const Player *p, float dt, EventQueue *ev
     /* Never crush: anything in the way sends it back up */
     bool closing = e->mover.state == MOVER_CLOSING;
     if (closing && (player_touches(e, p, 0) || monster_touches(s, e, 0, ANY_MONSTER))) {
-        door_open(e, i, ev);
+        door_open(s, i, ev, 0);
     }
 
     mover_slide(e, dt);
@@ -162,20 +174,33 @@ static void door_tick(Scene *s, int i, const Player *p, float dt, EventQueue *ev
 }
 
 /* Doom: use on an open door shuts it early */
-static void use_door(Entity *e, int i, EventQueue *ev) {
+static void use_door(Scene *s, int i, EventQueue *ev) {
+    Entity *e = &s->entities.items[i];
     if (e->mover.state == MOVER_OPEN) {
         door_close(e, i, ev);
         return;
     }
-    door_open(e, i, ev);
+    door_open(s, i, ev, 0);
 }
 
-/* --- Firing targets --- */
+/* --- Reactions to a fired name --- */
 
 /* What a named entity does when its name is fired */
-static void react(Entity *e, int i, EventQueue *ev) {
+static void react(Scene *s, int i, EventQueue *ev, int depth) {
+    Entity *e = &s->entities.items[i];
     if (is_door(e)) {
-        door_open(e, i, ev);
+        bool open = e->mover.state == MOVER_OPEN || e->mover.state == MOVER_OPENING;
+        if (e->mover.toggle && open) {
+            door_close(e, i, ev);
+            return;
+        }
+        door_open(s, i, ev, depth);
+        return;
+    }
+
+    /* Relay: passes the firing on to its own target */
+    if (e->active && e->type == ENTITY_TRIGGER_RELAY) {
+        fire_from(s, i, ev, depth);
         return;
     }
 
@@ -187,14 +212,18 @@ static void react(Entity *e, int i, EventQueue *ev) {
     }
 }
 
-void logic_fire(Scene *s, const char *name, EventQueue *ev) {
+/* Everything named `name` reacts; lights with that name toggle */
+static void fire_name(Scene *s, const char *name, EventQueue *ev, int depth) {
     if (name[0] == '\0') {
         return;
     }
+    if (depth >= FIRE_DEPTH_MAX) {
+        fprintf(stderr, "logic: '%s' fires itself in a loop; stopped\n", name);
+        return;
+    }
     for (int i = 0; i < s->entities.count; i++) {
-        Entity *e = &s->entities.items[i];
-        if (strcmp(e->targetname, name) == 0) {
-            react(e, i, ev);
+        if (strcmp(s->entities.items[i].targetname, name) == 0) {
+            react(s, i, ev, depth + 1);
         }
     }
     for (int i = 0; i < s->lights.count; i++) {
@@ -205,11 +234,40 @@ void logic_fire(Scene *s, const char *name, EventQueue *ev) {
     }
 }
 
-/* A trigger or button went off: announce it (messages), fire its target */
-static void fire_from(Scene *s, int i, EventQueue *ev) {
+void logic_fire(Scene *s, const char *name, EventQueue *ev) {
+    fire_name(s, name, ev, 0);
+}
+
+/* Announce (messages) and fire the target now */
+static void fire_now(Scene *s, int i, EventQueue *ev, int depth) {
     const Entity *e = &s->entities.items[i];
     push(ev, EV_TRIGGERED, i, e);
-    logic_fire(s, e->target, ev);
+    fire_name(s, e->target, ev, depth);
+}
+
+/* Something went off (trigger, button, door, relay): fire its target,
+ * now or after its delay (logic_update counts the timer down) */
+static void fire_from(Scene *s, int i, EventQueue *ev, int depth) {
+    Entity *e = &s->entities.items[i];
+    if (e->delay <= 0) {
+        fire_now(s, i, ev, depth);
+        return;
+    }
+    if (e->fire_timer <= 0) {
+        e->fire_timer = e->delay; /* already pending: keep the first */
+    }
+}
+
+/* Delayed firings whose time has come */
+static void tick_delay(Scene *s, int i, float dt, EventQueue *ev) {
+    Entity *e = &s->entities.items[i];
+    if (e->fire_timer <= 0) {
+        return;
+    }
+    e->fire_timer -= dt;
+    if (e->fire_timer <= 0) {
+        fire_now(s, i, ev, 0);
+    }
 }
 
 /* --- Buttons --- */
@@ -221,7 +279,7 @@ static void press(Scene *s, int i, EventQueue *ev) {
     }
     e->mover.state = MOVER_OPENING;
     push(ev, EV_BUTTON_PRESSED, i, e);
-    fire_from(s, i, ev);
+    fire_from(s, i, ev, 0);
 }
 
 /* Pops back out once its wait is up */
@@ -234,6 +292,18 @@ static void button_tick(Entity *e, float dt) {
 
 /* --- Triggers --- */
 
+#define HURT_INTERVAL 0.5f /* seconds between bites: Doom-style chunks */
+
+/* trigger_hurt: a bite of damage every HURT_INTERVAL while inside */
+static void hurt_tick(Entity *e, Player *p, float dt, EventQueue *ev) {
+    e->trigger.cooldown = fmaxf(e->trigger.cooldown - dt, 0.0f);
+    if (e->trigger.cooldown > 0 || !player_touches(e, p, 0)) {
+        return;
+    }
+    player_damage(p, e->trigger.damage * HURT_INTERVAL, ev);
+    e->trigger.cooldown = HURT_INTERVAL;
+}
+
 static void trigger_tick(Scene *s, int i, const Player *p, float dt, EventQueue *ev) {
     Entity *e = &s->entities.items[i];
     e->trigger.cooldown = fmaxf(e->trigger.cooldown - dt, 0.0f);
@@ -244,7 +314,7 @@ static void trigger_tick(Scene *s, int i, const Player *p, float dt, EventQueue 
     if (e->type == ENTITY_TRIGGER_SECRET) {
         push(ev, EV_SECRET_FOUND, i, e);
     }
-    fire_from(s, i, ev);
+    fire_from(s, i, ev, 0);
     if (e->trigger.wait < 0) {
         e->active = false; /* trigger_once */
         return;
@@ -254,13 +324,16 @@ static void trigger_tick(Scene *s, int i, const Player *p, float dt, EventQueue 
 
 /* --- Public --- */
 
-void logic_update(Scene *s, const Player *p, float dt, EventQueue *ev) {
+void logic_update(Scene *s, Player *p, float dt, EventQueue *ev) {
     for (int i = 0; i < s->entities.count; i++) {
         Entity *e = &s->entities.items[i];
+        tick_delay(s, i, dt, ev);
         if (is_door(e)) {
             door_tick(s, i, p, dt, ev);
         } else if (is_button(e)) {
             button_tick(e, dt);
+        } else if (e->active && e->type == ENTITY_TRIGGER_HURT) {
+            hurt_tick(e, p, dt, ev);
         } else if (is_trigger(e)) {
             trigger_tick(s, i, p, dt, ev);
         }
@@ -288,7 +361,7 @@ void logic_use(Scene *s, const Player *p, EventQueue *ev) {
     }
 
     if (door) {
-        use_door(e, i, ev);
+        use_door(s, i, ev);
         return;
     }
     press(s, i, ev);

@@ -14,9 +14,13 @@
  *
  *   trigger_once / _multiple / _secret ──player enters──┐
  *   func_button ─────────────────────────E──────────────┴──> fire `target`
- *        ──> every entity named it: door opens, hidden monster appears
+ *        (after the source's `delay`, if any)
+ *        ──> every entity named it: door opens (or flips, if toggle),
+ *            hidden monster appears, trigger_relay passes it on
  *        ──> every light named it: toggles on/off
  *        EV_TRIGGERED lets game.c show the source's `message`
+ *   A door with a target fires it as it starts to open. Chains deeper
+ *   than FIRE_DEPTH_MAX are a loop and stop.
  *
  * It also keeps the nav grid in step: a closed door stops sound, and a
  * locked one (keycard, or only opened by a trigger) stops paths too.
@@ -30,8 +34,9 @@
 
 /* Move doors and buttons one tick; reopen blocked doors; let chasing
  * monsters open unlocked doors they reach; fire triggers the player is
- * in. Call before the dynamic BVH rebuild. */
-void logic_update(Scene *s, const Player *p, float dt, EventQueue *ev);
+ * in (trigger_hurt bites the player); fire delayed targets whose time
+ * has come. Call before the dynamic BVH rebuild. */
+void logic_update(Scene *s, Player *p, float dt, EventQueue *ev);
 
 /* The player pressed use on what's in front: a door opens (or closes),
  * a button presses. Keyed ones need the player's keycard (else

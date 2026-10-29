@@ -55,6 +55,7 @@ Entity entity_spawn_brush(EntityType type, Vec3 center, Vec3 half_size, const ch
     kv_string(args, "target", e.target, sizeof(e.target));
     kv_string(args, "targetname", e.targetname, sizeof(e.targetname));
     kv_string(args, "message", e.message, sizeof(e.message));
+    e.delay = kv_float(args, "delay", 0);
 
     const EntityDef *def = entity_def(type);
     if (def->spawn) {

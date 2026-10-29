@@ -182,11 +182,13 @@ Entity types (all take `rot=` (radians) and `mat=<material or texture name>`; wi
 | `health` | `amount` (25) | heals, not taken at full health |
 | `ammo` | `amount` (10), `ammo` (`bullets`/`shells`/`rockets`) | not taken at cap |
 | `weapon` | `give` (`shotgun`/`launcher`), `amount` (8) | weapon + that much ammo; switches to it if new |
-| `func_door` (brush) | `opens` (`up`/`down`/`side`), `speed` (2.5), `wait` (4, -1 = stays), `lip` (0.125), `key`, `targetname` | E opens; monsters open plain ones; `key` = keycard color; named = only a trigger opens it |
+| `func_door` (brush) | `opens` (`up`/`down`/`side`), `speed` (2.5), `wait` (4, -1 = stays), `lip` (0.125), `key`, `targetname`, `toggle`, `target`, `delay` | E opens; monsters open plain ones; `key` = keycard color; named = only a trigger opens it; `toggle` = each firing flips it; fires `target` as it opens |
 | `func_button` (brush) | `target`, `message`, `opens` (`side`), `speed`, `wait` (1), `lip`, `key` | E presses: fires `target` |
 | `trigger_once` (brush) | `target`, `message` | fires when the player enters, then is spent |
 | `trigger_multiple` (brush) | `target`, `message`, `wait` (1) | fires again every `wait` s while inside |
-| `trigger_secret` (brush) | `target`, `message` | a secret area: counted for the intermission, "A secret area!" |
+| `trigger_secret` (brush) | `target`, `message`, `delay` | a secret area: counted for the intermission, "A secret area!" |
+| `trigger_hurt` (brush) | `damage` (10/s) | bites the player every 0.5 s while inside (slime, fire) |
+| `trigger_relay` | `targetname`, `target`, `delay`, `message` | point: when its name fires, fires its target (after `delay`) |
 | `keycard` | `color` (`red`/`blue`/`yellow`) | sprite; opens doors/buttons with that `key` |
 | `prop` | — | static cube |
 | `decor` | `w` (0.8), `h` (1.0), `solid` (1) | sprite; default texture `barrel` |
@@ -223,7 +225,7 @@ Setup once: `make editor`, then in TrenchBroom Preferences → RT → Game Path 
 
 **New brush entity:** `EntityDef` row with `.brush = true` (and `RENDER_MESH` to draw its faces, `RENDER_NONE` for bounds only). Its behavior goes in `game/logic.c` (state on the entity, transitions in game), never in the loaders.
 
-**Wiring a level:** give a trigger/button `target=X`; give doors, monsters or lights `targetname=X`. The checker warns about targets that name nothing, named doors/monsters nothing targets, keyed doors whose keycard isn't placed, and exits you can't walk to.
+**Wiring a level:** give a trigger/button/door `target=X`; give doors, monsters, relays or lights `targetname=X`. Any firer takes `delay=` (seconds); a `trigger_relay` chains or delays a firing. Chains deeper than `FIRE_DEPTH_MAX` (16) are treated as a loop and stop. The checker warns about targets that name nothing, named doors/monsters nothing targets, keyed doors whose keycard isn't placed, and exits you can't walk to.
 
 **New sound:** Add to `SoundID` enum, generate in `audio_generate_sounds()` or load WAV via `audio_load_wav()`. Push a `GameEvent` (with its `pos`) from gameplay and map it in `play_event_sounds()`; `play_at()` sets volume by distance and pan by direction from the listener. A new ambient loop also needs a row in `ambience_sounds[]` (main.c) so levels can name it.
 

@@ -178,7 +178,8 @@ Quake level editor:
    `info_player_start`, lights, enemies (`ghoul`, `spitter`), pickups
    (`health`, `ammo`, `weapon`, `keycard`) and an `exit`. Doors, buttons
    and triggers are brush entities (`func_door`, `func_button`,
-   `trigger_once`, `trigger_multiple`); wire them with `target` →
+   `trigger_once`, `trigger_multiple`, `trigger_hurt`), and a
+   `trigger_relay` chains or delays a firing; wire them with `target` →
    `targetname` (TrenchBroom draws the links). Wrap secret areas in a
    `trigger_secret` brush so the intermission counts them. `levels/arena.map` is an
    example to open.

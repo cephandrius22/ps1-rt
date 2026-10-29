@@ -67,6 +67,7 @@ box -14 2.5 -5.3 -9 2.8 -5 pipe_mat
 # Grate floor section, and a seep of glowing slime by the wall
 box -13 0.01 -9 -10 0.02 -7 grate
 box -13.9 0.01 -11.8 -12.2 0.03 -10.6 nukage
+brush trigger_hurt -13.9 0 -11.8 -12.2 0.5 -10.6 damage=5
 
 # =====================
 # Storage Room (east) — blue door; its button opens the exit gate

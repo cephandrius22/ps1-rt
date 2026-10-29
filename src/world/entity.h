@@ -53,6 +53,8 @@ typedef enum {
     ENTITY_TRIGGER_ONCE,  /* invisible brush: fires its target when entered, once */
     ENTITY_TRIGGER_MULTIPLE, /* same, again every `wait` seconds while inside */
     ENTITY_TRIGGER_SECRET,   /* invisible brush: a secret area, counted when found */
+    ENTITY_TRIGGER_HURT,     /* invisible brush: hurts the player inside (slime, crushers) */
+    ENTITY_TRIGGER_RELAY,    /* point: when its name fires, fires its target (after delay) */
     ENTITY_TYPE_COUNT
 } EntityType;
 
@@ -127,6 +129,8 @@ typedef struct {
     char target[ENTITY_NAME_MAX];
     char targetname[ENTITY_NAME_MAX];
     char message[ENTITY_MESSAGE_MAX];
+    float delay;       /* seconds between going off and firing target */
+    float fire_timer;  /* > 0: a delayed firing is pending (game/logic.c) */
 
     /* Type-specific data */
     union {
@@ -144,10 +148,12 @@ typedef struct {
             float timer;      /* seconds spent open */
             char key[ENTITY_ITEM_MAX]; /* keycard needed ("red"), "" = none */
             bool nav_closed;  /* game/logic.c: the nav grid has it marked shut */
+            bool toggle;      /* named door: each firing flips it open/shut */
         } mover;          /* func_door, func_button */
         struct {
             float wait;       /* seconds before it can fire again; < 0 = once */
-            float cooldown;   /* seconds until it re-arms */
+            float cooldown;   /* seconds until it re-arms (hurt: next bite) */
+            float damage;     /* trigger_hurt: per second */
         } trigger;
         struct {
             float width;

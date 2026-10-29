@@ -235,8 +235,9 @@ Carried forward:
 - ✅ Step 2 — **Secrets and intermission.** `trigger_secret` brushes
   (chime, "A secret area!"); the level end shows map title, kills,
   secrets, time and the next map. e1m1 has a crate-top stash.
-- Scripting extras as levels need them: doors that fire their `target`,
-  `trigger_relay` with `delay`, toggling doors, `trigger_hurt`
+- ✅ Step 3 — **Scripting extras.** `delay` on any firer, `trigger_relay`,
+  doors that fire their `target` and `toggle` doors, `trigger_hurt`
+  (e1m1's slime now burns); relay loops stop after 16 links.
 - Monster movement as levels demand: avoid each other, jump-down links
   in the nav grid
 - TGA textures from level materials (loader exists, not reachable from
