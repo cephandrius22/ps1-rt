@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 bool display_open(Display *d, const char *title, int width, int height, int scale) {
-    *d = (Display){.width = width, .height = height};
+    *d = (Display){.width = width, .height = height, .scale = scale};
     if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) {
         fprintf(stderr, "SDL video: %s\n", SDL_GetError());
         return false;
@@ -32,6 +32,11 @@ void display_present(Display *d, const uint32_t *pixels) {
     SDL_RenderClear(d->renderer);
     SDL_RenderCopy(d->renderer, d->texture, NULL, NULL);
     SDL_RenderPresent(d->renderer);
+}
+
+void display_to_frame(const Display *d, int wx, int wy, int *fx, int *fy) {
+    *fx = wx / d->scale;
+    *fy = wy / d->scale;
 }
 
 void display_close(Display *d) {

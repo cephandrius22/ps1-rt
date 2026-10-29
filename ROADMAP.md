@@ -271,7 +271,7 @@ Carried forward:
   guns hit harder (more damage, kick, shake, flash, knockback, flinch,
   gore and punchier sounds).
 
-## Phase 6: Shell (in progress, in steps)
+## Phase 6: Shell ✅
 
 - ✅ Step 1 — **SDL out of `main.c`.** `platform/display` (window,
   present) and `platform/clock`; audio initializes its own SDL subsystem.
@@ -280,7 +280,17 @@ Carried forward:
 - ✅ Step 3 — **Save anywhere.** Full-state saves (entities, lights,
   player, weapon, tallies) checked against the reloaded map; F5/F9
   quicksave/quickload. Saves only load in the build that wrote them.
-- Main menu, pause, options, save/load slots
+- ✅ Step 4 — **Menus.** Title screen over the paused first map; Esc
+  pause menu (resume, save, load, options, quit); options sliders;
+  five save slots labelled with map and time. Keyboard and mouse.
+  `shell/menu` is a pure state machine, drawn by the overlay.
+
+Carried forward:
+
+- No key rebinding or invert-mouse yet (only the three options).
+- Saves are build-specific (raw structs); a versioned format would
+  survive updates.
+- No confirmation before overwriting a save slot or quitting.
 
 ## Phase 7: Performance (when profiling demands)
 

@@ -1,8 +1,11 @@
 /*
- * input.h — Keyboard/mouse → PlayerCmd.
+ * input.h — Keyboard/mouse → PlayerCmd (play) and UiCmd (menus, F-keys).
  *
- * Owns key bindings and mouse sensitivity. Uses SDL relative mouse mode
- * to capture the cursor. SDL stays inside this module.
+ * Owns key bindings and mouse sensitivity. While playing, the mouse is
+ * captured (relative mode) and turns the view; in menus it's released,
+ * and UiCmd carries its position and clicks. Esc is "back": it opens
+ * the pause menu or leaves the current one. Closing the window quits.
+ * SDL stays inside this module.
  */
 #ifndef INPUT_H
 #define INPUT_H
@@ -23,10 +26,27 @@ typedef struct {
     bool toggle_affine; /* F4: PS1 texture warp on/off */
     bool quick_save;    /* F5 */
     bool quick_load;    /* F9 */
+
+    /* Menus: one-shot presses this frame */
+    bool back;          /* Esc */
+    bool up, down;      /* arrows, W/S */
+    bool left, right;   /* arrows, A/D */
+    bool select;        /* Enter, Space */
+    bool click;         /* left button (menus only: the mouse is free) */
+    bool pointer_moved; /* the free mouse moved this frame */
+    int pointer_x, pointer_y; /* free mouse, window pixels */
 } UiCmd;
 
 /* Capture the mouse (relative mode) */
 void input_init(void);
+
+/* Captured (play: hidden, turns the view) or free (menus: a pointer) */
+typedef enum {
+    MOUSE_CAPTURED,
+    MOUSE_FREE,
+} MouseMode;
+
+void input_set_mouse(MouseMode mode);
 
 /* Mouse speed multiplier (settings: 1 = MOUSE_SENSITIVITY) */
 void input_set_sensitivity(float scale);

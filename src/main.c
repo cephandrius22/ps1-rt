@@ -36,6 +36,7 @@
 #include "settings.h"
 #include "files.h"
 #include "save.h"
+#include "menu.h"
 #include "editor_export.h"
 #include "level_convert.h"
 #include "screenfx.h"
@@ -313,6 +314,89 @@ static void quick_load(Game *game) {
     }
 }
 
+/* --- Menus: main.c carries out what the menu asks for --- */
+
+/* The frame's UiCmd as the menu sees it (pointer in framebuffer pixels) */
+static MenuInput menu_input(const UiCmd *ui, const Display *display) {
+    MenuInput in = {.up = ui->up, .down = ui->down, .left = ui->left, .right = ui->right,
+                    .select = ui->select, .back = ui->back, .click = ui->click,
+                    .pointer_moved = ui->pointer_moved};
+    display_to_frame(display, ui->pointer_x, ui->pointer_y, &in.pointer_x, &in.pointer_y);
+    return in;
+}
+
+#define SLOT_EMPTY "EMPTY"
+#define SECONDS_PER_MINUTE 60
+
+/* "PUMPING STATION 3:12" per slot, or EMPTY */
+static void refresh_slot_labels(Menu *menu) {
+    for (int slot = 1; slot <= MENU_SLOTS; slot++) {
+        char path[SAVE_PATH_MAX];
+        SaveInfo info;
+        save_slot_path(slot, path, sizeof(path));
+        char *label = menu->slot_labels[slot - 1];
+        if (!save_peek(path, &info)) {
+            snprintf(label, OVERLAY_MENU_TEXT, SLOT_EMPTY);
+            continue;
+        }
+        int t = (int)info.map_time;
+        snprintf(label, OVERLAY_MENU_TEXT, "%.24s %d:%02d", info.map_title,
+                 t / SECONDS_PER_MINUTE, t % SECONDS_PER_MINUTE);
+    }
+}
+
+typedef struct {
+    Game *game;
+    const Episode *episode;
+    Settings *settings;
+    AudioSystem *audio;
+    bool *running;
+} MenuTargets;
+
+static void apply_settings(const Settings *s, AudioSystem *audio) {
+    input_set_sensitivity(s->sensitivity);
+    audio_set_master(audio, s->volume);
+}
+
+static void do_menu_action(MenuAction act, Menu *menu, MenuTargets t) {
+    char path[SAVE_PATH_MAX];
+    switch (act.event) {
+    case MENU_NONE:
+    case MENU_RESUME:
+        return;
+    case MENU_NEW_GAME:
+        game_free(t.game);
+        if (game_start(t.game, t.episode) != GAME_LOAD_OK) {
+            fprintf(stderr, "New game: failed to load the first map\n");
+        }
+        return;
+    case MENU_SAVE_SLOT:
+        save_slot_path(act.slot, path, sizeof(path));
+        if (files_make_dir(SAVE_DIR) && game_save(t.game, path)) {
+            game_notify(t.game, "Game saved");
+            menu->screen = MENU_CLOSED;
+        }
+        refresh_slot_labels(menu);
+        return;
+    case MENU_LOAD_SLOT:
+        save_slot_path(act.slot, path, sizeof(path));
+        if (game_load(t.game, path) == GAME_LOAD_OK) {
+            menu->screen = MENU_CLOSED;
+        }
+        return;
+    case MENU_QUIT:
+        *t.running = false;
+        return;
+    case MENU_SETTINGS_CHANGED:
+        *t.settings = menu->settings;
+        apply_settings(t.settings, t.audio);
+        return;
+    case MENU_SETTINGS_DONE:
+        settings_save(t.settings, SETTINGS_FILE);
+        return;
+    }
+}
+
 /* HUD colors per keycard, matching the keycard sprites */
 static const Vec3 keycard_colors[KEYCARD_COUNT] = {
     [KEYCARD_RED]    = {0.82f, 0.16f, 0.12f},
@@ -530,7 +614,15 @@ int main(int argc, char *argv[]) {
     filewatch_init(&level_watch, game.level_path);
     float since_poll = 0;
 
+    /* The title screen opens over the first map, which waits paused */
+    Menu menu;
+    menu_init(&menu, settings, game.episode.title[0] ? game.episode.title : WINDOW_TITLE);
+    menu_open(&menu, MENU_TITLE);
+    MenuScreen last_screen = MENU_CLOSED;
+    MenuTargets targets = {&game, &episode, &settings, &audio, NULL};
+
     bool running = true;
+    targets.running = &running;
     bool show_debug = false;
     bool affine = false;  /* PS1 texture warp, F4 */
     float work_ms = 0;   /* smoothed */
@@ -553,20 +645,42 @@ int main(int argc, char *argv[]) {
         if (ui.toggle_debug) {
             show_debug = !show_debug;
         }
-        if (ui.quick_save) {
-            quick_save(&game);
+
+        /* Esc while playing pauses; inside menus it goes back. The
+         * frame a menu closes on, its click or Enter stays out of play. */
+        bool was_paused = menu_is_open(&menu);
+        if (!menu_is_open(&menu) && ui.back) {
+            menu.can_save = game.mode == GAME_PLAYING;
+            menu_open(&menu, MENU_PAUSE);
+        } else if (menu_is_open(&menu)) {
+            MenuInput in = menu_input(&ui, &display);
+            do_menu_action(menu_update(&menu, &in), &menu, targets);
         }
-        if (ui.quick_load) {
-            quick_load(&game);
+        if (menu.screen != last_screen) {
+            input_set_mouse(menu_is_open(&menu) ? MOUSE_FREE : MOUSE_CAPTURED);
+            if (menu.screen == MENU_SAVE || menu.screen == MENU_LOAD) {
+                refresh_slot_labels(&menu);
+            }
+            last_screen = menu.screen;
         }
 
-        hot_reload(&game, &level_watch, &since_poll, dt);
-        game_update(&game, &cmd, dt);
-        play_event_sounds(&audio, &game.events, &game);
-        play_event_effects(&fx, &game.events, &game);
-        screenfx_update(&fx, dt);
-        spawn_event_particles(&particles, &game.events, &game);
-        particles_update(&particles, dt);
+        /* The game runs only with the menu closed; its events are this
+         * frame's only then, so sounds and effects follow it */
+        if (!menu_is_open(&menu) && !was_paused) {
+            if (ui.quick_save) {
+                quick_save(&game);
+            }
+            if (ui.quick_load) {
+                quick_load(&game);
+            }
+            hot_reload(&game, &level_watch, &since_poll, dt);
+            game_update(&game, &cmd, dt);
+            play_event_sounds(&audio, &game.events, &game);
+            play_event_effects(&fx, &game.events, &game);
+            screenfx_update(&fx, dt);
+            spawn_event_particles(&particles, &game.events, &game);
+            particles_update(&particles, dt);
+        }
 
         /* Render: scene lights + flashlight, shadow rays (multithreaded) */
         /* Shake moves only what we see, never where shots go */
@@ -601,6 +715,7 @@ int main(int argc, char *argv[]) {
         overlay.battery = game.player.battery;
         fill_keycards(&overlay, &game.player.inv);
         fill_intermission(&overlay, &game);
+        overlay.menu = menu_view(&menu);
         fill_viewmodel(&overlay.viewmodel, &view_anim, &game, dt);
         if (show_debug) {
             fill_debug(&overlay, &game, work_ms, fps);

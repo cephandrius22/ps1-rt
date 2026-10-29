@@ -24,6 +24,7 @@ typedef struct {
     struct SDL_Renderer *renderer;
     struct SDL_Texture *texture;
     int width, height;          /* framebuffer size in pixels */
+    int scale;                  /* window pixels per framebuffer pixel */
 } Display;
 
 /* Open a window `scale` times the framebuffer size, vsynced. False (with
@@ -32,6 +33,9 @@ bool display_open(Display *d, const char *title, int width, int height, int scal
 
 /* Show width x height ARGB pixels (0xAARRGGBB), waiting for vsync */
 void display_present(Display *d, const uint32_t *pixels);
+
+/* Window pixel → framebuffer pixel (for the menu pointer) */
+void display_to_frame(const Display *d, int wx, int wy, int *fx, int *fy);
 
 void display_close(Display *d);
 

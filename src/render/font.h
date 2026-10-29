@@ -9,7 +9,7 @@
  *   #####  0x1F
  *   #...#  0x11  (x3)
  *
- * Covers A-Z (lowercase drawn as uppercase), 0-9 and . , ! ? ' - : / ( ).
+ * Covers A-Z (lowercase drawn as uppercase), 0-9 and . , ! ? ' - : / ( ) < > %.
  * Anything else draws as a space. The HUD's big numbers and the debug
  * lines keep their compact 3x5 font in overlay.c.
  */

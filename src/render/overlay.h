@@ -8,7 +8,8 @@
  *   Game ──main.c──> OverlayState ──> overlay_draw(Overlay) ──> Framebuffer
  *
  * Draw order: viewmodel, desaturation (low health), flash tint, mode
- * effect (death tint / level-end dim), message, debug text, HUD.
+ * effect (death tint / level-end dim), message, debug text, HUD. An open
+ * menu replaces the message and HUD: the frame dims and the menu draws.
  *
  * HUD layout (320x240):
  *
@@ -45,6 +46,9 @@ typedef enum {
 } DebugSeverity;
 
 #define OVERLAY_DEBUG_LINES 5
+#define OVERLAY_MENU_ITEMS  8
+#define OVERLAY_MENU_TEXT   40
+#define OVERLAY_CENTER_X    (SCREEN_W / 2)
 #define OVERLAY_KEYCARDS    4
 #define OVERLAY_DEBUG_CHARS 48
 
@@ -52,6 +56,17 @@ typedef struct {
     char text[OVERLAY_DEBUG_CHARS];  /* A-Z, 0-9, space and . - / : */
     DebugSeverity severity;
 } DebugLine;
+
+/* A menu screen, laid out by its owner (shell/menu.c): a title and rows
+ * of text at fixed heights, one of them highlighted */
+typedef struct {
+    const char *title;          /* NULL = no menu */
+    char items[OVERLAY_MENU_ITEMS][OVERLAY_MENU_TEXT];
+    int count;
+    int selected;
+    int top_y;                  /* y of the first row, pixels */
+    int line_h;                 /* pixels between rows */
+} OverlayMenu;
 
 /* The held weapon, positioned and lit by main.c */
 typedef struct {
@@ -86,6 +101,7 @@ typedef struct {
     float battery;        /* its charge, 0..1 */
     int keycard_count;    /* keycard icons, drawn in this order */
     Vec3 keycard_colors[OVERLAY_KEYCARDS];
+    OverlayMenu menu;     /* drawn last, over a dimmed frame, without the HUD */
     int debug_count;      /* 0 = debug overlay hidden */
     DebugLine debug[OVERLAY_DEBUG_LINES];
 } OverlayState;

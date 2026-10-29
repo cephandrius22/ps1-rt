@@ -339,6 +339,34 @@ static void draw_episode_end(Framebuffer *fb, const char *title) {
     font_draw(fb, title, (SCREEN_W - font_width(title, 1)) / 2, y, 1, HUD_TITLE);
 }
 
+#define MENU_DIM         0.35f       /* brightness kept behind a menu */
+#define MENU_TITLE_Y     40
+#define MENU_TITLE_SCALE 3
+#define MENU_ITEM_SCALE  2
+#define MENU_PICK        0xFFF0C060u /* the selected row: warm amber */
+#define MENU_ITEM        0xFFA09888u
+
+/* Title, then rows centered on their y; the selected one marked */
+static void draw_menu(Framebuffer *fb, const OverlayMenu *m) {
+    dim(fb, MENU_DIM);
+    int tx = (SCREEN_W - font_width(m->title, MENU_TITLE_SCALE)) / 2;
+    font_draw(fb, m->title, tx, MENU_TITLE_Y, MENU_TITLE_SCALE, HUD_TITLE);
+
+    for (int i = 0; i < m->count; i++) {
+        char line[OVERLAY_MENU_TEXT + 4];
+        bool picked = i == m->selected;
+        bool slider = m->items[i][0] == '<';   /* already framed by its arrows */
+        bool marked = picked && !slider;
+        snprintf(line, sizeof(line), marked ? "> %s" : "%s", m->items[i]);
+        int x = (SCREEN_W - font_width(m->items[i], MENU_ITEM_SCALE)) / 2;
+        if (marked) {
+            x -= font_width("> ", MENU_ITEM_SCALE);
+        }
+        int y = m->top_y + i * m->line_h - FONT_ROWS * MENU_ITEM_SCALE / 2;
+        font_draw(fb, line, x, y, MENU_ITEM_SCALE, picked ? MENU_PICK : MENU_ITEM);
+    }
+}
+
 void overlay_init(Overlay *o) {
     for (int i = 0; i < PTEX_COUNT; i++) {
         o->generated[i] = false;
@@ -434,6 +462,10 @@ void overlay_draw(Overlay *o, Framebuffer *fb, const OverlayState *state) {
         break;
     }
 
+    if (state->menu.title) {
+        draw_menu(fb, &state->menu);
+        return;
+    }
     if (state->message) {
         draw_message(fb, state->message);
     }

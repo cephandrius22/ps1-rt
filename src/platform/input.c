@@ -2,7 +2,21 @@
 #include <SDL.h>
 
 void input_init(void) {
-    SDL_SetRelativeMouseMode(SDL_TRUE);
+    input_set_mouse(MOUSE_CAPTURED);
+}
+
+void input_set_mouse(MouseMode mode) {
+    SDL_SetRelativeMouseMode(mode == MOUSE_CAPTURED ? SDL_TRUE : SDL_FALSE);
+}
+
+/* Menu keys: arrows (and WASD), Enter/Space, Esc */
+static void menu_key(SDL_Keycode key, UiCmd *ui) {
+    ui->back |= key == SDLK_ESCAPE;
+    ui->up |= key == SDLK_UP || key == SDLK_w;
+    ui->down |= key == SDLK_DOWN || key == SDLK_s;
+    ui->left |= key == SDLK_LEFT || key == SDLK_a;
+    ui->right |= key == SDLK_RIGHT || key == SDLK_d;
+    ui->select |= key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE;
 }
 
 /* Map a pair of opposing keys to -1..1, e.g. W/S → forward axis */
@@ -40,6 +54,18 @@ InputStatus input_poll(PlayerCmd *cmd, UiCmd *ui) {
         if (e.type == SDL_MOUSEMOTION) {
             mouse_dx += e.motion.xrel;
             mouse_dy += e.motion.yrel;
+            ui->pointer_moved = true;
+            ui->pointer_x = e.motion.x;
+            ui->pointer_y = e.motion.y;
+            continue;
+        }
+
+        /* A click only means something to menus (the mouse is free then) */
+        if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT &&
+            !SDL_GetRelativeMouseMode()) {
+            ui->click = true;
+            ui->pointer_x = e.button.x;
+            ui->pointer_y = e.button.y;
             continue;
         }
 
@@ -47,9 +73,7 @@ InputStatus input_poll(PlayerCmd *cmd, UiCmd *ui) {
             continue;
         }
 
-        if (e.key.keysym.sym == SDLK_ESCAPE) {
-            status = INPUT_QUIT;
-        }
+        menu_key(e.key.keysym.sym, ui);
         if (e.key.keysym.sym >= SDLK_1 && e.key.keysym.sym <= SDLK_9) {
             cmd->weapon_slot = (int8_t)(e.key.keysym.sym - SDLK_0);
         }

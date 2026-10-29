@@ -47,6 +47,9 @@ on the include path, so headers are included by bare name (`"scene.h"`).
 
 ```
   main.c          wires platform + game + render, owns the loop
+  shell/          menus (title, pause, options, save/load): a state machine
+                  main.c drives; may use platform/settings and render's
+                  OverlayMenu, nothing else
   game/  render/  game, player, movement, weapon, ai, logic, projectile, damage,
                   inventory, cmd, events | shading, overlay, font, particles, screenfx
   world/          scene, entity, sprite, light, environment, nav grid, level loader
@@ -65,7 +68,7 @@ on the include path, so headers are included by bare name (`"scene.h"`).
 
 ### Core Pipeline
 
-`main.c` per frame: `input_poll()` → hot reload check (`filewatch_poll()` → `game_reload()`) → `game_update()` → events to presentation (`play_event_sounds()` placed by `play_at()`, `play_event_effects()` shake/flash, `spawn_event_particles()`) → camera = `game_view()` + shake → view environment faded toward the camera's zone (`fade_view_env()`: fog, reverb, ambience loop) → `render_scene_lit_mt()` (color + depth) → `particles_draw()` → `overlay_draw()` (viewmodel, flash, HUD, F3 lines) → SDL present
+`main.c` per frame: `input_poll()` → menu (Esc opens pause; while a menu is open `menu_update()` runs instead of the game, and main carries out its `MenuAction`) → hot reload check (`filewatch_poll()` → `game_reload()`) → `game_update()` → events to presentation (`play_event_sounds()` placed by `play_at()`, `play_event_effects()` shake/flash, `spawn_event_particles()`) → camera = `game_view()` + shake → view environment faded toward the camera's zone (`fade_view_env()`: fog, reverb, ambience loop) → `render_scene_lit_mt()` (color + depth) → `particles_draw()` → `overlay_draw()` (viewmodel, flash, HUD, F3 lines; an open menu instead of HUD) → `display_present()`
 
 `game_update()` runs 0..`GAME_MAX_TICKS_PER_FRAME` fixed ticks at `GAME_TICK_HZ` (60). Each `game_tick()`: entities → `logic_update()` (doors, buttons, triggers) → lights → rebuild dynamic BVH + sprites → then by `GameMode`:
 - `GAME_PLAYING`: AI → use (`logic_use()`) → player (exit pad → `GAME_LEVEL_END`; new weapon pickups → switch) → weapon select → weapon (muzzle flash light, noise wakes enemies via `ai_hear()`, rocket launch request) → `resolve_impacts()` → `projectile_update()` → player dead → `GAME_DEAD`. Kills are counted from `EV_ENEMY_DIED` events; on-screen notices (`game_message()`) are written from this tick's events.
@@ -89,6 +92,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `nav` | Walkable grid built at load from static geometry (0.5 m cells, up to 4 floors each, 8-way links over steps ≤ `NAV_STEP`, one-way drop links off ledges ≤ `NAV_DROP_MAX`); A* `nav_next_waypoint()`, sound `nav_flood()`/`nav_heard()`, closed/locked doors (`nav_set_door()`) |
 | `kv` | `key=value` lookup in a text line (level args): float, int, string (`"quoted"` values may hold spaces) |
 | `render` | Shading: zone ambient + material glow + sun + scene lights + carried light (flashlight), one `shade_light()` for all, shadows; fog + sky from `RenderView.env` (else `scene->env`); scrolling materials; affine UVs (`RenderView.affine`); light billboards; writes a depth buffer; `render_light_at()` (viewmodel light probe) |
+| `menu` | `shell/`: title/pause/options/save/load screens as a state machine; `MenuInput` in, `MenuAction` (new game, save/load slot, quit, settings changed/done) and an `OverlayMenu` view out; owns its row layout (mouse hit-tests match the drawing) |
 | `overlay` | Viewmodel (weapon sheet, bob/recoil/switch offsets, lit + dithered), low-health desaturation, damage flash, HUD (health, ammo, keycard icons), message line, death tint, level-end kill count, F3 text. Caches viewmodel textures (`Overlay`); fed an `OverlayState` by `main.c` |
 | `font` | 5x7 pixel text (`font_draw()`, `font_width()`) for messages; HUD numbers and F3 lines keep overlay's 3x5 font |
 | `particles` | Blood, gibs, sparks, debris, spit: projected and splatted after the raytrace, depth-tested; presentation only |
@@ -250,4 +254,4 @@ Each `tests/test_*.c` is a standalone binary using `tests/test_framework.h` (`TE
 - **Shipped maps must stay clean:** `test_episode` loads every map in `levels/episode1.txt` and fails on any checker warning (spawn, reachable exit, wiring, budgets).
 - **`tests/test.level`** spawns the player outside its room (no floor). The checker flags it; existing tests depend on that spawn, so leave it.
 
-Controls: WASD move, mouse look, Space jump, LMB shoot, 1–3 / mouse wheel switch weapon, E use, F flashlight, F3 debug overlay, F4 PS1 texture warp, F5 quicksave, F9 quickload, Esc quit. Dead or at the exit: LMB/E (after 1 s) restarts the level.
+Controls: WASD move, mouse look, Space jump, LMB shoot, 1–3 / mouse wheel switch weapon, E use, F flashlight, F3 debug overlay, F4 PS1 texture warp, F5 quicksave, F9 quickload, Esc pause menu (back inside menus). Dead or at the exit: LMB/E (after 1 s) restarts the level.
