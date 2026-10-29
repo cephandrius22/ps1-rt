@@ -136,12 +136,14 @@ static const Texture *material_texture(const Scene *s, int material_id) {
     return &s->textures[tex];
 }
 
-/* Closest sprite hit nearer than t_max; ghosts skipped for TRACE_SOLID */
+/* Closest sprite hit nearer than t_max, among set (NULL: all sprites);
+ * ghosts skipped for TRACE_SOLID */
 static bool trace_sprites(const Scene *s, Ray ray, float t_min, float t_max,
-                          TraceMask mask, HitRecord *best) {
+                          TraceMask mask, const SpriteSet *set, HitRecord *best) {
     bool hit = false;
-    for (int i = 0; i < s->sprite_count; i++) {
-        const Sprite *sp = &s->sprites[i];
+    int count = set ? set->count : s->sprite_count;
+    for (int k = 0; k < count; k++) {
+        const Sprite *sp = &s->sprites[set ? set->index[k] : k];
         if (mask == TRACE_SOLID && sp->solidity == SPRITE_GHOST) {
             continue;
         }
@@ -174,7 +176,9 @@ static HitRecord trace_dynamic(const Scene *s, Ray ray, float t_min, float t_max
     return (HitRecord){.hit = false, .t = t_max};
 }
 
-HitRecord scene_trace(const Scene *s, Ray ray, float t_min, float t_max, TraceMask mask) {
+/* Static, then entity meshes, then sprites, each bounded by the best so far */
+static HitRecord trace(const Scene *s, Ray ray, float t_min, float t_max, TraceMask mask,
+                       const SpriteSet *set) {
     HitRecord best = bvh_intersect(&s->static_bvh, ray, t_min, t_max);
 
     if (s->has_dynamic) {
@@ -185,12 +189,21 @@ HitRecord scene_trace(const Scene *s, Ray ray, float t_min, float t_max, TraceMa
         }
     }
 
-    trace_sprites(s, ray, t_min, best.hit ? best.t : t_max, mask, &best);
+    trace_sprites(s, ray, t_min, best.hit ? best.t : t_max, mask, set, &best);
     return best;
 }
 
+HitRecord scene_trace(const Scene *s, Ray ray, float t_min, float t_max, TraceMask mask) {
+    return trace(s, ray, t_min, t_max, mask, NULL);
+}
+
 HitRecord scene_intersect(const Scene *s, Ray ray, float t_min, float t_max) {
-    return scene_trace(s, ray, t_min, t_max, TRACE_VISIBLE);
+    return trace(s, ray, t_min, t_max, TRACE_VISIBLE, NULL);
+}
+
+HitRecord scene_intersect_in(const Scene *s, Ray ray, float t_min, float t_max,
+                             const SpriteSet *set) {
+    return trace(s, ray, t_min, t_max, TRACE_VISIBLE, set);
 }
 
 bool scene_occluded(const Scene *s, Ray ray, float t_min, float t_max) {

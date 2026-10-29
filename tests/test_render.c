@@ -1,6 +1,7 @@
 #include "test_framework.h"
 #include "render.h"
 #include "scene.h"
+#include "camera.h"
 
 static Framebuffer frame_a, frame_b; /* 300 KB each: keep off the stack */
 
@@ -124,6 +125,35 @@ TEST(test_render_no_bulb) {
     scene_free(&s);
 }
 
+/* A sprite spanning many 16 px tiles is drawn in every one of them
+ * (per-tile culling keeps it wherever its screen rect reaches) */
+TEST(test_render_sprite_across_tiles) {
+    Scene s;
+    scene_init(&s);
+    Camera cam = camera_create(vec3(0, 1, 0), 0, 0, 1.2f);
+    render_scene_lit(&frame_a, &cam, &s, 0, NULL);   /* sky only */
+
+    Sprite wide = {.base = vec3(0, 0, -3), .width = 3.0f, .height = 2.0f,
+                   .material_id = -1, .frame_count = 1};
+    s.sprites = &wide;
+    s.sprite_count = 1;
+    render_scene_lit(&frame_b, &cam, &s, 0, NULL);
+
+    int left, top, right, bottom;
+    float dist;
+    ASSERT(camera_project(&cam, vec3(-1.4f, 0.2f, -3), &left, &bottom, &dist));
+    ASSERT(camera_project(&cam, vec3(1.4f, 1.8f, -3), &right, &top, &dist));
+    for (int y = top; y <= bottom; y += 4) {
+        for (int x = left; x <= right; x += 4) {
+            int i = y * SCREEN_W + x;
+            ASSERT(frame_a.pixels[i] != frame_b.pixels[i]);
+        }
+    }
+    s.sprites = NULL;
+    s.sprite_count = 0;
+    scene_free(&s);
+}
+
 int main(void) {
     TEST_SUITE("color");
     RUN_TEST(test_color_rgb);
@@ -138,5 +168,6 @@ int main(void) {
     TEST_SUITE("render");
     RUN_TEST(test_render_affine_warp);
     RUN_TEST(test_render_no_bulb);
+    RUN_TEST(test_render_sprite_across_tiles);
     TEST_REPORT();
 }

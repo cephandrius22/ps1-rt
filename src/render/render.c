@@ -2,7 +2,9 @@
 #include "scene.h"
 #include "ps1_effects.h"
 #include "threadpool.h"
+#include <stdatomic.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <math.h>
 
 void framebuffer_clear(Framebuffer *fb, uint32_t color) {
@@ -142,12 +144,27 @@ static Vec3 shade_light(const Light *pl, const Scene *scene, Vec3 hit_pos, Vec3 
     return vec3_mul(pl->color, amount);
 }
 
-/* Shade one pixel; writes its hit distance (RENDER_FAR for sky) to *depth */
+/* What a screen tile can see: its sprites and glowing bulbs (indices
+ * into the scene's lists), culled once per tile. NULL = all of them. */
+typedef struct {
+    const SpriteSet *sprites;
+    const int *bulbs;
+    int bulb_count;
+} TileView;
+
+/* Does this light show a glowing dot? Not temporary flashes, lights
+ * switched off, or sources an entity draws (candle flames) */
+static bool light_has_bulb(const Light *l) {
+    return l->ttl_total <= 0 && !l->off && !l->no_bulb;
+}
+
+/* Shade one pixel; writes its hit distance (RENDER_FAR for sky) to *depth.
+ * The camera ray tests only its tile's sprites and bulbs. */
 static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
                                 const Scene *scene, float time,
-                                const RenderParams *params) {
+                                const RenderParams *params, const TileView *tile) {
     Ray ray = camera_ray(cam, x, y);
-    HitRecord rec = scene_intersect(scene, ray, 0.001f, RENDER_FAR);
+    HitRecord rec = scene_intersect_in(scene, ray, 0.001f, RENDER_FAR, tile->sprites);
     *depth = rec.hit ? rec.t : RENDER_FAR;
 
     Vec3 col;
@@ -201,13 +218,13 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
         col = environment_sky(params->env, ray.dir);
     }
 
-    /* Light source billboards — draw visible glowing dots at lamp positions.
-     * Temporary lights (muzzle flashes, explosions) have no bulb to show,
-     * nor do lights whose source is drawn otherwise (candle flames). */
+    /* Light source billboards — draw visible glowing dots at lamp positions
+     * (the tile's bulbs: lights that show one, near enough on screen) */
     float hit_t = rec.hit ? rec.t : RENDER_FAR;
-    for (int i = 0; i < scene->lights.count; i++) {
-        const Light *pl = &scene->lights.items[i];
-        if (pl->ttl_total > 0 || pl->off || pl->no_bulb) {
+    int bulbs = tile->bulbs ? tile->bulb_count : scene->lights.count;
+    for (int b = 0; b < bulbs; b++) {
+        const Light *pl = &scene->lights.items[tile->bulbs ? tile->bulbs[b] : b];
+        if (!light_has_bulb(pl)) {
             continue;
         }
         Vec3 to_light = vec3_sub(pl->position, ray.origin);
@@ -272,62 +289,191 @@ float render_light_at(const Scene *scene, Vec3 p, float time, const Light *carri
     return light;
 }
 
-/* --- Single-threaded lit render --- */
+/* --- Tiles ---
+ *
+ * The frame is cut into 16x16 tiles that workers take one at a time from
+ * a shared counter, so a worker that drew cheap sky simply takes more
+ * tiles (fixed bands of rows left fast workers idle):
+ *
+ *   ┌──┬──┬──┬──┐   next_tile ──> 0 1 2 3 4 ...  (atomic: each tile once)
+ *   │ 0│ 1│ 2│ 3│
+ *   ├──┼──┼──┼──┤   per tile: the sprites whose screen rect overlaps it,
+ *   │ 4│ 5│..│  │   (and glowing bulbs), so camera rays skip the rest
+ *   └──┴──┴──┴──┘
+ */
 
-void render_scene_lit(Framebuffer *fb, const Camera *cam, const Scene *scene,
-                      float time, const RenderView *view) {
-    RenderParams params = make_render_params(scene, view);
+#define TILE_SIZE        16
+#define TILES_X          (SCREEN_W / TILE_SIZE)
+#define TILES_Y          (SCREEN_H / TILE_SIZE)
+#define TILE_COUNT       (TILES_X * TILES_Y)
+#define TILE_SPRITES_MAX 64    /* more overlap one tile: it tests them all */
+#define TILE_BULBS_MAX   32    /* likewise for glowing bulbs */
+#define RECT_MARGIN      1.0f  /* px of slack around a projected box */
+#define BOX_CORNERS      8
 
-    for (int y = 0; y < SCREEN_H; y++) {
-        for (int x = 0; x < SCREEN_W; x++) {
-            int i = y * SCREEN_W + x;
-            fb->pixels[i] = shade_pixel_lit(x, y, &fb->depth[i], cam, scene, time, &params);
-        }
-    }
-}
+_Static_assert(SCREEN_W % TILE_SIZE == 0 && SCREEN_H % TILE_SIZE == 0,
+               "the screen must be whole tiles");
 
-/* --- Multithreaded lit render --- */
+/* A footprint on screen, in pixels (empty: x0 > x1) */
+typedef struct {
+    float x0, y0, x1, y1;
+} ScreenRect;
 
+static const ScreenRect RECT_EMPTY = {INFINITY, INFINITY, -INFINITY, -INFINITY};
+static const ScreenRect RECT_FULL = {0, 0, SCREEN_W, SCREEN_H};
+
+/* Everything one frame's workers share */
 typedef struct {
     Framebuffer *fb;
     const Camera *cam;
     const Scene *scene;
     float time;
     RenderParams params;
-    int y_start;
-    int y_end;
-} RenderChunk;
+    ScreenRect *sprite_rects;  /* one per scene sprite; NULL = test all */
+    ScreenRect *bulb_rects;    /* one per scene light; empty if no bulb */
+    atomic_int next_tile;
+} FrameJob;
 
-static void render_chunk_func(void *arg) {
-    RenderChunk *chunk = arg;
-    for (int y = chunk->y_start; y < chunk->y_end; y++) {
-        for (int x = 0; x < SCREEN_W; x++) {
+/* Screen rect around the box [lo, hi]: its projected corners bound it.
+ * Full screen if a corner is behind the eye. */
+static ScreenRect box_rect(const Camera *cam, Vec3 lo, Vec3 hi) {
+    ScreenRect r = RECT_EMPTY;
+    for (int k = 0; k < BOX_CORNERS; k++) {
+        Vec3 corner = vec3(k & 1 ? hi.x : lo.x, k & 2 ? hi.y : lo.y, k & 4 ? hi.z : lo.z);
+        float sx, sy;
+        if (!camera_to_screen(cam, corner, &sx, &sy)) {
+            return RECT_FULL;
+        }
+        r.x0 = fminf(r.x0, sx);
+        r.y0 = fminf(r.y0, sy);
+        r.x1 = fmaxf(r.x1, sx);
+        r.y1 = fmaxf(r.y1, sy);
+    }
+    return (ScreenRect){r.x0 - RECT_MARGIN, r.y0 - RECT_MARGIN,
+                        r.x1 + RECT_MARGIN, r.y1 + RECT_MARGIN};
+}
+
+/* Whichever way a billboard turns to face a ray, it stays inside the
+ * upright box base ± width/2, height tall */
+static ScreenRect sprite_rect(const Camera *cam, const Sprite *sp) {
+    float half = sp->width / 2;
+    return box_rect(cam, vec3(sp->base.x - half, sp->base.y, sp->base.z - half),
+                    vec3(sp->base.x + half, sp->base.y + sp->height, sp->base.z + half));
+}
+
+/* A bulb's glowing dot; empty for lights that show none */
+static ScreenRect bulb_rect(const Camera *cam, const Light *l) {
+    if (!light_has_bulb(l)) {
+        return RECT_EMPTY;
+    }
+    float r = light_bulb_radius(l);
+    return box_rect(cam, vec3_sub(l->position, vec3(r, r, r)), vec3_add(l->position, vec3(r, r, r)));
+}
+
+/* Indices of the rects overlapping tile (tx, ty), into out[]; returns
+ * how many, or -1 if more than max overlap */
+static int tile_pick(const ScreenRect *rects, int count, int tx, int ty, int out[], int max) {
+    float x0 = (float)(tx * TILE_SIZE);
+    float y0 = (float)(ty * TILE_SIZE);
+    float x1 = x0 + TILE_SIZE;
+    float y1 = y0 + TILE_SIZE;
+
+    int n = 0;
+    for (int i = 0; i < count; i++) {
+        const ScreenRect *r = &rects[i];
+        if (r->x1 < x0 || r->x0 > x1 || r->y1 < y0 || r->y0 > y1) {
+            continue;
+        }
+        if (n == max) {
+            return -1;
+        }
+        out[n++] = i;
+    }
+    return n;
+}
+
+static void render_tile(FrameJob *job, int tile) {
+    int tx = tile % TILES_X;
+    int ty = tile / TILES_X;
+    const Scene *scene = job->scene;
+
+    /* Cull per tile; too many to list (or no rects): test them all */
+    int sprite_index[TILE_SPRITES_MAX];
+    int sprite_count = job->sprite_rects
+        ? tile_pick(job->sprite_rects, scene->sprite_count, tx, ty, sprite_index, TILE_SPRITES_MAX)
+        : -1;
+    SpriteSet sprites = {sprite_index, sprite_count};
+
+    int bulbs[TILE_BULBS_MAX];
+    int bulb_count = job->bulb_rects
+        ? tile_pick(job->bulb_rects, scene->lights.count, tx, ty, bulbs, TILE_BULBS_MAX)
+        : -1;
+
+    TileView view = {.sprites = sprite_count >= 0 ? &sprites : NULL,
+                     .bulbs = bulb_count >= 0 ? bulbs : NULL, .bulb_count = bulb_count};
+    for (int y = ty * TILE_SIZE; y < (ty + 1) * TILE_SIZE; y++) {
+        for (int x = tx * TILE_SIZE; x < (tx + 1) * TILE_SIZE; x++) {
             int i = y * SCREEN_W + x;
-            chunk->fb->pixels[i] =
-                shade_pixel_lit(x, y, &chunk->fb->depth[i], chunk->cam, chunk->scene,
-                                chunk->time, &chunk->params);
+            job->fb->pixels[i] = shade_pixel_lit(x, y, &job->fb->depth[i], job->cam, scene,
+                                                 job->time, &job->params, &view);
         }
     }
 }
 
-void render_scene_lit_mt(Framebuffer *fb, const Camera *cam, const Scene *scene,
-                         float time, ThreadPool *pool, const RenderView *view) {
-    int n = pool->worker_count;
-    RenderChunk chunks[THREADPOOL_MAX_WORKERS];
-    void *args[THREADPOOL_MAX_WORKERS];
-    RenderParams params = make_render_params(scene, view);
+/* Worker loop: take tiles until none are left */
+static void render_tiles(void *arg) {
+    FrameJob *job = arg;
+    for (;;) {
+        int tile = atomic_fetch_add(&job->next_tile, 1);
+        if (tile >= TILE_COUNT) {
+            return;
+        }
+        render_tile(job, tile);
+    }
+}
 
-    int rows_per = SCREEN_H / n;
-    for (int i = 0; i < n; i++) {
-        chunks[i].fb = fb;
-        chunks[i].cam = cam;
-        chunks[i].scene = scene;
-        chunks[i].time = time;
-        chunks[i].params = params;
-        chunks[i].y_start = i * rows_per;
-        chunks[i].y_end = (i == n - 1) ? SCREEN_H : (i + 1) * rows_per;
-        args[i] = &chunks[i];
+/* Set up a frame: shared params and each sprite's screen rect */
+static void frame_begin(FrameJob *job, Framebuffer *fb, const Camera *cam, const Scene *scene,
+                        float time, const RenderView *view) {
+    *job = (FrameJob){.fb = fb, .cam = cam, .scene = scene, .time = time,
+                      .params = make_render_params(scene, view)};
+    atomic_init(&job->next_tile, 0);
+
+    int n = scene->sprite_count;
+    job->sprite_rects = n > 0 ? malloc(sizeof(ScreenRect) * (size_t)n) : NULL;
+    for (int i = 0; job->sprite_rects && i < n; i++) {
+        job->sprite_rects[i] = sprite_rect(cam, &scene->sprites[i]);
     }
 
-    threadpool_dispatch(pool, render_chunk_func, args, n);
+    int lights = scene->lights.count;
+    job->bulb_rects = lights > 0 ? malloc(sizeof(ScreenRect) * (size_t)lights) : NULL;
+    for (int i = 0; job->bulb_rects && i < lights; i++) {
+        job->bulb_rects[i] = bulb_rect(cam, &scene->lights.items[i]);
+    }
+}
+
+static void frame_end(FrameJob *job) {
+    free(job->sprite_rects);
+    free(job->bulb_rects);
+}
+
+void render_scene_lit(Framebuffer *fb, const Camera *cam, const Scene *scene,
+                      float time, const RenderView *view) {
+    FrameJob job;
+    frame_begin(&job, fb, cam, scene, time, view);
+    render_tiles(&job);
+    frame_end(&job);
+}
+
+void render_scene_lit_mt(Framebuffer *fb, const Camera *cam, const Scene *scene,
+                         float time, ThreadPool *pool, const RenderView *view) {
+    FrameJob job;
+    frame_begin(&job, fb, cam, scene, time, view);
+
+    void *args[THREADPOOL_MAX_WORKERS];
+    for (int i = 0; i < pool->worker_count; i++) {
+        args[i] = &job;
+    }
+    threadpool_dispatch(pool, render_tiles, args, pool->worker_count);
+    frame_end(&job);
 }

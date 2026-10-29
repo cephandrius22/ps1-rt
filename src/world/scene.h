@@ -87,6 +87,17 @@ HitRecord scene_trace(const Scene *s, Ray ray, float t_min, float t_max, TraceMa
 /* scene_trace() with TRACE_VISIBLE */
 HitRecord scene_intersect(const Scene *s, Ray ray, float t_min, float t_max);
 
+/* The sprites a ray may hit: indices into s->sprites. Render culls them
+ * per screen tile, so a camera ray tests only the few in front of it. */
+typedef struct {
+    const int *index;
+    int count;
+} SpriteSet;
+
+/* scene_intersect() testing only the sprites in set */
+HitRecord scene_intersect_in(const Scene *s, Ray ray, float t_min, float t_max,
+                             const SpriteSet *set);
+
 /* Shadow test: true if static or entity-mesh geometry occludes the ray in
  * [t_min, t_max]. Sprites don't cast shadows. */
 bool scene_occluded(const Scene *s, Ray ray, float t_min, float t_max);
