@@ -59,6 +59,12 @@ InputStatus input_poll(PlayerCmd *cmd, UiCmd *ui) {
         if (e.key.keysym.sym == SDLK_F4) {
             ui->toggle_affine = true;
         }
+        if (e.key.keysym.sym == SDLK_F5) {
+            ui->quick_save = true;
+        }
+        if (e.key.keysym.sym == SDLK_F9) {
+            ui->quick_load = true;
+        }
         if (e.key.keysym.sym == SDLK_f) {
             cmd->buttons |= BTN_FLASHLIGHT;
         }

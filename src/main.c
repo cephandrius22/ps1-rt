@@ -34,6 +34,8 @@
 #include "display.h"
 #include "clock.h"
 #include "settings.h"
+#include "files.h"
+#include "save.h"
 #include "editor_export.h"
 #include "level_convert.h"
 #include "screenfx.h"
@@ -299,6 +301,18 @@ static void update_ambience(Ambience *a, AudioSystem *audio, const char *name, f
     }
 }
 
+/* F5 / F9: save to and load from the quicksave, with a notice either way */
+static void quick_save(Game *game) {
+    bool saved = files_make_dir(SAVE_DIR) && game_save(game, SAVE_QUICK);
+    game_notify(game, saved ? "Game saved" : "Can't save now");
+}
+
+static void quick_load(Game *game) {
+    if (game_load(game, SAVE_QUICK) != GAME_LOAD_OK) {
+        game_notify(game, "No quicksave to load");
+    }
+}
+
 /* HUD colors per keycard, matching the keycard sprites */
 static const Vec3 keycard_colors[KEYCARD_COUNT] = {
     [KEYCARD_RED]    = {0.82f, 0.16f, 0.12f},
@@ -538,6 +552,12 @@ int main(int argc, char *argv[]) {
         }
         if (ui.toggle_debug) {
             show_debug = !show_debug;
+        }
+        if (ui.quick_save) {
+            quick_save(&game);
+        }
+        if (ui.quick_load) {
+            quick_load(&game);
         }
 
         hot_reload(&game, &level_watch, &since_poll, dt);

@@ -104,6 +104,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `filewatch` | Polls a file's mtime; reports a change once it has settled (hot reload) |
 | `editor_export` | Writes TrenchBroom textures (TGA) and `rt.fgd` from the proctex generators and `EntityDef` table |
 | `ps1_effects` | Vertex jitter (1/128 grid, applied at level load), 4x4 Bayer dither + 15-bit quantize (per pixel); `ps1_affine_uv()` used by render's F4 affine warp |
+| `save` | Full-state saves (`saves/quick.sav`, `slot1..5.sav`): header with struct sizes (other builds refused), info block for menus (`save_peek()`), game fields, every entity and light; `game_load()` reloads the map, checks entities match, restores state |
 | `episode` | Episode files (`title`, `map <path> <title>` lines); `episode_single()` wraps a lone level |
 | `game` | `Game` struct: owns scene, player, weapon, events, mode, kills, message; fixed-timestep `game_update()`, `game_view()` (view + recoil), weapon selection, muzzle flash, gunfire noise, rocket launch, notices from events |
 | `player` | First-person movement with gravity, steps, ground snap; health, `Inventory`; applies `TouchEffect`s; `player_flashlight()` (spot light from the view) on a battery (drains while on, recharges while off, dims/flickers when low) |
@@ -119,6 +120,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `input` | SDL2 keyboard/mouse → `PlayerCmd`, relative mouse mode |
 | `display` | Game window: opens it, uploads the framebuffer to a streaming texture, presents (vsync) |
 | `clock` | High-resolution seconds for frame timing; a per-run seed |
+| `files` | Portable `files_make_dir()` (POSIX `mkdir` / Windows `_mkdir`) |
 | `settings` | Player preferences in `rt.cfg` (git-ignored): mouse sensitivity, master volume, vertical FOV; ranges (`SENSITIVITY_*`, `VOLUME_*`, `FOV_*`), clamped on load |
 | `audio` | 8-voice stereo mixer via SDL2 audio callback (`audio_mix()`, testable without a device): per-voice pan, volume changes, reverb (two cross-fed delay lines); procedural sounds incl. ambient loops (drone, drip, hum); WAV loader ready |
 | `threadpool` | pthread fork-join pool, generation-based sync, splits scanlines across workers |
@@ -248,4 +250,4 @@ Each `tests/test_*.c` is a standalone binary using `tests/test_framework.h` (`TE
 - **Shipped maps must stay clean:** `test_episode` loads every map in `levels/episode1.txt` and fails on any checker warning (spawn, reachable exit, wiring, budgets).
 - **`tests/test.level`** spawns the player outside its room (no floor). The checker flags it; existing tests depend on that spawn, so leave it.
 
-Controls: WASD move, mouse look, Space jump, LMB shoot, 1–3 / mouse wheel switch weapon, E use, F flashlight, F3 debug overlay, F4 PS1 texture warp, Esc quit. Dead or at the exit: LMB/E (after 1 s) restarts the level.
+Controls: WASD move, mouse look, Space jump, LMB shoot, 1–3 / mouse wheel switch weapon, E use, F flashlight, F3 debug overlay, F4 PS1 texture warp, F5 quicksave, F9 quickload, Esc quit. Dead or at the exit: LMB/E (after 1 s) restarts the level.

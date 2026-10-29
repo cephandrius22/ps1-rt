@@ -277,8 +277,10 @@ Carried forward:
   present) and `platform/clock`; audio initializes its own SDL subsystem.
 - ✅ Step 2 — **Settings.** `rt.cfg` holds mouse sensitivity, master
   volume and field of view; input, the mixer and the camera apply them.
-- Main menu, pause, options
-- Save / load
+- ✅ Step 3 — **Save anywhere.** Full-state saves (entities, lights,
+  player, weapon, tallies) checked against the reloaded map; F5/F9
+  quicksave/quickload. Saves only load in the build that wrote them.
+- Main menu, pause, options, save/load slots
 
 ## Phase 7: Performance (when profiling demands)
 

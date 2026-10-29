@@ -92,6 +92,13 @@ GameLoadResult game_start(Game *g, const Episode *episode);
 
 /* Play one level on its own (an episode of one map) */
 GameLoadResult game_init(Game *g, const char *level_path);
+
+/* Replace the running map with map `index` of g->episode, the player
+ * carrying `loadout` (episode flow, loading a save) */
+GameLoadResult game_enter_map(Game *g, int index, Loadout loadout);
+
+/* Show a notice on screen, like "Game saved" */
+void game_notify(Game *g, const char *text);
 void game_free(Game *g);
 
 /* Per frame: clear events, then run as many fixed ticks as frame_dt

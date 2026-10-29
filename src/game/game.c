@@ -133,16 +133,23 @@ static void set_mode(Game *g, GameMode mode) {
     g->mode_time = 0;
 }
 
-/* Swap the running map for another, mid game_update(): the old scene's
- * events point at entities that are gone, so they're dropped */
-static void change_map(Game *g, int index, Loadout loadout) {
+/* The old scene's events point at entities that are gone, so they're
+ * dropped; a map that won't load leaves an empty scene, mode DEAD */
+GameLoadResult game_enter_map(Game *g, int index, Loadout loadout) {
     scene_free(&g->scene);
     events_clear(&g->events);
-    if (load_map(g, index, loadout) != GAME_LOAD_OK) {
+    GameLoadResult r = load_map(g, index, loadout);
+    if (r != GAME_LOAD_OK) {
         fprintf(stderr, "game: failed to load %s\n", g->episode.maps[index].path);
         scene_init(&g->scene);
         set_mode(g, GAME_DEAD);
     }
+    return r;
+}
+
+void game_notify(Game *g, const char *text) {
+    snprintf(g->message, sizeof(g->message), "%s", text);
+    g->message_time = GAME_MESSAGE_TIME;
 }
 
 Pose game_view(const Game *g) {
@@ -357,17 +364,17 @@ static void continue_on_input(Game *g, const PlayerCmd *cmd) {
 
     switch (g->mode) {
     case GAME_DEAD:
-        change_map(g, g->map_index, g->entry);
+        game_enter_map(g, g->map_index, g->entry);
         return;
     case GAME_LEVEL_END:
         if (g->map_index + 1 < g->episode.count) {
-            change_map(g, g->map_index + 1, current_loadout(g));
+            game_enter_map(g, g->map_index + 1, current_loadout(g));
             return;
         }
         set_mode(g, GAME_EPISODE_END);
         return;
     case GAME_EPISODE_END:
-        change_map(g, 0, fresh_loadout());
+        game_enter_map(g, 0, fresh_loadout());
         return;
     case GAME_PLAYING:
         return;

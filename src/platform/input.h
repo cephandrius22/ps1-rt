@@ -21,6 +21,8 @@ typedef enum {
 typedef struct {
     bool toggle_debug;  /* F3 pressed this frame */
     bool toggle_affine; /* F4: PS1 texture warp on/off */
+    bool quick_save;    /* F5 */
+    bool quick_load;    /* F9 */
 } UiCmd;
 
 /* Capture the mouse (relative mode) */
