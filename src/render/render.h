@@ -54,7 +54,7 @@ float render_light_at(const struct Scene *scene, Vec3 p, float time, const Light
 void render_scene_lit(Framebuffer *fb, const Camera *cam, const struct Scene *scene,
                       float time, const RenderView *view);
 
-/* Multithreaded version — splits scanlines across thread pool workers */
+/* Multithreaded version: the pool's workers share the frame's tiles */
 struct ThreadPool;
 void render_scene_lit_mt(Framebuffer *fb, const Camera *cam, const struct Scene *scene,
                          float time, struct ThreadPool *pool, const RenderView *view);

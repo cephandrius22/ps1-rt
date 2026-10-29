@@ -33,7 +33,8 @@ playable soonest. Each phase ends in something you can play.
 - Church theme: textures, decor sprites (a candelabra that lights
   itself, gravestones, a statue), wind/organ/bell ambience, and
   `levels/chapel.map` to try them
-- Multithreaded rendering
+- Multithreaded tiled rendering; refit dynamic BVH; camera smoothed
+  between ticks; `./rt --bench`
 
 ## Phase 0: Structure ✅
 
@@ -76,8 +77,8 @@ Carried into later phases:
   `WeaponDef`, game modes, weapon `kick` applied to the view.
 - Phase 4 (done): environment settings and one light model.
 - ~~Phase 6: move SDL window code out of `main.c` into `platform/`~~ (done).
-- Phase 7: interpolate rendering between ticks (displays above 60 Hz
-  show each tick on several frames).
+- ~~Phase 7: interpolate rendering between ticks~~ (camera eased
+  between ticks, Phase 7).
 
 ## Phase 1: Vertical slice ✅
 
@@ -101,8 +102,8 @@ Carried forward:
   only sight wakes them~~ (done in Phase 3)
 - ~~Phase 5: exit replays the level instead of loading the next~~ (episodes, Phase 5).
   (`mat=` by name: done in Phase 1.5.)
-- Phase 7: sprites are a linear scan per ray (~1.6 ms/frame for the six
-  in e1m1).
+- ~~Phase 7: sprites are a linear scan per ray~~ (culled per screen
+  tile, Phase 7).
 - Playtest: sounds and fight balance are untested by ear/hand.
 
 ## Phase 1.5: Tooling ✅
@@ -190,8 +191,8 @@ Carried forward:
 - ~~Phase 5: e1m1 is still a `.level`~~ (ported in Phase 5 step 6).
 - ~~Phase 5: nav ignores jumps and other monsters~~ (drop links and
   separation, Phase 5); monsters still can't jump *up*.
-- Phase 7: door models are re-posed into the dynamic BVH every tick,
-  even when still.
+- ~~Phase 7: door models are re-posed into the dynamic BVH every
+  tick~~ (refit instead of rebuilt, Phase 7; still re-posed).
 - Playtest: door speed/wait, hearing distances and ambush timing are set
   from numbers, not long play sessions.
 
@@ -327,23 +328,44 @@ Carried forward:
 - Next themes: a Victorian manor set (wallpaper, wood floors,
   fireplaces) would reuse the same approach.
 
-## Phase 7: Performance (when profiling demands)
+## Phase 7: Performance ✅
 
-Gathered from the phases above:
+Measured first: `./rt --bench` renders fixed views of every shipped map
+(on the pool, and on one core for steady comparisons) and times ticks.
+Each step was its own commit with before/after numbers.
 
-- Refit dynamic BVH instead of rebuilding (doors are re-posed every
-  tick, even when still)
-- Cull sprites per frame (bounding check or put them in the dynamic BVH)
-  instead of scanning all of them per ray (~0.11 ms per sprite)
-- Interpolate rendering between fixed ticks (displays above 60 Hz show
-  each tick on several frames)
-- Tile-based rendering
+| | frame (mean) | worst view | one core | tick |
+|---|---|---|---|---|
+| Before | 12.5 ms | 21 ms | 51 ms | 0.15-0.5 ms |
+| After | 7.5-8.3 ms | 12-15 ms | 36 ms | 0.005 ms |
+
+- ✅ Step 1 — **Bench.** `./rt --bench [map ...]`; profiling showed BVH
+  traversal at two thirds of a frame, half of it shadow rays.
+- ✅ Step 2 — **BVH traversal.** Nearer child first, boxes past the best
+  hit skipped, 1/dir once per ray, full hit records only for the kept
+  triangle; shadow and sight rays stop at the first hit.
+- ✅ Step 3 — **Tiles.** 16x16 tiles taken from an atomic counter
+  (fixed row bands left workers idle); sprites and glowing bulbs culled
+  per tile from their projected screen rects. Renders identical.
+- ✅ Step 4 — **Dynamic BVH refit.** Moved entities refit the tree in
+  place; it is rebuilt only when one comes or goes.
+- ✅ Step 5 — **Smooth camera.** Frames between 60 Hz ticks ease the
+  eye from the last tick's spot and apply mouse look at once.
+
+Carried forward:
+
+- Shadow rays are now the largest cost (about a third of a frame). Next
+  levers: precomputed shadows for static lights on static geometry
+  (lightmaps), or fewer shadowed lights per pixel (`MAX_SHADOW_LIGHTS`,
+  a quality trade).
+- Only the camera is smoothed: monsters, doors and projectiles still
+  move at the 60 Hz tick rate.
+- 8 workers reach about 4.8x one core: efficiency cores are slower, and
+  the main thread waits during the render.
 - Projectile glows are lights refreshed per tick; watch the light budget
-  with many spitters
-- Sound isn't occluded by walls (the nav grid could muffle it, as it
-  does for enemy hearing)
-- Affine warp falls back to true UVs on triangles reaching behind the
-  camera; PS1 games subdivided large polygons instead
+  with many spitters.
+- Not performance, kept from the old list: sound isn't occluded by
+  walls; affine warp falls back on triangles behind the camera.
 
 ## Design notes
 

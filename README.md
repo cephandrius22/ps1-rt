@@ -34,7 +34,7 @@ where it's heading.
 
 ## Features
 
-- **CPU raytracer** — no GPU shaders, all rendering happens on the CPU, multithreaded by scanline
+- **CPU raytracer** — no GPU shaders, all rendering happens on the CPU, in 16x16 tiles shared out across threads; `./rt --bench` measures it
 - **Two-level BVH** — SAH-built static world + per-tick dynamic entity BVH; sprites tested analytically
 - **Lighting** — point and spot lights with shadows, flicker and swing, bulbs you can shoot out, a battery-powered flashlight, per-level and per-area ambient light and fog
 - **PS1 look** — vertex jitter, 4x4 Bayer dithering, 15-bit color, 320x240 upscaled 3x
