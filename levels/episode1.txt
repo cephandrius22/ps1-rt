@@ -1,0 +1,5 @@
+# Episode 1. Maps play in this order; the exit of the last ends the episode.
+# map <path> <title shown between maps>
+title Descent
+map levels/e1m1.level Processing Plant
+map levels/arena.map Arena

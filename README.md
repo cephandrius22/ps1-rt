@@ -7,7 +7,8 @@ optional affine texture warping.
 
 ## Playing
 
-Run `./rt`. You start in an underground processing plant (`levels/e1m1.level`)
+Run `./rt` to play the episode (`levels/episode1.txt`), or `./rt <level>`
+for a single map. You start in an underground processing plant (`levels/e1m1.level`)
 with a pistol and 50 rounds. Ghouls lurk in the dark and rush you once
 they see you; spitters keep their distance and lob glowing acid you can
 dodge; gunfire wakes anything that can hear it. A shotgun lies just left
@@ -15,7 +16,9 @@ of the start. The storage room to the east is locked: its blue keycard is
 somewhere in the west corridor. The exit gate at the back opens from
 inside the storage room — and opening it has consequences. The flashlight
 (F) helps more than you'd like, until its battery runs low; the bare bulbs
-can be shot out if you'd rather hide in the dark. Die, or reach the red exit pad, and click
+can be shot out if you'd rather hide in the dark. Weapons, ammo and health
+carry over to the next map; dying restarts the map with what you brought
+into it. Die, or reach the red exit pad, and click
 to play again.
 
 For a straight fight, try `./rt levels/arena.map`. See `ROADMAP.md` for

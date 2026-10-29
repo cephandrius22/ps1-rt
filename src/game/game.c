@@ -25,13 +25,28 @@ static int count_enemies(const EntityList *list) {
     return n;
 }
 
-GameLoadResult game_init(Game *g, const char *level_path) {
-    *g = (Game){.mode = GAME_PLAYING};
-    snprintf(g->level_path, sizeof(g->level_path), "%s", level_path);
+/* Pistol and full health: a new episode */
+static Loadout fresh_loadout(void) {
+    return (Loadout){.health = PLAYER_MAX_HEALTH, .inv = inventory_create(),
+                     .weapon = WEAPON_PISTOL};
+}
+
+/* What the player has now, minus this map's keycards */
+static Loadout current_loadout(const Game *g) {
+    Loadout l = {.health = g->player.health, .inv = g->player.inv,
+                 .weapon = weapon_target(&g->weapon)};
+    l.inv.keycards = 0;
+    return l;
+}
+
+/* Load map `index` into a freed scene and drop the player at its spawn
+ * with `loadout`. On failure the scene is left freed. */
+static GameLoadResult load_map(Game *g, int index, Loadout loadout) {
+    snprintf(g->level_path, sizeof(g->level_path), "%s", g->episode.maps[index].path);
     scene_init(&g->scene);
 
     LevelInfo info;
-    if (level_load(&g->scene, level_path, &info) != 0) {
+    if (level_load(&g->scene, g->level_path, &info) != 0) {
         scene_free(&g->scene);
         return GAME_LOAD_FAILED;
     }
@@ -42,11 +57,30 @@ GameLoadResult game_init(Game *g, const char *level_path) {
                     info.spawn_pos.z);
     g->player = player_create(eye);
     g->player.view.yaw = info.spawn_yaw * DEG_TO_RAD;
-    g->weapon = weapon_create(WEAPON_PISTOL);
+    g->player.health = loadout.health;
+    g->player.inv = loadout.inv;
+    g->weapon = weapon_create(loadout.weapon);
+
+    g->map_index = index;
+    g->entry = loadout;
+    g->mode = GAME_PLAYING;
+    g->mode_time = 0;
+    g->kills = 0;
     g->kills_total = count_enemies(&g->scene.entities);
+    g->message_time = 0;
 
     level_check(&g->scene, &info, player_body(), stderr);
     return GAME_LOAD_OK;
+}
+
+GameLoadResult game_start(Game *g, const Episode *episode) {
+    *g = (Game){.mode = GAME_PLAYING, .episode = *episode};
+    return load_map(g, 0, fresh_loadout());
+}
+
+GameLoadResult game_init(Game *g, const char *level_path) {
+    Episode single = episode_single(level_path);
+    return game_start(g, &single);
 }
 
 void game_free(Game *g) {
@@ -87,23 +121,16 @@ static void set_mode(Game *g, GameMode mode) {
     g->mode_time = 0;
 }
 
-/* Doom-style respawn: reload the level from scratch */
-static void restart_level(Game *g) {
-    char path[GAME_LEVEL_PATH_MAX];
-    snprintf(path, sizeof(path), "%s", g->level_path);
-
-    /* game_update() is mid-loop: keep its timing and pending input */
-    float tick_accum = g->tick_accum;
-    PlayerCmd pending = g->pending;
-    game_free(g);
-
-    if (game_init(g, path) != GAME_LOAD_OK) {
-        fprintf(stderr, "game: failed to reload %s\n", path);
+/* Swap the running map for another, mid game_update(): the old scene's
+ * events point at entities that are gone, so they're dropped */
+static void change_map(Game *g, int index, Loadout loadout) {
+    scene_free(&g->scene);
+    events_clear(&g->events);
+    if (load_map(g, index, loadout) != GAME_LOAD_OK) {
+        fprintf(stderr, "game: failed to load %s\n", g->episode.maps[index].path);
         scene_init(&g->scene);
         set_mode(g, GAME_DEAD);
     }
-    g->tick_accum = tick_accum;
-    g->pending = pending;
 }
 
 Pose game_view(const Game *g) {
@@ -303,11 +330,31 @@ static void tick_playing(Game *g, const PlayerCmd *cmd, float dt) {
     }
 }
 
-/* After the delay, attack/use reloads the level (respawn or replay) */
+/* After the delay, attack/use moves on: retry the map after death, the
+ * next map after an exit, the episode end after the last map's exit,
+ * and from there the episode from the start */
 static void continue_on_input(Game *g, const PlayerCmd *cmd) {
     bool pressed = cmd_has(cmd, BTN_ATTACK) || cmd_has(cmd, BTN_USE);
-    if (g->mode_time >= GAME_CONTINUE_DELAY && pressed) {
-        restart_level(g);
+    if (g->mode_time < GAME_CONTINUE_DELAY || !pressed) {
+        return;
+    }
+
+    switch (g->mode) {
+    case GAME_DEAD:
+        change_map(g, g->map_index, g->entry);
+        return;
+    case GAME_LEVEL_END:
+        if (g->map_index + 1 < g->episode.count) {
+            change_map(g, g->map_index + 1, current_loadout(g));
+            return;
+        }
+        set_mode(g, GAME_EPISODE_END);
+        return;
+    case GAME_EPISODE_END:
+        change_map(g, 0, fresh_loadout());
+        return;
+    case GAME_PLAYING:
+        return;
     }
 }
 
@@ -343,6 +390,7 @@ void game_tick(Game *g, const PlayerCmd *cmd) {
         tick_dead(g, cmd, dt);
         break;
     case GAME_LEVEL_END:
+    case GAME_EPISODE_END:
         continue_on_input(g, cmd);
         break;
     }

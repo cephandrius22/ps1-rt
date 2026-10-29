@@ -40,7 +40,7 @@
 
 #define WINDOW_SCALE 3
 #define VIEW_FOV     1.2f /* radians */
-#define DEFAULT_LEVEL "levels/e1m1.level"
+#define DEFAULT_START "levels/episode1.txt" /* an episode file or a level */
 #define RELOAD_POLL_SEC 0.25f /* how often to check the level file for saves */
 #define FRAME_BUDGET_MS 16.7f /* 60 fps */
 #define WARN_FRACTION   0.8f  /* debug values turn yellow at 80% of their limit */
@@ -307,8 +307,12 @@ static void fill_keycards(OverlayState *o, const Inventory *inv) {
     }
 }
 
-/* Every RELOAD_POLL_SEC, reload the level if its file was saved */
+/* Every RELOAD_POLL_SEC, reload the level if its file was saved. A new
+ * map (episode progress) moves the watch to its file. */
 static void hot_reload(Game *game, FileWatch *watch, float *since_poll, float dt) {
+    if (strcmp(watch->path, game->level_path) != 0) {
+        filewatch_init(watch, game->level_path);
+    }
     *since_poll += dt;
     if (*since_poll < RELOAD_POLL_SEC) {
         return;
@@ -422,6 +426,7 @@ static OverlayMode overlay_mode(GameMode mode) {
     case GAME_PLAYING:   return OVERLAY_PLAYING;
     case GAME_DEAD:      return OVERLAY_DEAD;
     case GAME_LEVEL_END: return OVERLAY_LEVEL_END;
+    case GAME_EPISODE_END: return OVERLAY_EPISODE_END;
     }
     return OVERLAY_PLAYING;
 }
@@ -475,9 +480,14 @@ int main(int argc, char *argv[]) {
 
     /* Game owns the level, player and weapon (static: Scene is large) */
     static Game game;
-    const char *level_file = (argc > 1) ? argv[1] : DEFAULT_LEVEL;
-    if (game_init(&game, level_file) != GAME_LOAD_OK) {
-        fprintf(stderr, "Failed to load level: %s\n", level_file);
+    const char *start = (argc > 1) ? argv[1] : DEFAULT_START;
+    Episode episode;
+    bool loaded = episode_is_file(start) ? episode_load(&episode, start) : true;
+    if (!episode_is_file(start)) {
+        episode = episode_single(start);
+    }
+    if (!loaded || game_start(&game, &episode) != GAME_LOAD_OK) {
+        fprintf(stderr, "Failed to load: %s\n", start);
         SDL_DestroyTexture(texture);
         SDL_DestroyRenderer(sdl_renderer);
         SDL_DestroyWindow(window);
@@ -502,7 +512,7 @@ int main(int argc, char *argv[]) {
     }
 
     FileWatch level_watch;
-    filewatch_init(&level_watch, level_file);
+    filewatch_init(&level_watch, game.level_path);
     float since_poll = 0;
 
     bool running = true;
@@ -570,6 +580,7 @@ int main(int argc, char *argv[]) {
         overlay.show_battery = game.player.battery < 1.0f;
         overlay.battery = game.player.battery;
         fill_keycards(&overlay, &game.player.inv);
+        overlay.title = game.episode.title;
         fill_viewmodel(&overlay.viewmodel, &view_anim, &game, dt);
         if (show_debug) {
             fill_debug(&overlay, &game, work_ms, fps);

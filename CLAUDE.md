@@ -14,8 +14,9 @@ make test        # build and run all test suites
 make build/tests/test_bvh && ./build/tests/test_bvh   # one suite
 make clean       # remove build/ and rt
 make compile_flags.txt  # include paths for clangd
-./rt             # run with default level (levels/e1m1.level)
-./rt levels/foo.level  # run a .level or TrenchBroom .map; reloads on save
+./rt             # play the episode (levels/episode1.txt)
+./rt levels/foo.level  # play one .level or TrenchBroom .map; reloads on save
+./rt levels/other.txt  # play another episode file
 make editor      # export textures + FGD, link TrenchBroom game config
 ```
 
@@ -65,8 +66,8 @@ on the include path, so headers are included by bare name (`"scene.h"`).
 
 `game_update()` runs 0..`GAME_MAX_TICKS_PER_FRAME` fixed ticks at `GAME_TICK_HZ` (60). Each `game_tick()`: entities → `logic_update()` (doors, buttons, triggers) → lights → rebuild dynamic BVH + sprites → then by `GameMode`:
 - `GAME_PLAYING`: AI → use (`logic_use()`) → player (exit pad → `GAME_LEVEL_END`; new weapon pickups → switch) → weapon select → weapon (muzzle flash light, noise wakes enemies via `ai_hear()`, rocket launch request) → `resolve_impacts()` → `projectile_update()` → player dead → `GAME_DEAD`. Kills are counted from `EV_ENEMY_DIED` events; on-screen notices (`game_message()`) are written from this tick's events.
-- `GAME_DEAD`: AI and projectiles keep running, view sinks; attack/use after `GAME_CONTINUE_DELAY` reloads the level
-- `GAME_LEVEL_END`: frozen; attack/use after the delay reloads the level
+- `GAME_DEAD`: AI and projectiles keep running, view sinks; attack/use after `GAME_CONTINUE_DELAY` restarts the map with the loadout it was entered with (`Game.entry`)
+- `GAME_LEVEL_END`: frozen; attack/use after the delay loads the next map of the episode, carrying health, ammo and weapons (not keycards); after the last map, `GAME_EPISODE_END`, whose continue starts the episode fresh
 
 Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites) → `shade_pixel_lit()` (material motion, optional affine UVs, zone ambient + glow, `shade_light()` per light, view fog) → PS1 dither → framebuffer → `particles_draw()` → `overlay_draw()` (viewmodel, desaturation, HUD, death tint, level-end kill count)
 
@@ -100,6 +101,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `filewatch` | Polls a file's mtime; reports a change once it has settled (hot reload) |
 | `editor_export` | Writes TrenchBroom textures (TGA) and `rt.fgd` from the proctex generators and `EntityDef` table |
 | `ps1_effects` | Vertex jitter (1/128 grid, applied at level load), 4x4 Bayer dither + 15-bit quantize (per pixel); `ps1_affine_uv()` used by render's F4 affine warp |
+| `episode` | Episode files (`title`, `map <path> <title>` lines); `episode_single()` wraps a lone level |
 | `game` | `Game` struct: owns scene, player, weapon, events, mode, kills, message; fixed-timestep `game_update()`, `game_view()` (view + recoil), weapon selection, muzzle flash, gunfire noise, rocket launch, notices from events |
 | `player` | First-person movement with gravity, steps, ground snap; health, `Inventory`; applies `TouchEffect`s; `player_flashlight()` (spot light from the view) on a battery (drains while on, recharges while off, dims/flickers when low) |
 | `movement` | Shared walking bodies (`BodyShape`): `movement_slide()` (walls, X then Z), `movement_ground()` (steps, looks past steep faces) — player and enemies |

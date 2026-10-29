@@ -283,6 +283,21 @@ static void draw_keycards(Framebuffer *fb, const OverlayState *state, int above_
     }
 }
 
+#define EPISODE_END_TEXT  "EPISODE COMPLETE"
+#define EPISODE_END_SCALE 2
+
+/* Big headline in the middle, the episode's title under it */
+static void draw_episode_end(Framebuffer *fb, const char *title) {
+    int y = SCREEN_H / 2 - FONT_ROWS * EPISODE_END_SCALE;
+    int x = (SCREEN_W - font_width(EPISODE_END_TEXT, EPISODE_END_SCALE)) / 2;
+    font_draw(fb, EPISODE_END_TEXT, x, y, EPISODE_END_SCALE, HUD_TITLE);
+    if (!title || !title[0]) {
+        return;
+    }
+    y += FONT_ROWS * EPISODE_END_SCALE + FONT_ROWS;
+    font_draw(fb, title, (SCREEN_W - font_width(title, 1)) / 2, y, 1, HUD_TITLE);
+}
+
 void overlay_init(Overlay *o) {
     for (int i = 0; i < PTEX_COUNT; i++) {
         o->generated[i] = false;
@@ -371,6 +386,10 @@ void overlay_draw(Overlay *o, Framebuffer *fb, const OverlayState *state) {
     case OVERLAY_LEVEL_END:
         dim(fb, END_DIM);
         draw_kill_count(fb, state->kills, state->kills_total);
+        break;
+    case OVERLAY_EPISODE_END:
+        dim(fb, END_DIM);
+        draw_episode_end(fb, state->title);
         break;
     }
 

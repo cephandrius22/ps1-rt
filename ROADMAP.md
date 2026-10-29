@@ -225,9 +225,13 @@ Carried forward:
 - Playtest: fog, zone and battery numbers are set by eye on a few
   screenshots, not long play sessions.
 
-## Phase 5: Content
+## Phase 5: Content (in progress, in steps)
 
-- Episode of 3–4 levels; exit loads the next level (it replays today)
+- ✅ Step 1 — **Episodes.** `levels/episode1.txt` lists the maps; the exit
+  loads the next one, Doom carry-over (health, ammo, weapons; not
+  keycards), death restarts the map with its entry loadout, an episode
+  end screen after the last. A test keeps every shipped map checker-clean.
+- Episode of 3–4 levels (has e1m1 + arena so far)
 - Secrets (a `trigger_secret` counted like kills), intermission screen
   (kills, secrets, time)
 - Scripting extras as levels need them: doors that fire their `target`,

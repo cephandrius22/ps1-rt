@@ -185,7 +185,8 @@ TEST(test_game_shooting_kills_ghoul) {
     game_free(&g);
 }
 
-/* Stepping on the exit pad ends the level; input after the delay replays */
+/* Stepping on the exit pad ends the level; a lone level then shows the
+ * episode end, and the next continue replays it */
 TEST(test_game_exit_ends_level) {
     ASSERT(game_init(&g, TEST_LEVEL) == GAME_LOAD_OK);
     ASSERT_EQ_INT(g.kills_total, 0);
@@ -202,7 +203,65 @@ TEST(test_game_exit_ends_level) {
 
     run_ticks(&idle, GAME_TICK_HZ * 2);
     game_tick(&g, &use);
+    ASSERT(g.mode == GAME_EPISODE_END);
+
+    run_ticks(&idle, GAME_TICK_HZ * 2);
+    game_tick(&g, &use);
     ASSERT(g.mode == GAME_PLAYING);
+    game_free(&g);
+}
+
+/* Reach the exit of the current map and continue past the delay */
+static void finish_map(void) {
+    Vec3 feet = vec3(g.player.view.pos.x, g.player.foot_y, g.player.view.pos.z);
+    entity_add(&g.scene.entities, entity_spawn(ENTITY_EXIT, feet, ""));
+    PlayerCmd idle = {0};
+    PlayerCmd use = {.buttons = BTN_USE};
+    game_tick(&g, &idle);
+    run_ticks(&idle, GAME_TICK_HZ * 2);
+    game_tick(&g, &use);
+}
+
+/* Doom carry-over: weapons, ammo and health go to the next map, keycards
+ * don't; dying restarts the map with what you entered it with */
+TEST(test_game_episode_carry_over) {
+    Episode ep = {.count = 2};
+    snprintf(ep.maps[0].path, EPISODE_PATH_MAX, "%s", TEST_LEVEL);
+    snprintf(ep.maps[1].path, EPISODE_PATH_MAX, "%s", TEST_LEVEL);
+    ASSERT(game_start(&g, &ep) == GAME_LOAD_OK);
+
+    inventory_give_weapon(&g.player.inv, WEAPON_SHOTGUN);
+    inventory_add(&g.player.inv, AMMO_SHELLS, 12);
+    inventory_give_keycard(&g.player.inv, KEYCARD_RED);
+    g.player.health = 40;
+    finish_map();
+    ASSERT_EQ_INT(g.map_index, 1);
+    ASSERT(g.mode == GAME_PLAYING);
+    ASSERT(inventory_has_weapon(&g.player.inv, WEAPON_SHOTGUN));
+    ASSERT_EQ_INT(g.player.inv.ammo[AMMO_SHELLS], 12);
+    ASSERT(!inventory_has_keycard(&g.player.inv, KEYCARD_RED));
+    ASSERT_NEAR(g.player.health, 40, 1e-6f);
+
+    /* Spend ammo, die: back to how this map was entered */
+    g.player.inv.ammo[AMMO_SHELLS] = 0;
+    player_damage(&g.player, 100, &g.events);
+    PlayerCmd idle = {0};
+    PlayerCmd use = {.buttons = BTN_USE};
+    game_tick(&g, &idle);
+    ASSERT(g.mode == GAME_DEAD);
+    run_ticks(&idle, GAME_TICK_HZ * 2);
+    game_tick(&g, &use);
+    ASSERT_EQ_INT(g.map_index, 1);
+    ASSERT_EQ_INT(g.player.inv.ammo[AMMO_SHELLS], 12);
+    ASSERT_NEAR(g.player.health, 40, 1e-6f);
+
+    /* Last map's exit ends the episode; continuing starts it fresh */
+    finish_map();
+    ASSERT(g.mode == GAME_EPISODE_END);
+    run_ticks(&idle, GAME_TICK_HZ * 2);
+    game_tick(&g, &use);
+    ASSERT_EQ_INT(g.map_index, 0);
+    ASSERT(!inventory_has_weapon(&g.player.inv, WEAPON_SHOTGUN));
     game_free(&g);
 }
 
@@ -375,6 +434,7 @@ int main(void) {
     RUN_TEST(test_game_recoil_kicks_view);
     RUN_TEST(test_game_shooting_kills_ghoul);
     RUN_TEST(test_game_exit_ends_level);
+    RUN_TEST(test_game_episode_carry_over);
     RUN_TEST(test_game_reload_keeps_pose);
     RUN_TEST(test_game_locked_door_message);
     RUN_TEST(test_game_trigger_message);

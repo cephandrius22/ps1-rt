@@ -13,11 +13,16 @@
  *   PlayerCmd ──> pending cmd ──┘                     player, weapon → damage
  *                                       └──> events (drained once per frame)
  *
- * Modes:
+ * Modes (continue = attack/use after GAME_CONTINUE_DELAY):
  *
- *   PLAYING ──player dies──────> DEAD ──────┐ attack/use after
- *      │                                    ├─ GAME_CONTINUE_DELAY ──>
- *      └──touches exit pad──> LEVEL_END ────┘ reload level (PLAYING)
+ *   PLAYING ──player dies──> DEAD ──continue──> same map, entry loadout
+ *      │
+ *      └──exit pad──> LEVEL_END ──continue──> next map, carrying loadout
+ *                         │ (last map)
+ *                         └──continue──> EPISODE_END ──continue──> map 1, fresh
+ *
+ * Doom rules between maps: health, ammo and weapons carry over; keycards
+ * don't. Dying restarts the map with what you entered it with.
  *
  * The world (lights, entities) keeps animating in every mode; enemies
  * freeze at LEVEL_END.
@@ -30,6 +35,7 @@
 #include "weapon.h"
 #include "event.h"
 #include "cmd.h"
+#include "episode.h"
 
 #define GAME_TICK_HZ             60
 #define GAME_TICK_DT             (1.0f / GAME_TICK_HZ)
@@ -42,8 +48,16 @@
 typedef enum {
     GAME_PLAYING,
     GAME_DEAD,      /* player input only respawns */
-    GAME_LEVEL_END, /* exit reached; shows kills, input restarts */
+    GAME_LEVEL_END, /* exit reached; shows kills, input goes to the next map */
+    GAME_EPISODE_END, /* last map done; input starts the episode over */
 } GameMode;
+
+/* What the player carries into a map */
+typedef struct {
+    float health;
+    Inventory inv;      /* keycards cleared */
+    WeaponType weapon;  /* held when entering */
+} Loadout;
 
 typedef enum {
     GAME_LOAD_OK,
@@ -53,7 +67,10 @@ typedef enum {
 typedef struct {
     GameMode mode;
     float mode_time;     /* seconds since mode last changed */
-    char level_path[GAME_LEVEL_PATH_MAX];
+    char level_path[GAME_LEVEL_PATH_MAX]; /* the current map's file */
+    Episode episode;
+    int map_index;       /* into episode.maps */
+    Loadout entry;       /* what the player entered this map with */
     Scene scene;
     Player player;
     Weapon weapon;
@@ -67,7 +84,10 @@ typedef struct {
     float message_time;  /* seconds it has left on screen */
 } Game;
 
-/* Load a level and place the player at its spawn point */
+/* Start an episode at its first map with the starting loadout */
+GameLoadResult game_start(Game *g, const Episode *episode);
+
+/* Play one level on its own (an episode of one map) */
 GameLoadResult game_init(Game *g, const char *level_path);
 void game_free(Game *g);
 

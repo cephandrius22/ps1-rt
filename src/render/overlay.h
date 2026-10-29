@@ -31,6 +31,7 @@ typedef enum {
     OVERLAY_PLAYING,
     OVERLAY_DEAD,       /* red-tinted frame */
     OVERLAY_LEVEL_END,  /* darkened frame, kill count centered */
+    OVERLAY_EPISODE_END, /* darkened frame, "episode complete" and its title */
 } OverlayMode;
 
 /* Debug text is formatted by the caller; the overlay only draws it,
@@ -71,6 +72,7 @@ typedef struct {
     Vec3 flash_color;
     float weapon_kick;    /* current recoil, radians (viewmodel, later) */
     const char *message;  /* notice centered near the top; NULL = none */
+    const char *title;    /* episode title (episode end screen) */
     bool show_battery;    /* draw the flashlight battery bar */
     float battery;        /* its charge, 0..1 */
     int keycard_count;    /* keycard icons, drawn in this order */
