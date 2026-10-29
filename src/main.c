@@ -33,6 +33,7 @@
 #include "filewatch.h"
 #include "display.h"
 #include "clock.h"
+#include "settings.h"
 #include "editor_export.h"
 #include "level_convert.h"
 #include "screenfx.h"
@@ -42,7 +43,7 @@
 
 #define WINDOW_SCALE 3
 #define WINDOW_TITLE "PS1 Raytracer"
-#define VIEW_FOV     1.2f /* radians */
+#define DEG_TO_RAD   ((float)MATH_PI / 180.0f)
 #define DEFAULT_START "levels/episode1.txt" /* an episode file or a level */
 #define RELOAD_POLL_SEC 0.25f /* how often to check the level file for saves */
 #define FRAME_BUDGET_MS 16.7f /* 60 fps */
@@ -491,6 +492,11 @@ int main(int argc, char *argv[]) {
 
     input_init();
 
+    /* Player preferences from rt.cfg (defaults on a first run) */
+    Settings settings;
+    settings_load(&settings, SETTINGS_FILE);
+    input_set_sensitivity(settings.sensitivity);
+
     /* Create thread pool for parallel rendering */
     int num_threads = threadpool_cpu_count();
     ThreadPool pool;
@@ -501,6 +507,7 @@ int main(int argc, char *argv[]) {
     AudioSystem audio;
     if (audio_init(&audio) == 0) {
         printf("Audio initialized\n");
+        audio_set_master(&audio, settings.volume);
     } else {
         printf("Audio init failed (continuing without sound)\n");
     }
@@ -548,7 +555,7 @@ int main(int argc, char *argv[]) {
         screenfx_camera_offset(&fx, game.time, &shake_yaw, &shake_pitch);
         view.yaw += shake_yaw;
         view.pitch += shake_pitch;
-        Camera cam = camera_from_pose(view, VIEW_FOV);
+        Camera cam = camera_from_pose(view, settings.fov * DEG_TO_RAD);
         Light flashlight = player_flashlight(&game.player, view);
         fade_view_env(&view_env, &game.scene, cam.position, dt);
         audio_set_reverb(&audio, view_env.env.reverb);

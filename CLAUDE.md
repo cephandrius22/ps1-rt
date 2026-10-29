@@ -119,6 +119,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `input` | SDL2 keyboard/mouse → `PlayerCmd`, relative mouse mode |
 | `display` | Game window: opens it, uploads the framebuffer to a streaming texture, presents (vsync) |
 | `clock` | High-resolution seconds for frame timing; a per-run seed |
+| `settings` | Player preferences in `rt.cfg` (git-ignored): mouse sensitivity, master volume, vertical FOV; ranges (`SENSITIVITY_*`, `VOLUME_*`, `FOV_*`), clamped on load |
 | `audio` | 8-voice stereo mixer via SDL2 audio callback (`audio_mix()`, testable without a device): per-voice pan, volume changes, reverb (two cross-fed delay lines); procedural sounds incl. ambient loops (drone, drip, hum); WAV loader ready |
 | `threadpool` | pthread fork-join pool, generation-based sync, splits scanlines across workers |
 

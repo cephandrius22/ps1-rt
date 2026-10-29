@@ -81,6 +81,7 @@ typedef struct {
     Sound sounds[SND_COUNT];
     Voice voices[AUDIO_MAX_VOICES];
     Reverb reverb;
+    float master;       /* master volume 0..1 (settings) */
     uint32_t device_id;
     bool initialized;
 } AudioSystem;
@@ -102,6 +103,9 @@ int  audio_play_loop(AudioSystem *audio, SoundID id, float volume);
 
 /* Change a playing voice's volume (ambient crossfades) */
 void audio_set_volume(AudioSystem *audio, int voice, float volume);
+
+/* Overall loudness, 0 silent .. 1 full (applied after mixing) */
+void audio_set_master(AudioSystem *audio, float volume);
 
 /* How much echo everything gets: 0 dry .. 1 cavernous */
 void audio_set_reverb(AudioSystem *audio, float amount);

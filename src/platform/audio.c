@@ -486,6 +486,8 @@ void audio_mix(AudioSystem *audio, int16_t *out, int frames) {
             right += sample * gr;
         }
         echo(&audio->reverb, &left, &right);
+        left *= audio->master;
+        right *= audio->master;
         out[i * AUDIO_CHANNELS] = (int16_t)clamp_sample(left);
         out[i * AUDIO_CHANNELS + 1] = (int16_t)clamp_sample(right);
     }
@@ -502,6 +504,7 @@ int audio_init(AudioSystem *audio) {
     memset(audio, 0, sizeof(*audio));
     audio->initialized = false;
 
+    audio->master = 1.0f;
     audio_generate_sounds(audio->sounds);
 
     SDL_AudioSpec want, have;
@@ -580,6 +583,16 @@ void audio_set_volume(AudioSystem *audio, int voice, float volume) {
     }
     SDL_LockAudioDevice(audio->device_id);
     audio->voices[voice].volume = volume;
+    SDL_UnlockAudioDevice(audio->device_id);
+}
+
+void audio_set_master(AudioSystem *audio, float volume) {
+    if (!audio->initialized) {
+        audio->master = volume;
+        return;
+    }
+    SDL_LockAudioDevice(audio->device_id);
+    audio->master = volume;
     SDL_UnlockAudioDevice(audio->device_id);
 }
 

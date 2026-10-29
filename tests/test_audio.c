@@ -141,6 +141,7 @@ static void start_tone(float pan, float reverb) {
     static Sound tone = {tone_samples, 256, AUDIO_SAMPLE_RATE};
     mixer.voices[0] = (Voice){.sound = &tone, .volume = 1.0f, .pan = pan};
     mixer.reverb.amount = reverb;
+    mixer.master = 1.0f;
 }
 
 static int channel(int frame, int ch) {
@@ -175,6 +176,17 @@ TEST(test_mix_reverb_tail) {
     ASSERT(tail != 0);
 }
 
+/* Master volume scales everything after mixing */
+TEST(test_mix_master_volume) {
+    start_tone(0.0f, 0);
+    mixer.master = 0.5f;
+    audio_mix(&mixer, mixed, 16);
+    int half = channel(10, 0);
+    start_tone(0.0f, 0);
+    audio_mix(&mixer, mixed, 16);
+    ASSERT(abs(channel(10, 0) - 2 * half) <= 2);
+}
+
 int main(void) {
     TEST_SUITE("audio");
     RUN_TEST(test_generate_sounds_all_valid);
@@ -188,5 +200,6 @@ int main(void) {
     RUN_TEST(test_audio_stop_without_init);
     RUN_TEST(test_mix_pans);
     RUN_TEST(test_mix_reverb_tail);
+    RUN_TEST(test_mix_master_volume);
     TEST_REPORT();
 }

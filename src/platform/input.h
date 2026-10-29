@@ -10,7 +10,7 @@
 #include "cmd.h"
 #include <stdbool.h>
 
-#define MOUSE_SENSITIVITY 0.003f /* radians per mouse count */
+#define MOUSE_SENSITIVITY 0.003f /* radians per mouse count, at scale 1 */
 
 typedef enum {
     INPUT_CONTINUE,
@@ -25,6 +25,9 @@ typedef struct {
 
 /* Capture the mouse (relative mode) */
 void input_init(void);
+
+/* Mouse speed multiplier (settings: 1 = MOUSE_SENSITIVITY) */
+void input_set_sensitivity(float scale);
 
 /* Drain pending events and build this frame's command; game_update()
  * spreads it over however many ticks the frame runs. */

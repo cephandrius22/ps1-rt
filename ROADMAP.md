@@ -275,7 +275,9 @@ Carried forward:
 
 - ✅ Step 1 — **SDL out of `main.c`.** `platform/display` (window,
   present) and `platform/clock`; audio initializes its own SDL subsystem.
-- Main menu, pause, mouse sensitivity
+- ✅ Step 2 — **Settings.** `rt.cfg` holds mouse sensitivity, master
+  volume and field of view; input, the mixer and the camera apply them.
+- Main menu, pause, options
 - Save / load
 
 ## Phase 7: Performance (when profiling demands)

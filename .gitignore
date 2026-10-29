@@ -4,6 +4,8 @@ build/
 /rt
 /rt.exe
 compile_flags.txt
+rt.cfg
+saves/
 
 # macOS
 .DS_Store

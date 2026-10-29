@@ -10,6 +10,12 @@ static float key_axis(const Uint8 *keys, SDL_Scancode pos, SDL_Scancode neg) {
     return (float)keys[pos] - (float)keys[neg];
 }
 
+static float sensitivity_scale = 1.0f;
+
+void input_set_sensitivity(float scale) {
+    sensitivity_scale = scale;
+}
+
 InputStatus input_poll(PlayerCmd *cmd, UiCmd *ui) {
     *cmd = (PlayerCmd){0};
     *ui = (UiCmd){0};
@@ -74,8 +80,8 @@ InputStatus input_poll(PlayerCmd *cmd, UiCmd *ui) {
     }
 
     /* Mouse right/down → turn right/look down */
-    cmd->yaw_delta   = -mouse_dx * MOUSE_SENSITIVITY;
-    cmd->pitch_delta = -mouse_dy * MOUSE_SENSITIVITY;
+    cmd->yaw_delta   = -mouse_dx * MOUSE_SENSITIVITY * sensitivity_scale;
+    cmd->pitch_delta = -mouse_dy * MOUSE_SENSITIVITY * sensitivity_scale;
 
     return status;
 }
