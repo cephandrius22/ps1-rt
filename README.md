@@ -8,7 +8,7 @@ optional affine texture warping.
 ## Playing
 
 Run `./rt` to play the episode (`levels/episode1.txt`), or `./rt <level>`
-for a single map. You start in an underground processing plant (`levels/e1m1.level`)
+for a single map. You start in an underground processing plant (`levels/e1m1.map`)
 with a pistol and 50 rounds. Ghouls lurk in the dark and rush you once
 they see you; spitters keep their distance and lob glowing acid you can
 dodge; gunfire wakes anything that can hear it. A shotgun lies just left
@@ -196,8 +196,9 @@ walk to, enemies stuck in walls, typo'd keys, targets naming nothing,
 keyed doors without their keycard) and a `budget:` line; stay within 30k triangles,
 32 lights and 40 sprites for 60 fps. F3 shows the same live.
 
-Levels can also be hand-written as `.level` text (`levels/e1m1.level`);
-the format and every entity's keys are in `CLAUDE.md`. OBJ models go in
+Levels can also be hand-written as `.level` text (format and every entity's
+keys in `CLAUDE.md`; `tests/test.level` is a small example), and turned
+into an editable map with `./rt --convert in.level out.map`. OBJ models go in
 `assets/models/`; hand-made TGA textures go in `textures/` and are used by
 name like the procedural ones.
 

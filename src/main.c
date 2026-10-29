@@ -33,6 +33,7 @@
 #include "audio.h"
 #include "filewatch.h"
 #include "editor_export.h"
+#include "level_convert.h"
 #include "screenfx.h"
 #include "particles.h"
 #include "levelcheck.h"
@@ -447,6 +448,10 @@ int main(int argc, char *argv[]) {
     /* Tool mode: write TrenchBroom textures + FGD, no window */
     if (argc > 2 && strcmp(argv[1], "--export-editor") == 0) {
         return editor_export(argv[2]) == 0 ? 0 : 1;
+    }
+    /* Tool mode: .level → TrenchBroom .map */
+    if (argc > 3 && strcmp(argv[1], "--convert") == 0) {
+        return level_convert(argv[2], argv[3]) == 0 ? 0 : 1;
     }
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {

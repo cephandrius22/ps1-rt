@@ -121,8 +121,7 @@ Make levels cheap to build and iterate on before designing them for real.
 Carried forward:
 
 - ~~Phase 3: brush entities ignored by the importer~~ (done in Phase 3)
-- Phase 5: e1m1 is still a `.level`; port it to `.map` when content work
-  starts.
+- ~~Phase 5: e1m1 is still a `.level`~~ (ported in Phase 5 step 6).
 - Not done: noclip (offered, not chosen).
 
 ## Phase 2: Combat feel ✅
@@ -179,8 +178,7 @@ Carried forward:
 
 - Phase 5: doors don't fire their own `target` when opened (Quake
   does); no `trigger_relay`, `delay`, or toggling doors yet.
-- Phase 5: e1m1 is still a `.level`; port it to `.map` when content work
-  starts.
+- ~~Phase 5: e1m1 is still a `.level`~~ (ported in Phase 5 step 6).
 - Phase 5: nav ignores jumps and other monsters; enemies can bunch up
   in doorways.
 - Phase 7: door models are re-posed into the dynamic BVH every tick,
@@ -231,6 +229,10 @@ Carried forward:
   loads the next one, Doom carry-over (health, ammo, weapons; not
   keycards), death restarts the map with its entry loadout, an episode
   end screen after the last. A test keeps every shipped map checker-clean.
+- ✅ Step 6 — **`.level` → `.map` converter.** `./rt --convert` maps each
+  line to its `.map` form (rooms become wall slabs); e1m1 is now
+  `levels/e1m1.map`, edited in TrenchBroom. A round-trip test checks
+  entities, keys, lights, zones and geometry survive.
 - Episode of 3–4 levels (has e1m1 + arena so far)
 - ✅ Step 2 — **Secrets and intermission.** `trigger_secret` brushes
   (chime, "A secret area!"); the level end shows map title, kills,

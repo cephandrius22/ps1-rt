@@ -5,7 +5,7 @@
  *
  *   # levels/episode1.txt
  *   title Descent
- *   map levels/e1m1.level Processing Plant
+ *   map levels/e1m1.map   Processing Plant
  *   map levels/e1m2.map   Pumping Station
  *
  * Paths are relative to where the game runs (the repository). A single

@@ -18,6 +18,7 @@ make compile_flags.txt  # include paths for clangd
 ./rt levels/foo.level  # play one .level or TrenchBroom .map; reloads on save
 ./rt levels/other.txt  # play another episode file
 make editor      # export textures + FGD, link TrenchBroom game config
+./rt --convert in.level out.map  # hand-written .level → TrenchBroom .map
 ```
 
 Requires: SDL2 (`sdl2-config`), C compiler, pthreads, `-lm`.
@@ -52,7 +53,8 @@ on the include path, so headers are included by bare name (`"scene.h"`).
   gfx/            camera, mesh, bvh, texture, proctex, ps1_effects
   core/           math3d (Vec3, Ray, Pose), threadpool, kv
   platform/       SDL input + audio, file watch; talks to game via PlayerCmd only
-  tools/          editor export (`./rt --export-editor`), invoked by main
+  tools/          editor export (`./rt --export-editor`), .level → .map
+                  converter (`./rt --convert`), invoked by main
 ```
 
 - **PlayerCmd (`game/cmd.h`) is the only input contract.** `input_poll()`
@@ -196,7 +198,7 @@ Entity types (all take `rot=` (radians) and `mat=<material or texture name>`; wi
 | `spitter` | `health` (45), `targetname` | ranged enemy sprite (spits); named = hidden until triggered |
 | `exit` | — | floor pad; touching it ends the level |
 
-`room` generates inner-facing geometry (you're inside it) — it is sealed; for rooms you walk between, build walls from `box`es with doorway gaps (see e1m1). `box` generates outer-facing geometry (obstacles). `brush` is a box-shaped brush entity (`mat` optional for invisible triggers). UVs auto-tile based on world dimensions. Lights take `targetname=` and `off=1`.
+`room` generates inner-facing geometry (you're inside it) — it is sealed; for rooms you walk between, build walls from `box`es with doorway gaps. `box` generates outer-facing geometry (obstacles). `brush` is a box-shaped brush entity (`mat` optional for invisible triggers). UVs auto-tile based on world dimensions. Lights take `targetname=` and `off=1`.
 
 ### TrenchBroom (.map) Levels
 
@@ -209,7 +211,7 @@ Setup once: `make editor`, then in TrenchBroom Preferences → RT → Game Path 
 
 ### Adding Content
 
-**New level:** Build it in TrenchBroom (see above) and save as `levels/<name>.map`, or hand-write a `.level` (see `levels/e1m1.level`). Budgets: 30k triangles, 32 lights, 40 sprites (`levelcheck.h`; measured: ~0.12 ms per light, ~0.11 ms per sprite).
+**New level:** Build it in TrenchBroom (see above), save as `levels/<name>.map` and add a `map` line to `levels/episode1.txt`; or hand-write a `.level` (`tests/test.level` is a small example) and convert it with `./rt --convert in.level out.map` (`tools/level_convert.c`: rooms become wall slabs, everything else maps 1:1; `quad`, `obj` and flat-color materials don't convert). Budgets: 30k triangles, 32 lights, 40 sprites (`levelcheck.h`; measured: ~0.12 ms per light, ~0.11 ms per sprite).
 
 **New procedural texture:** Add to `ProceduralTextureID` enum in `proctex.h`, write generator function in `proctex.c`, add to `proctex_names[]` and `proctex_generators[]` arrays. Sprite textures fill empty pixels with the color key; preview with an offscreen render, since tests can't judge looks.
 
