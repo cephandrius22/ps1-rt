@@ -1,5 +1,8 @@
 #include "test_framework.h"
 #include "render.h"
+#include "scene.h"
+
+static Framebuffer frame_a, frame_b; /* 300 KB each: keep off the stack */
 
 TEST(test_color_rgb) {
     uint32_t c = color_rgb(0xFF, 0x80, 0x40);
@@ -51,6 +54,50 @@ TEST(test_framebuffer_bounds_check) {
     ASSERT(fb.pixels[(SCREEN_H - 1) * SCREEN_W] == 0);
 }
 
+/* A floor quad (checkerboard UVs, no materials) from x0..x1, z0..z1 */
+static void floor_quad(Scene *s, Mesh *m, float z_near) {
+    scene_init(s);
+    mesh_init(m);
+    Vec3 a = vec3(-4, -1, z_near), b = vec3(4, -1, z_near);
+    Vec3 c = vec3(4, -1, -20), d = vec3(-4, -1, -20);
+    Vec3 up = vec3(0, 1, 0);
+    mesh_add_tri(m, (Triangle){a, b, c, {0, 0}, {4, 0}, {4, 8}, up, -1, 0});
+    mesh_add_tri(m, (Triangle){a, c, d, {0, 0}, {4, 8}, {0, 8}, up, -1, 0});
+    scene_build_static(s, m->tris, m->count);
+    s->env.ambient = 1.0f; /* lit evenly: only the texture pattern differs */
+}
+
+static int differing_pixels(void) {
+    int n = 0;
+    for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
+        n += frame_a.pixels[i] != frame_b.pixels[i];
+    }
+    return n;
+}
+
+/* Affine UVs bend a receding floor's pattern; a triangle reaching behind
+ * the camera keeps true UVs (its screen projection doesn't exist) */
+TEST(test_render_affine_warp) {
+    Scene s;
+    Mesh m;
+    Camera cam = camera_create(vec3(0, 0, 0), 0, 0, 1.2f);
+    RenderView normal = {0}, affine = {.affine = true};
+
+    floor_quad(&s, &m, -1.5f);
+    render_scene_lit(&frame_a, &cam, &s, 0, &normal);
+    render_scene_lit(&frame_b, &cam, &s, 0, &affine);
+    ASSERT(differing_pixels() > 1000);
+    mesh_free(&m);
+    scene_free(&s);
+
+    floor_quad(&s, &m, 5.0f);   /* starts behind the eye */
+    render_scene_lit(&frame_a, &cam, &s, 0, &normal);
+    render_scene_lit(&frame_b, &cam, &s, 0, &affine);
+    ASSERT_EQ_INT(differing_pixels(), 0);
+    mesh_free(&m);
+    scene_free(&s);
+}
+
 int main(void) {
     TEST_SUITE("color");
     RUN_TEST(test_color_rgb);
@@ -62,6 +109,7 @@ int main(void) {
     RUN_TEST(test_framebuffer_clear);
     RUN_TEST(test_framebuffer_bounds_check);
 
-    TEST_SUITE("sky");
+    TEST_SUITE("render");
+    RUN_TEST(test_render_affine_warp);
     TEST_REPORT();
 }

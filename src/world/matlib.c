@@ -35,8 +35,47 @@ int matlib_find(const MatLib *lib, const char *name) {
     return MATLIB_NONE;
 }
 
+/* Motion that comes with a texture, so a .map face textured "slime"
+ * flows and glows without any setup */
+typedef struct {
+    const char *texture;
+    Vec2 scroll;
+    float glow;
+    float pulse;
+} TextureMotion;
+
+static const TextureMotion texture_motions[] = {
+    {"slime",  {0.04f, 0.015f}, 0.35f, 0.4f},
+    {"water",  {0.025f, 0.01f}, 0.0f,  0.0f},
+    {"screen", {0.0f, 0.0f},    0.6f,  6.0f},
+};
+
+static void apply_texture_motion(Material *mat, const char *texture) {
+    for (size_t i = 0; i < sizeof(texture_motions) / sizeof(texture_motions[0]); i++) {
+        const TextureMotion *m = &texture_motions[i];
+        if (strcmp(m->texture, texture) == 0) {
+            mat->scroll = m->scroll;
+            mat->glow = m->glow;
+            mat->pulse = m->pulse;
+            return;
+        }
+    }
+}
+
+void matlib_motion(MatLib *lib, int material, const char *args) {
+    if (material < 0 || material >= lib->count) {
+        return;
+    }
+    Material *mat = &lib->scene->materials[material];
+    mat->scroll.u = kv_float(args, "scroll_u", mat->scroll.u);
+    mat->scroll.v = kv_float(args, "scroll_v", mat->scroll.v);
+    mat->glow = kv_float(args, "glow", mat->glow);
+    mat->pulse = kv_float(args, "pulse", mat->pulse);
+}
+
 int matlib_add(MatLib *lib, const char *name, const char *texture, Vec3 color) {
     Material mat = {.color = color, .texture_id = texture_index(lib, texture)};
+    apply_texture_motion(&mat, texture);
 
     int idx = matlib_find(lib, name);
     if (idx != MATLIB_NONE) {

@@ -3,6 +3,7 @@
 #include "ps1_effects.h"
 #include "threadpool.h"
 #include <stddef.h>
+#include <math.h>
 
 void framebuffer_clear(Framebuffer *fb, uint32_t color) {
     for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
@@ -32,17 +33,38 @@ static Vec3 checkerboard(float u, float v) {
     return (cu ^ cv) ? vec3(0.9f, 0.9f, 0.9f) : vec3(0.2f, 0.2f, 0.2f);
 }
 
-static Vec3 get_surface_color(const HitRecord *rec,
-                              const Material *materials, int mat_count,
+static const Material *hit_material(const HitRecord *rec, const Material *materials,
+                                    int mat_count) {
+    bool valid = materials && rec->material_id >= 0 && rec->material_id < mat_count;
+    return valid ? &materials[rec->material_id] : NULL;
+}
+
+/* Texture (scrolled by the material's motion) or flat color at uv */
+static Vec3 get_surface_color(const Material *mat, Vec2 uv, float time,
                               const Texture *textures, int tex_count) {
-    if (materials && rec->material_id >= 0 && rec->material_id < mat_count) {
-        const Material *mat = &materials[rec->material_id];
-        if (mat->texture_id >= 0 && mat->texture_id < tex_count) {
-            return texture_sample(&textures[mat->texture_id], rec->uv.u, rec->uv.v);
-        }
+    if (!mat) {
+        return checkerboard(uv.u, uv.v);
+    }
+    if (mat->texture_id < 0 || mat->texture_id >= tex_count) {
         return mat->color;
     }
-    return checkerboard(rec->uv.u, rec->uv.v);
+    float u = uv.u + mat->scroll.u * time;
+    float v = uv.v + mat->scroll.v * time;
+    return texture_sample(&textures[mat->texture_id], u, v);
+}
+
+#define PULSE_DEPTH 0.35f /* a pulsing glow dips to 65% */
+
+/* A surface's own light (screens, slime), unaffected by the dark */
+static float material_glow(const Material *mat, float time) {
+    if (!mat || mat->glow <= 0) {
+        return 0;
+    }
+    if (mat->pulse <= 0) {
+        return mat->glow;
+    }
+    float wave = 0.5f + 0.5f * sinf(time * mat->pulse * 2.0f * (float)MATH_PI);
+    return mat->glow * (1.0f - PULSE_DEPTH * wave);
 }
 
 /* --- Shared shading logic for lit rendering --- */
@@ -54,7 +76,41 @@ typedef struct {
     const Texture *textures;
     int mat_count, tex_count;
     const Light *carried;   /* light moving with the viewer (flashlight); NULL = none */
+    bool affine;            /* PS1 texture warp */
 } RenderParams;
+
+/* 2D cross product (z of the 3D one) */
+static float cross2(float ax, float ay, float bx, float by) {
+    return ax * by - ay * bx;
+}
+
+/* PS1 texture warp: the triangle's UVs interpolated straight across the
+ * screen, without the perspective divide the console's rasterizer
+ * skipped. Pixel p in screen triangle s0 s1 s2 = s0 + w1 (s1-s0) + w2 (s2-s0):
+ *
+ *        s2            w1, w2 from 2D cross products; the UV is then
+ *        /\            uv0 + w1 (uv1-uv0) + w2 (uv2-uv0), as the
+ *       / p\           PS1 drew it
+ *    s0 ‾‾‾‾ s1
+ *
+ * False (keep the true UVs) if a vertex is behind the camera. */
+static bool affine_uv(const Camera *cam, const Triangle *tri, int x, int y, Vec2 *uv) {
+    float x0, y0, x1, y1, x2, y2;
+    if (!camera_to_screen(cam, tri->v0, &x0, &y0) || !camera_to_screen(cam, tri->v1, &x1, &y1) ||
+        !camera_to_screen(cam, tri->v2, &x2, &y2)) {
+        return false;
+    }
+    float area = cross2(x1 - x0, y1 - y0, x2 - x0, y2 - y0);
+    if (fabsf(area) < 1e-6f) {
+        return false;
+    }
+    float px = (float)x + 0.5f - x0;
+    float py = (float)y + 0.5f - y0;
+    float w1 = cross2(px, py, x2 - x0, y2 - y0) / area;
+    float w2 = cross2(x1 - x0, y1 - y0, px, py) / area;
+    *uv = ps1_affine_uv(tri, w1, w2);
+    return true;
+}
 
 /* One light's color on a surface point: cone, distance, facing, and a
  * shadow ray while the pixel's shadow budget (MAX_SHADOW_LIGHTS) lasts */
@@ -96,8 +152,12 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
 
     Vec3 col;
     if (rec.hit) {
-        Vec3 surface_col = get_surface_color(&rec, params->materials,
-                                             params->mat_count, params->textures,
+        const Material *mat = hit_material(&rec, params->materials, params->mat_count);
+        Vec2 uv = rec.uv;
+        if (params->affine && rec.tri) {
+            affine_uv(cam, rec.tri, x, y, &uv);
+        }
+        Vec3 surface_col = get_surface_color(mat, uv, time, params->textures,
                                              params->tex_count);
         Vec3 hit_pos = rec.point;
         Vec3 normal = rec.normal;
@@ -108,7 +168,8 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
         }
 
         const Environment *env = params->env;
-        float ambient = environment_ambient_at(&scene->env, params->zones, hit_pos);
+        float ambient = environment_ambient_at(&scene->env, params->zones, hit_pos) +
+                        material_glow(mat, time);
         Vec3 lighting = vec3(ambient, ambient, ambient);
 
         /* Directional sun light with shadow; no sun, no shadow ray */
@@ -188,6 +249,7 @@ static RenderParams make_render_params(const Scene *scene, const RenderView *vie
         .mat_count = scene->material_count,
         .tex_count = scene->texture_count,
         .carried   = view->carried,
+        .affine    = view->affine,
     };
 }
 

@@ -133,7 +133,8 @@ static void parse_material(const char *line, LevelParser *p) {
     if (sscanf(line, "material %31s %31s %f %f %f", name, tex_name, &r, &g, &b) < 2) {
         return;
     }
-    matlib_add(&p->mats, name, tex_name, vec3(r, g, b));
+    int idx = matlib_add(&p->mats, name, tex_name, vec3(r, g, b));
+    matlib_motion(&p->mats, idx, line);
 }
 
 static void parse_room(const char *line, LevelParser *p) {

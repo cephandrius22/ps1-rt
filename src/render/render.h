@@ -43,6 +43,7 @@ uint32_t color_rgb(uint8_t r, uint8_t g, uint8_t b);
 typedef struct {
     const Light *carried;     /* moves with the viewer (flashlight); NULL = none */
     const Environment *env;   /* fog and sky here; NULL = the level's */
+    bool affine;              /* PS1 texture warp (ps1_effects.h) */
 } RenderView;
 
 /* Rough brightness at a point (no shadows): ambient + scene lights + a

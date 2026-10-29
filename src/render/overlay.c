@@ -185,6 +185,21 @@ static void draw_debug(Framebuffer *fb, const OverlayState *state) {
     }
 }
 
+/* Blend every pixel toward its own grey by amount (low health) */
+static void desaturate(Framebuffer *fb, float amount) {
+    for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
+        uint32_t p = fb->pixels[i];
+        float r = (float)((p >> 16) & 0xFF);
+        float g = (float)((p >> 8) & 0xFF);
+        float b = (float)(p & 0xFF);
+        float grey = 0.299f * r + 0.587f * g + 0.114f * b; /* Rec. 601 luma */
+        uint32_t nr = (uint32_t)(r + (grey - r) * amount);
+        uint32_t ng = (uint32_t)(g + (grey - g) * amount);
+        uint32_t nb = (uint32_t)(b + (grey - b) * amount);
+        fb->pixels[i] = 0xFF000000u | (nr << 16) | (ng << 8) | nb;
+    }
+}
+
 /* Blend every pixel toward color by alpha (damage flash) */
 static void tint_flash(Framebuffer *fb, Vec3 color, float alpha) {
     float cr = color.x * 255.0f;
@@ -340,6 +355,9 @@ static void draw_viewmodel(Overlay *o, Framebuffer *fb, const ViewmodelState *vm
 
 void overlay_draw(Overlay *o, Framebuffer *fb, const OverlayState *state) {
     draw_viewmodel(o, fb, &state->viewmodel);
+    if (state->desaturate > 0) {
+        desaturate(fb, fminf(state->desaturate, 1.0f));
+    }
     if (state->flash > 0) {
         tint_flash(fb, state->flash_color, state->flash * FLASH_MAX_ALPHA);
     }

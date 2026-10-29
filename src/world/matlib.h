@@ -42,6 +42,10 @@ int matlib_add(MatLib *lib, const char *name, const char *texture, Vec3 color);
 /* Index of a material by name, or MATLIB_NONE */
 int matlib_find(const MatLib *lib, const char *name);
 
+/* Override a material's motion from scroll_u=, scroll_v=, glow=, pulse=
+ * keys (unset keys keep the texture's default motion) */
+void matlib_motion(MatLib *lib, int material, const char *args);
+
 /* Material named after a texture, created on first use with the given
  * color. Lets .map faces and entity defaults name textures directly. */
 int matlib_texture(MatLib *lib, const char *texture, Vec3 color);

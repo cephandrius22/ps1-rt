@@ -25,7 +25,7 @@ float camera_focal_px(const Camera *cam) {
     return (SCREEN_H * 0.5f) / tanf(cam->fov * 0.5f);
 }
 
-bool camera_project(const Camera *cam, Vec3 p, int *px, int *py, float *dist) {
+bool camera_to_screen(const Camera *cam, Vec3 p, float *screen_x, float *screen_y) {
     /* Into view space: undo yaw (about Y), then pitch (about X). This
      * inverts pose_to_world_dir(), which applies pitch then yaw. */
     Vec3 d = vec3_sub(p, cam->position);
@@ -42,14 +42,22 @@ bool camera_project(const Camera *cam, Vec3 p, int *px, int *py, float *dist) {
     float half_fov = tanf(cam->fov * 0.5f);
     float ndc_x = (v.x / -v.z) / (aspect * half_fov);
     float ndc_y = (v.y / -v.z) / half_fov;
-    float fx = (ndc_x + 1.0f) * 0.5f * SCREEN_W;
-    float fy = (1.0f - ndc_y) * 0.5f * SCREEN_H;
+    *screen_x = (ndc_x + 1.0f) * 0.5f * SCREEN_W;
+    *screen_y = (1.0f - ndc_y) * 0.5f * SCREEN_H;
+    return true;
+}
+
+bool camera_project(const Camera *cam, Vec3 p, int *px, int *py, float *dist) {
+    float fx, fy;
+    if (!camera_to_screen(cam, p, &fx, &fy)) {
+        return false;
+    }
     if (fx < 0 || fx >= SCREEN_W || fy < 0 || fy >= SCREEN_H) {
         return false;
     }
 
     *px = (int)fx;
     *py = (int)fy;
-    *dist = vec3_length(d);
+    *dist = vec3_length(vec3_sub(p, cam->position));
     return true;
 }

@@ -201,6 +201,17 @@ static void fade_view_env(ViewEnv *v, const Scene *scene, Vec3 eye, float dt) {
     v->env = environment_blend(&v->env, &target, 1.0f - expf(-dt / ZONE_FADE_TIME));
 }
 
+/* Color drains from the world as health drops below LOW_HEALTH */
+#define LOW_HEALTH       35.0f
+#define LOW_HEALTH_DRAIN 0.85f /* at 0 health: nearly grey */
+
+static float low_health_drain(float health) {
+    if (health <= 0 || health >= LOW_HEALTH) {
+        return 0; /* dead: the red death tint takes over */
+    }
+    return (1.0f - health / LOW_HEALTH) * LOW_HEALTH_DRAIN;
+}
+
 /* HUD colors per keycard, matching the keycard sprites */
 static const Vec3 keycard_colors[KEYCARD_COUNT] = {
     [KEYCARD_RED]    = {0.82f, 0.16f, 0.12f},
@@ -415,6 +426,7 @@ int main(int argc, char *argv[]) {
 
     bool running = true;
     bool show_debug = false;
+    bool affine = false;  /* PS1 texture warp, F4 */
     float work_ms = 0;   /* smoothed */
     float fps = 0;       /* smoothed */
     Uint64 freq = SDL_GetPerformanceFrequency();
@@ -429,6 +441,9 @@ int main(int argc, char *argv[]) {
         UiCmd ui;
         if (input_poll(&cmd, &ui) == INPUT_QUIT) {
             running = false;
+        }
+        if (ui.toggle_affine) {
+            affine = !affine;
         }
         if (ui.toggle_debug) {
             show_debug = !show_debug;
@@ -452,7 +467,8 @@ int main(int argc, char *argv[]) {
         Camera cam = camera_from_pose(view, VIEW_FOV);
         Light flashlight = player_flashlight(&game.player, view);
         fade_view_env(&view_env, &game.scene, cam.position, dt);
-        RenderView render_view = {.carried = &flashlight, .env = &view_env.env};
+        RenderView render_view = {.carried = &flashlight, .env = &view_env.env,
+                                  .affine = affine};
         render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool, &render_view);
         particles_draw(&particles, &fb, &cam, &view_env.env);
         OverlayState overlay = {
@@ -466,6 +482,7 @@ int main(int argc, char *argv[]) {
             .flash_color = fx.flash_color,
         };
         overlay.message = game_message(&game);
+        overlay.desaturate = low_health_drain(game.player.health);
         /* Battery bar only while it isn't full: in use, or recharging */
         overlay.show_battery = game.player.battery < 1.0f;
         overlay.battery = game.player.battery;

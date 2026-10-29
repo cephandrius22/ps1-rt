@@ -26,6 +26,9 @@ typedef enum {
     PTEX_VIEW_LAUNCHER,
     PTEX_PROJECTILES, /* sprite sheet: ProjectileFrame frames of 16x16 */
     PTEX_KEYCARDS,    /* sprite sheet: KeycardFrame frames of 16x16 */
+    PTEX_SLIME,       /* animated surfaces (matlib gives them motion): */
+    PTEX_WATER,       /*   tile seamlessly so they can scroll */
+    PTEX_SCREEN,
     PTEX_COUNT
 } ProceduralTextureID;
 

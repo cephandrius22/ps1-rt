@@ -43,6 +43,7 @@ bool ray_triangle_intersect(Ray ray, const Triangle *tri, float t_min, float t_m
     rec->normal = tri->normal;
     rec->material_id = tri->material_id;
     rec->owner = tri->owner;
+    rec->tri = tri;
     rec->hit = true;
 
     float w = 1.0f - u - v;

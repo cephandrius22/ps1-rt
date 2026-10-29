@@ -573,18 +573,65 @@ static void gen_keycards(Texture *tex) {
     }
 }
 
+/* --- Animated surfaces. They scroll, so every pattern repeats exactly
+ * across the edges (whole sine periods per tile; noise only per pixel) --- */
+
+#define TILE           32
+#define TILE_TURN      (2.0f * (float)MATH_PI / TILE) /* one sine period per tile */
+
+/* Toxic sludge: bright green, bubbly blotches */
+static void gen_slime(Texture *tex) {
+    tex_alloc(tex, TILE, TILE);
+    for (int y = 0; y < TILE; y++) {
+        for (int x = 0; x < TILE; x++) {
+            float swirl = sinf(x * TILE_TURN * 2) * sinf(y * TILE_TURN * 3) * 0.5f + 0.5f;
+            float v = 0.45f + swirl * 0.35f + noise01(x, y) * 0.15f;
+            bool bubble = noise01(x + 700, y + 700) > 0.94f;
+            tex_set(tex, x, y, clamp8(v * 90), clamp8(v * 255), clamp8(v * 40 + (bubble ? 120 : 0)));
+        }
+    }
+}
+
+/* Dark water: slow blue-green ripples */
+static void gen_water(Texture *tex) {
+    tex_alloc(tex, TILE, TILE);
+    for (int y = 0; y < TILE; y++) {
+        for (int x = 0; x < TILE; x++) {
+            float ripple = sinf((x + y) * TILE_TURN) * 0.5f + sinf((x - 2 * y) * TILE_TURN) * 0.5f;
+            float v = 0.22f + ripple * 0.06f + noise01(x, y) * 0.04f;
+            tex_set(tex, x, y, clamp8(v * 90), clamp8(v * 190), clamp8(v * 255));
+        }
+    }
+}
+
+/* Monitor: green scanlines with glyph-like specks on a black glass */
+static void gen_screen(Texture *tex) {
+    tex_alloc(tex, TILE, TILE);
+    for (int y = 0; y < TILE; y++) {
+        for (int x = 0; x < TILE; x++) {
+            bool scanline = y % 2 == 0;
+            bool glyph = (y / 4) % 2 == 0 && noise01(x / 2 + 300, y / 4 + 300) > 0.45f &&
+                         x > 2 && x < TILE - 3;
+            float v = (glyph ? 0.85f : 0.08f) * (scanline ? 1.0f : 0.6f);
+            tex_set(tex, x, y, clamp8(v * 80), clamp8(v * 255), clamp8(v * 110));
+        }
+    }
+}
+
 /* --- Public API --- */
 
 static const char *proctex_names[PTEX_COUNT] = {
     "concrete", "brick", "metal_panel", "metal_grate",
     "rust", "floor_tile", "pipe", "barrel", "ghoul", "spitter",
-    "view_pistol", "view_shotgun", "view_launcher", "projectiles", "keycards"
+    "view_pistol", "view_shotgun", "view_launcher", "projectiles", "keycards",
+    "slime", "water", "screen"
 };
 
 static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
     gen_concrete, gen_brick, gen_metal_panel, gen_metal_grate,
     gen_rust, gen_floor_tile, gen_pipe, gen_barrel, gen_ghoul, gen_spitter,
-    gen_view_pistol, gen_view_shotgun, gen_view_launcher, gen_projectiles, gen_keycards
+    gen_view_pistol, gen_view_shotgun, gen_view_launcher, gen_projectiles, gen_keycards,
+    gen_slime, gen_water, gen_screen
 };
 
 const char *proctex_name(ProceduralTextureID id) {

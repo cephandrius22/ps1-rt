@@ -33,6 +33,10 @@ Ray camera_ray(const Camera *cam, int px, int py);
  * point is behind the camera, too close, or off-screen. */
 bool camera_project(const Camera *cam, Vec3 p, int *px, int *py, float *dist);
 
+/* Same projection to unclamped, fractional screen coordinates (may be
+ * off-screen). False only behind the camera or nearer than CAMERA_NEAR. */
+bool camera_to_screen(const Camera *cam, Vec3 p, float *screen_x, float *screen_y);
+
 /* Pixels per meter at distance 1 (for sizing things drawn by projection) */
 float camera_focal_px(const Camera *cam);
 

@@ -1,6 +1,7 @@
 #include "test_framework.h"
 #include "overlay.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 #define BG 0xFF808080u /* mid grey */
 
@@ -123,6 +124,16 @@ TEST(test_overlay_message_and_keycards) {
     ASSERT(red);
 }
 
+/* Desaturation pulls colored pixels toward grey */
+TEST(test_overlay_desaturate) {
+    framebuffer_clear(&fb, 0xFFC03020u);
+    OverlayState s = {.mode = OVERLAY_PLAYING, .desaturate = 1.0f};
+    overlay_draw(&ov, &fb, &s);
+    uint32_t p = fb.pixels[(SCREEN_H / 2) * SCREEN_W + SCREEN_W / 2];
+    int r = (int)((p >> 16) & 0xFF), g = (int)((p >> 8) & 0xFF), b = (int)(p & 0xFF);
+    ASSERT(abs(r - g) <= 1 && abs(g - b) <= 1);
+}
+
 /* Battery bar sits above the health number, only when asked for */
 TEST(test_overlay_battery_bar) {
     framebuffer_clear(&fb, BG);
@@ -155,6 +166,7 @@ int main(void) {
     RUN_TEST(test_overlay_debug_text_top_left);
     RUN_TEST(test_overlay_viewmodel);
     RUN_TEST(test_overlay_message_and_keycards);
+    RUN_TEST(test_overlay_desaturate);
     RUN_TEST(test_overlay_battery_bar);
     RUN_TEST(test_overlay_flash_tints);
     overlay_free(&ov);

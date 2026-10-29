@@ -26,6 +26,8 @@ typedef struct {
     Vec2 uv;
     int material_id;
     int owner;  /* copied from the hit triangle */
+    const Triangle *tri; /* the triangle hit (NULL for sprites); valid until
+                          * its BVH is rebuilt */
     bool hit;
 } HitRecord;
 

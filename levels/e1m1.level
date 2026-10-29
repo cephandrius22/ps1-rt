@@ -17,6 +17,9 @@ material grate       metal_grate  0.3 0.3 0.3
 material brick       brick        0.35 0.25 0.18
 material floor_tile  floor_tile   0.25 0.22 0.18
 material pipe_mat    pipe         0.3 0.3 0.32
+# Animated: slime flows and glows, screens flicker (motion comes with the texture)
+material nukage      slime        0.4 0.9 0.3
+material monitor     screen       1 1 1
 
 # =====================
 # Main Hall
@@ -58,8 +61,9 @@ zone -14 0 -12 -7.8 3 -4 ambient=0.02 fog="3 11 0.04 0.06 0.025"
 box -14 2.5 -11 -9 2.8 -10.7 pipe_mat
 box -14 2.5 -5.3 -9 2.8 -5 pipe_mat
 
-# Grate floor section
+# Grate floor section, and a seep of glowing slime by the wall
 box -13 0.01 -9 -10 0.02 -7 grate
+box -13.9 0.01 -11.8 -12.2 0.03 -10.6 nukage
 
 # =====================
 # Storage Room (east) — blue door; its button opens the exit gate
@@ -77,6 +81,8 @@ brush func_button 13.8 1.0 -8.2 14 1.4 -7.8 rust_wall opens=side rot=-1.5708 lip
 box 9 0 -11 10.5 1.5 -9.5 rust_wall
 box 10.5 0 -10 12 1 -8.5 rust_wall
 box 12.5 0 -11 14 2 -9 rust_wall
+# A monitor above the crates, still on
+box 13.9 2.1 -10.5 14 2.7 -9.5 monitor
 
 # =====================
 # Back Passage — gate opened only by the storage button

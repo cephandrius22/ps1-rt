@@ -203,9 +203,10 @@ Carried forward:
   bulbs go dark for good when shot (glass sound, sparks); e1m1's bare
   bulbs are breakable. The flashlight drains in 90 s, recharges in 30 s
   while off, dims and flickers below 20%; HUD bar while not full.
-- Animated textures: flickering screens, water, slime
-- Low health desaturation
-- Affine texture warping in shading (`ps1_affine_uv()` exists, unused)
+- ✅ Stage 5 — **Animated textures, desaturation, affine warp.** Slime,
+  water and screen textures scroll/glow/pulse (defaults per texture,
+  `.level` keys override); color drains below 35 health; F4 toggles PS1
+  affine texture warping (screen-space UVs, no measurable cost).
 
 ## Phase 5: Content
 
@@ -239,5 +240,5 @@ Carried forward:
   `RenderKind` keeps meshes possible per type.
 - Two-level BVH for dynamic objects
 - PS1 aesthetic throughout: vertex jitter, dithering, 320x240; affine
-  texture warping planned (Phase 4)
+  texture warping as an F4 toggle (Phase 4)
 - CPU raytracing only, no GPU shaders

@@ -17,9 +17,15 @@ typedef struct {
     int height;
 } Texture;
 
+/* A surface's look. The motion fields are zero for still surfaces:
+ * slime and water scroll, screens and slime glow (self-lit, so they show
+ * in the dark) and can pulse. */
 typedef struct {
     Vec3 color;
     int texture_id; // -1 = no texture
+    Vec2 scroll;    /* UV units per second */
+    float glow;     /* light of its own, added to the scene's (0 = none) */
+    float pulse;    /* the glow throbs this many times per second (0 = steady) */
 } Material;
 
 /* Load an uncompressed 24/32-bit TGA (alpha dropped). 0 on success, -1 on error. */

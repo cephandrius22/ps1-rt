@@ -19,7 +19,8 @@ typedef enum {
 
 /* Presentation-only requests (never reach game logic, unlike PlayerCmd) */
 typedef struct {
-    bool toggle_debug; /* F3 pressed this frame */
+    bool toggle_debug;  /* F3 pressed this frame */
+    bool toggle_affine; /* F4: PS1 texture warp on/off */
 } UiCmd;
 
 /* Capture the mouse (relative mode) */

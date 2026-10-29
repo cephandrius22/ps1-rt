@@ -85,21 +85,21 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `nav` | Walkable grid built at load from static geometry (0.5 m cells, up to 4 floors each, 8-way links over steps ≤ `NAV_STEP`); A* `nav_next_waypoint()`, sound `nav_flood()`/`nav_heard()`, closed/locked doors (`nav_set_door()`) |
 | `kv` | `key=value` lookup in a text line (level args): float, int, string (`"quoted"` values may hold spaces) |
 | `render` | Shading: ambient + sun + scene lights + carried light (flashlight), one `shade_light()` for all, shadows, fog + sky from `scene->env`, light billboards; writes a depth buffer; `render_light_at()` (viewmodel light probe) |
-| `overlay` | Viewmodel (weapon sheet, bob/recoil/switch offsets, lit + dithered), damage flash, HUD (health, ammo, keycard icons), message line, death tint, level-end kill count, F3 text. Caches viewmodel textures (`Overlay`); fed an `OverlayState` by `main.c` |
+| `overlay` | Viewmodel (weapon sheet, bob/recoil/switch offsets, lit + dithered), low-health desaturation, damage flash, HUD (health, ammo, keycard icons), message line, death tint, level-end kill count, F3 text. Caches viewmodel textures (`Overlay`); fed an `OverlayState` by `main.c` |
 | `font` | 5x7 pixel text (`font_draw()`, `font_width()`) for messages; HUD numbers and F3 lines keep overlay's 3x5 font |
 | `particles` | Blood, gibs, sparks, debris, spit: projected and splatted after the raytrace, depth-tested; presentation only |
 | `screenfx` | Screen shake (camera only, never aim) and full-screen color flash; decays with frame time |
 | `environment` | Level mood on `Scene.env`: ambient, sun (direction, color, intensity; 0 = no sun and no sun shadow rays), fog (start/end/color), sky gradient; set by `.level` lines or `.map` worldspawn keys (`environment_set()`). Zones (`Scene.zones`, `EnvZone` boxes) override ambient per surface and fog per eye |
 | `light` | One light model (`Light`): point or spot (`LIGHT_SPOT`: `aim`, cone), radius window + `falloff`; attenuation, flicker, swing; temporary lights with a lifetime and fade (`light_add_temporary()`), swap-removed; `targetname` + `off` (toggled by triggers) |
 | `texture` | Nearest-neighbor sampling; TGA load (levels can't reference TGA files yet) and save (editor export) |
-| `proctex` | Procedural textures: concrete, brick, metal_panel, metal_grate, rust, floor_tile, pipe; color-keyed sprite sheets (`Sheet` helpers): barrel, ghoul + spitter (`EnemyFrame`), projectiles (`ProjectileFrame`), keycards (`KeycardFrame`), viewmodels `view_*` (`ViewFrame`) |
+| `proctex` | Procedural textures: concrete, brick, metal_panel, metal_grate, rust, floor_tile, pipe; seamless animated surfaces slime, water, screen; color-keyed sprite sheets (`Sheet` helpers): barrel, ghoul + spitter (`EnemyFrame`), projectiles (`ProjectileFrame`), keycards (`KeycardFrame`), viewmodels `view_*` (`ViewFrame`) |
 | `level` | `level_load()` dispatches by extension; `.level` text loader; `level_add_brush_entity()` and `level_finish()` (jitter, textures, BVH, nav grid) shared by both loaders |
 | `mapfile` | TrenchBroom/Quake `.map` loader: brushes → triangles (plane clipping), Standard + Valve 220 UVs, point and brush entities |
-| `matlib` | Named material registry shared by both loaders; generates procedural textures on first use; entity default materials |
+| `matlib` | Named material registry shared by both loaders; generates procedural textures on first use; entity default materials; default motion per texture (`texture_motions[]`: slime/water scroll, slime/screen glow) and `matlib_motion()` overrides |
 | `levelcheck` | Load-time warnings (spawn/exit, stuck bodies, no floor, exit unreachable on foot, target wiring, missing keycards) and budget line (`BUDGET_*`) |
 | `filewatch` | Polls a file's mtime; reports a change once it has settled (hot reload) |
 | `editor_export` | Writes TrenchBroom textures (TGA) and `rt.fgd` from the proctex generators and `EntityDef` table |
-| `ps1_effects` | Vertex jitter (1/128 grid, applied at level load), 4x4 Bayer dither + 15-bit quantize (per pixel). `ps1_affine_uv()` exists but shading doesn't use it |
+| `ps1_effects` | Vertex jitter (1/128 grid, applied at level load), 4x4 Bayer dither + 15-bit quantize (per pixel); `ps1_affine_uv()` used by render's F4 affine warp |
 | `game` | `Game` struct: owns scene, player, weapon, events, mode, kills, message; fixed-timestep `game_update()`, `game_view()` (view + recoil), weapon selection, muzzle flash, gunfire noise, rocket launch, notices from events |
 | `player` | First-person movement with gravity, steps, ground snap; health, `Inventory`; applies `TouchEffect`s; `player_flashlight()` (spot light from the view) on a battery (drains while on, recharges while off, dims/flickers when low) |
 | `movement` | Shared walking bodies (`BodyShape`): `movement_slide()` (walls, X then Z), `movement_ground()` (steps, looks past steep faces) — player and enemies |
@@ -126,6 +126,8 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 - **Event queue:** gameplay pushes `GameEvent`s (type, pos, entity, amount) into `Game.events`, cleared at the start of each `game_update()`. `main.c` maps them to sounds (per weapon / per enemy type tables), screen effects and particles. Presentation reacts; gameplay code stays untouched.
 - **Presentation vs simulation:** anything cosmetic (viewmodel bob, shake, flash, particles) lives in `main.c`/`render/` and uses frame `dt`; it never changes game state or aim. Simulation only sees `GAME_TICK_DT`.
 - **One light model:** every light — lamps, spots, muzzle flashes, the flashlight — is a `Light` shaded by `render.c:shade_light()` (cone × facing × attenuation × intensity, shadow ray within the per-pixel budget). The flashlight is built each frame by `player_flashlight()` and passed to render as the *carried* light; it is not in the scene's list.
+- **Animated materials:** `Material.scroll` (UV/s), `glow` (self-lit, added to ambient, so it shows in the dark; fog still applies) and `pulse` (Hz). Textures bring defaults through `matlib.c:texture_motions[]`, so `.map` faces animate without setup; `.level` material keys override.
+- **PS1 affine warp (F4):** `RenderView.affine` swaps a hit's UVs for ones interpolated across the screen (`render.c:affine_uv()`, needs `HitRecord.tri`), skipping triangles with a vertex behind the camera. Presentation toggle via `UiCmd`, like F3.
 - **Shootable lights:** a hitscan pellet that passes a lit `breakable` bulb (`light_bulb_hit()`, bulb radius = what render draws) before hitting anything stops there: `EV_LIGHT_SHOT` (entity = light index, valid that tick) → `game.c:break_lights()` sets `off` + `broken`; triggers skip broken lights.
 - **Temporary lights:** muzzle flashes, projectile glows and explosions are `light_add_temporary()` lights (no shadows, no billboard); they fade and are swap-removed, so never hold a light index.
 - **Runtime spawns:** `scene_spawn()` reuses a spent slot of the same type and uses `scene.type_material[type]` (prepared by `level_finish()` for `runtime_only` types). Spawning can grow the entity array: re-fetch any `Entity *` held across a spawn (see `spit()` in `ai.c`).
@@ -150,7 +152,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 
 ```
 spawn <x> <y> <z> <yaw_degrees>
-material <name> <texture_name> <r> <g> <b>
+material <name> <texture_name> <r> <g> <b> [scroll_u= scroll_v= glow= pulse=]
 room <x1> <y1> <z1> <x2> <y2> <z2> <wall_mat> <floor_mat> <ceil_mat>
 box <x1> <y1> <z1> <x2> <y2> <z2> <mat>
 brush <type> <x1> <y1> <z1> <x2> <y2> <z2> [mat] [key=value ...]
@@ -232,4 +234,4 @@ Each `tests/test_*.c` is a standalone binary using `tests/test_framework.h` (`TE
 - **`tests/test.map`** is generated by `tests/gen_test_map.py` so every brush face winds outward; regenerate rather than hand-edit.
 - **`tests/test.level`** spawns the player outside its room (no floor). The checker flags it; existing tests depend on that spawn, so leave it.
 
-Controls: WASD move, mouse look, Space jump, LMB shoot, 1–3 / mouse wheel switch weapon, E use, F flashlight, F3 debug overlay, Esc quit. Dead or at the exit: LMB/E (after 1 s) restarts the level.
+Controls: WASD move, mouse look, Space jump, LMB shoot, 1–3 / mouse wheel switch weapon, E use, F flashlight, F3 debug overlay, F4 PS1 texture warp, Esc quit. Dead or at the exit: LMB/E (after 1 s) restarts the level.
