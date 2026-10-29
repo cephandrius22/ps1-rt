@@ -29,6 +29,7 @@ typedef struct {
     float fov;          /* vertical field of view, degrees */
 } Settings;
 
+/* The values a first run starts with */
 Settings settings_default(void);
 
 /* Read path over the defaults. False if the file can't be read (the

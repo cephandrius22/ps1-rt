@@ -37,6 +37,7 @@ void display_present(Display *d, const uint32_t *pixels);
 /* Window pixel → framebuffer pixel (for the menu pointer) */
 void display_to_frame(const Display *d, int wx, int wy, int *fx, int *fy);
 
+/* Close the window and the video subsystem */
 void display_close(Display *d);
 
 #endif

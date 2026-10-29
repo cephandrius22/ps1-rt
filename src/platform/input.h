@@ -46,6 +46,7 @@ typedef enum {
     MOUSE_FREE,
 } MouseMode;
 
+/* Switch between play (captured) and menus (free pointer) */
 void input_set_mouse(MouseMode mode);
 
 /* Mouse speed multiplier (settings: 1 = MOUSE_SENSITIVITY) */

@@ -72,7 +72,11 @@ typedef struct {
 /* Closed menu with these settings */
 void menu_init(Menu *m, Settings settings, const char *game_title);
 
+/* Show a screen, first row selected (TITLE/PAUSE also become where
+ * sub-screens go back to) */
 void menu_open(Menu *m, MenuScreen screen);
+
+/* Any screen showing (the game pauses meanwhile) */
 bool menu_is_open(const Menu *m);
 
 /* React to one frame of input */
