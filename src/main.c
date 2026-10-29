@@ -180,6 +180,25 @@ static void play_event_sounds(AudioSystem *audio, const EventQueue *events, cons
     }
 }
 
+/* Fog the camera sees: its zone's (environment.h), faded in over
+ * ZONE_FADE_TIME so walking into a foggy room never pops */
+#define ZONE_FADE_TIME 0.6f /* seconds to get ~63% of the way */
+
+typedef struct {
+    Environment env;
+    bool started;   /* false until the first frame: start at the target */
+} ViewEnv;
+
+static void fade_view_env(ViewEnv *v, const Scene *scene, Vec3 eye, float dt) {
+    Environment target = environment_for_view(&scene->env, &scene->zones, eye);
+    if (!v->started) {
+        v->env = target;
+        v->started = true;
+        return;
+    }
+    v->env = environment_blend(&v->env, &target, 1.0f - expf(-dt / ZONE_FADE_TIME));
+}
+
 /* HUD colors per keycard, matching the keycard sprites */
 static const Vec3 keycard_colors[KEYCARD_COUNT] = {
     [KEYCARD_RED]    = {0.82f, 0.16f, 0.12f},
@@ -355,6 +374,7 @@ int main(int argc, char *argv[]) {
     overlay_init(&hud);
     ViewAnim view_anim = {0};
     ScreenFx fx = {0};
+    ViewEnv view_env = {0};
     static ParticleSystem particles;
     particles_init(&particles, (uint32_t)SDL_GetTicks());
 
@@ -429,8 +449,10 @@ int main(int argc, char *argv[]) {
         view.pitch += shake_pitch;
         Camera cam = camera_from_pose(view, VIEW_FOV);
         Light flashlight = player_flashlight(&game.player, view);
-        render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool, &flashlight);
-        particles_draw(&particles, &fb, &cam, &game.scene.env);
+        fade_view_env(&view_env, &game.scene, cam.position, dt);
+        RenderView render_view = {.carried = &flashlight, .env = &view_env.env};
+        render_scene_lit_mt(&fb, &cam, &game.scene, game.time, &pool, &render_view);
+        particles_draw(&particles, &fb, &cam, &view_env.env);
         OverlayState overlay = {
             .mode = overlay_mode(game.mode),
             .health = (int)ceilf(game.player.health),

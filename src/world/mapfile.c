@@ -606,6 +606,12 @@ static EntityType brush_type(const char *classname) {
     return type != ENTITY_NONE && entity_def(type)->brush ? type : ENTITY_NONE;
 }
 
+#define ZONE_CLASS "env_zone"
+
+static bool is_zone(const char *classname) {
+    return strcmp(classname, ZONE_CLASS) == 0;
+}
+
 /* Where a brush goes: the world, the entity's model, or nowhere */
 static void place_brush(MapLoader *ml, const Brush *b, const char *classname,
                         BrushModel *model) {
@@ -616,6 +622,11 @@ static void place_brush(MapLoader *ml, const Brush *b, const char *classname,
     if (brush_type(classname) != ENTITY_NONE) {
         emit_brush(ml, b, &model->tris);
         brush_bounds(b, &model->lo, &model->hi);
+        model->brushes++;
+        return;
+    }
+    if (is_zone(classname)) {
+        brush_bounds(b, &model->lo, &model->hi); /* a zone is only a box */
         model->brushes++;
         return;
     }
@@ -635,6 +646,32 @@ static void spawn_brush_entity(MapLoader *ml, const KeyValues *kvs, EntityType t
     char args[MAP_ARGS_MAX];
     entity_args(kvs, entity_def(type), args, sizeof(args));
     level_add_brush_entity(ml->scene, type, model->lo, model->hi, &model->tris, args);
+}
+
+/* env_zone: ambient and fog keys over the brushes' bounds; fog
+ * distances convert from units to meters */
+static void spawn_zone(MapLoader *ml, const KeyValues *kvs, const BrushModel *model) {
+    if (model->brushes <= 0) {
+        fprintf(stderr, "map: " ZONE_CLASS " has no brushes\n");
+        return;
+    }
+
+    char args[MAP_ARGS_MAX];
+    int len = snprintf(args, sizeof(args), "ambient=%s ", kv_get(kvs, "ambient", ""));
+    const char *fog = kv_get(kvs, "fog", NULL);
+    float start, end, r, g, b;
+    if (fog && sscanf(fog, "%f %f %f %f %f", &start, &end, &r, &g, &b) == 5) {
+        snprintf(args + len, sizeof(args) - (size_t)len, "fog=\"%g %g %g %g %g\"",
+                 start / MAP_UNITS_PER_METER, end / MAP_UNITS_PER_METER, r, g, b);
+    }
+
+    EnvZone zone;
+    Scene *scene = ml->scene;
+    if (!zone_from_keys(&zone, model->lo, model->hi, &scene->env, args)) {
+        fprintf(stderr, "map: " ZONE_CLASS " sets neither ambient nor fog\n");
+        return;
+    }
+    zone_add(&scene->zones, zone);
 }
 
 /* { "key" "value" ... { brush } ... } — the opening brace is consumed */
@@ -680,6 +717,9 @@ static bool read_entity(Lexer *lx, MapLoader *ml) {
     }
     if (!ok || is_world_geometry(classname)) {
         mesh_free(&model.tris);
+    } else if (is_zone(classname)) {
+        mesh_free(&model.tris);
+        spawn_zone(ml, &kvs, &model);
     } else if (type != ENTITY_NONE) {
         spawn_brush_entity(ml, &kvs, type, &model);
     } else {

@@ -195,7 +195,9 @@ Carried forward:
   function for all. The flashlight is a spot built by
   `player_flashlight()` and passed to render as the carried light. Levels
   can place spots (`cone`, `aim`).
-- Per-area light level and fog color (Doom sectors)
+- ✅ Stage 3 — **Per-area light and fog** (Doom sectors): `zone` lines /
+  `env_zone` brushes override ambient (per surface) and fog (per eye,
+  faded in over ~0.6 s). e1m1's west corridor and exit passage use them.
 - Ambient soundscapes per zone, simple reverb, stereo panning
 - Shootable lights, flashlight battery
 - Animated textures: flickering screens, water, slime

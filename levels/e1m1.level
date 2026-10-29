@@ -51,6 +51,8 @@ box -8 2.5 -9 -7.8 4 -7 rust_wall
 box -14 3 -12 -8 3.2 -4 concrete
 brush func_door -7.95 0 -9 -7.85 2.5 -7 dark_metal
 brush trigger_once -7.5 0 -9 -6.5 2 -7 message="Something scratches behind the door"
+# Rot: darker, with a thick green haze while you're inside
+zone -14 0 -12 -7.8 3 -4 ambient=0.02 fog="3 11 0.04 0.06 0.025"
 
 # Pipe running along ceiling
 box -14 2.5 -11 -9 2.8 -10.7 pipe_mat
@@ -86,6 +88,8 @@ box -6.2 0 -19 -6 4 -14.8 brick
 box 6 0 -19 6.2 4 -14.8 brick
 box -6 3 -19 6 3.2 -15 concrete
 brush func_door -1 0 -14.95 1 2.5 -14.85 dark_metal targetname=lockdown wait=-1
+# The exit glows through a red haze
+zone -6 0 -19 6 3 -14.8 fog="3 14 0.08 0.01 0.01"
 
 # =====================
 # Entities

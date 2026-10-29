@@ -89,7 +89,7 @@ Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites)
 | `font` | 5x7 pixel text (`font_draw()`, `font_width()`) for messages; HUD numbers and F3 lines keep overlay's 3x5 font |
 | `particles` | Blood, gibs, sparks, debris, spit: projected and splatted after the raytrace, depth-tested; presentation only |
 | `screenfx` | Screen shake (camera only, never aim) and full-screen color flash; decays with frame time |
-| `environment` | Level mood on `Scene.env`: ambient, sun (direction, color, intensity; 0 = no sun and no sun shadow rays), fog (start/end/color), sky gradient; set by `.level` lines or `.map` worldspawn keys (`environment_set()`) |
+| `environment` | Level mood on `Scene.env`: ambient, sun (direction, color, intensity; 0 = no sun and no sun shadow rays), fog (start/end/color), sky gradient; set by `.level` lines or `.map` worldspawn keys (`environment_set()`). Zones (`Scene.zones`, `EnvZone` boxes) override ambient per surface and fog per eye |
 | `light` | One light model (`Light`): point or spot (`LIGHT_SPOT`: `aim`, cone), radius window + `falloff`; attenuation, flicker, swing; temporary lights with a lifetime and fade (`light_add_temporary()`), swap-removed; `targetname` + `off` (toggled by triggers) |
 | `texture` | Nearest-neighbor sampling; TGA load (levels can't reference TGA files yet) and save (editor export) |
 | `proctex` | Procedural textures: concrete, brick, metal_panel, metal_grate, rust, floor_tile, pipe; color-keyed sprite sheets (`Sheet` helpers): barrel, ghoul + spitter (`EnemyFrame`), projectiles (`ProjectileFrame`), keycards (`KeycardFrame`), viewmodels `view_*` (`ViewFrame`) |
@@ -161,9 +161,12 @@ ambient <level>
 fog <start_m> <end_m> <r> <g> <b>
 sun <dx> <dy> <dz> <r> <g> <b> <intensity>   # direction toward the sun; 0 = none
 sky <top r g b> <horizon r g b>
+zone <x1> <y1> <z1> <x2> <y2> <z2> [ambient=<a>] [fog="<start> <end> <r> <g> <b>"]
 ```
 
 Environment lines are optional; anything left out keeps `environment_default()`. Indoor levels should set the sun's intensity to 0: it can't reach them and its shadow ray costs ~15% of a frame. In `.map` files the same four are worldspawn keys (fog distances in units, sun direction in map axes).
+
+Zones are areas with their own light level and/or fog, like Doom sectors (`env_zone` brush entity in `.map`, textured `trigger`). A surface takes the ambient of the zone it's in; fog follows the zone the camera is in, faded by `main.c:fade_view_env()` (presentation; passed to render in `RenderView.env`). Overlapping zones: the later one wins.
 
 Entity types (all take `rot=` (radians) and `mat=<material or texture name>`; without `mat=` the type's default material is used; values with spaces go in quotes, `message="Like this"`):
 

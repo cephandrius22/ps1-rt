@@ -49,8 +49,10 @@ typedef struct Scene {
     /* Walkable floors for enemy paths and sound (built by level_finish) */
     NavGrid nav;
 
-    /* Sun, ambient, fog, sky: defaults until the level sets them */
+    /* Sun, ambient, fog, sky: defaults until the level sets them;
+     * zones override ambient/fog in parts of the level */
     Environment env;
+    ZoneList zones;
 
     /* Default material per entity type, for entities spawned at runtime
      * (projectiles); filled by level_finish() */

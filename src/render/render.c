@@ -48,7 +48,8 @@ static Vec3 get_surface_color(const HitRecord *rec,
 /* --- Shared shading logic for lit rendering --- */
 
 typedef struct {
-    const Environment *env;
+    const Environment *env;   /* fog, sky (the view's) and sun (the level's) */
+    const ZoneList *zones;    /* per-surface ambient */
     const Material *materials;
     const Texture *textures;
     int mat_count, tex_count;
@@ -107,7 +108,8 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
         }
 
         const Environment *env = params->env;
-        Vec3 lighting = vec3(env->ambient, env->ambient, env->ambient);
+        float ambient = environment_ambient_at(&scene->env, params->zones, hit_pos);
+        Vec3 lighting = vec3(ambient, ambient, ambient);
 
         /* Directional sun light with shadow; no sun, no shadow ray */
         float sun_ndl = vec3_dot(normal, env->sun_dir);
@@ -175,21 +177,24 @@ static uint32_t shade_pixel_lit(int x, int y, float *depth, const Camera *cam,
     return ps1_dither_color(cr, cg, cb, x, y);
 }
 
-static RenderParams make_render_params(const Scene *scene, const Light *carried) {
+static RenderParams make_render_params(const Scene *scene, const RenderView *view) {
+    RenderView none = {0};
+    view = view ? view : &none;
     return (RenderParams){
-        .env       = &scene->env,
+        .env       = view->env ? view->env : &scene->env,
+        .zones     = &scene->zones,
         .materials = scene->materials,
         .textures  = scene->textures,
         .mat_count = scene->material_count,
         .tex_count = scene->texture_count,
-        .carried   = carried,
+        .carried   = view->carried,
     };
 }
 
 #define CARRIED_SPILL 0.14f /* share of a carried light falling on what you hold */
 
 float render_light_at(const Scene *scene, Vec3 p, float time, const Light *carried) {
-    float light = scene->env.ambient;
+    float light = environment_ambient_at(&scene->env, &scene->zones, p);
     for (int i = 0; i < scene->lights.count; i++) {
         const Light *pl = &scene->lights.items[i];
         float dist = vec3_length(vec3_sub(pl->position, p));
@@ -207,8 +212,8 @@ float render_light_at(const Scene *scene, Vec3 p, float time, const Light *carri
 /* --- Single-threaded lit render --- */
 
 void render_scene_lit(Framebuffer *fb, const Camera *cam, const Scene *scene,
-                      float time, const Light *carried) {
-    RenderParams params = make_render_params(scene, carried);
+                      float time, const RenderView *view) {
+    RenderParams params = make_render_params(scene, view);
 
     for (int y = 0; y < SCREEN_H; y++) {
         for (int x = 0; x < SCREEN_W; x++) {
@@ -243,11 +248,11 @@ static void render_chunk_func(void *arg) {
 }
 
 void render_scene_lit_mt(Framebuffer *fb, const Camera *cam, const Scene *scene,
-                         float time, ThreadPool *pool, const Light *carried) {
+                         float time, ThreadPool *pool, const RenderView *view) {
     int n = pool->worker_count;
     RenderChunk chunks[THREADPOOL_MAX_WORKERS];
     void *args[THREADPOOL_MAX_WORKERS];
-    RenderParams params = make_render_params(scene, carried);
+    RenderParams params = make_render_params(scene, view);
 
     int rows_per = SCREEN_H / n;
     for (int i = 0; i < n; i++) {

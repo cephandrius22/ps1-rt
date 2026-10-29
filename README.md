@@ -171,7 +171,9 @@ Quake level editor:
    `targetname` (TrenchBroom draws the links). `levels/arena.map` is an
    example to open.
    The level's mood (ambient light, fog distance and color, sun, sky)
-   is set on worldspawn: `ambient`, `fog`, `sun`, `sky`.
+   is set on worldspawn: `ambient`, `fog`, `sun`, `sky`. An `env_zone`
+   brush gives an area its own light level and fog (a dark crypt, a
+   hazy pit); fog fades in as you enter it.
 4. Save as `levels/<name>.map` and run `./rt levels/<name>.map`. Keep it
    running: every save reloads the level where you stand.
 

@@ -327,6 +327,24 @@ static void parse_environment(const char *line, Scene *scene) {
     }
 }
 
+/* zone x1 y1 z1 x2 y2 z2 [ambient=a] [fog="start end r g b"] */
+static void parse_zone(const char *line, Scene *scene) {
+    float x1, y1, z1, x2, y2, z2;
+    if (sscanf(line, "zone %f %f %f %f %f %f", &x1, &y1, &z1, &x2, &y2, &z2) < 6) {
+        fprintf(stderr, "level: bad zone line: %.60s\n", line);
+        return;
+    }
+    Vec3 lo = vec3(fminf(x1, x2), fminf(y1, y2), fminf(z1, z2));
+    Vec3 hi = vec3(fmaxf(x1, x2), fmaxf(y1, y2), fmaxf(z1, z2));
+
+    EnvZone zone;
+    if (!zone_from_keys(&zone, lo, hi, &scene->env, line)) {
+        fprintf(stderr, "level: zone sets neither ambient nor fog: %.60s\n", line);
+        return;
+    }
+    zone_add(&scene->zones, zone);
+}
+
 static bool is_environment(const char *line) {
     static const char *keys[] = {"ambient ", "fog ", "sun ", "sky "};
     for (size_t i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) {
@@ -454,6 +472,8 @@ int level_load(Scene *scene, const char *filename, LevelInfo *info) {
             parse_entity(p, &parser);
         } else if (strncmp(p, "light ", 6) == 0) {
             parse_light(p, scene);
+        } else if (strncmp(p, "zone ", 5) == 0) {
+            parse_zone(p, scene);
         } else if (is_environment(p)) {
             parse_environment(p, scene);
         } else {

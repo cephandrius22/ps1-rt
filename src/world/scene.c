@@ -33,6 +33,7 @@ void scene_init(Scene *s) {
     }
     s->nav = (NavGrid){0};
     s->env = environment_default();
+    zone_list_init(&s->zones);
 }
 
 void scene_free(Scene *s) {
@@ -52,6 +53,7 @@ void scene_free(Scene *s) {
     entity_meshes_free(&s->entity_meshes);
     light_list_free(&s->lights);
     nav_free(&s->nav);
+    zone_list_free(&s->zones);
 
     free(s->materials);
     s->materials = NULL;

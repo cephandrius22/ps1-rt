@@ -1,5 +1,7 @@
 #include "environment.h"
+#include "kv.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define AMBIENT_DEF       0.04f
@@ -94,4 +96,90 @@ float environment_fog(const Environment *env, float distance) {
 Vec3 environment_sky(const Environment *env, Vec3 dir) {
     float up = 0.5f * (dir.y + 1.0f);
     return vec3_lerp(env->sky_horizon, env->sky_top, up);
+}
+
+Environment environment_blend(const Environment *a, const Environment *b, float t) {
+    Environment out = *b;
+    out.ambient = a->ambient + (b->ambient - a->ambient) * t;
+    out.fog_start = a->fog_start + (b->fog_start - a->fog_start) * t;
+    out.fog_end = a->fog_end + (b->fog_end - a->fog_end) * t;
+    out.fog_color = vec3_lerp(a->fog_color, b->fog_color, t);
+    return out;
+}
+
+/* --- Zones --- */
+
+#define ZONE_LIST_INITIAL_CAP 4
+#define ZONE_FOG_MAX          64 /* "start end r g b" */
+
+void zone_list_init(ZoneList *zones) {
+    *zones = (ZoneList){0};
+}
+
+void zone_list_free(ZoneList *zones) {
+    free(zones->items);
+    *zones = (ZoneList){0};
+}
+
+bool zone_add(ZoneList *zones, EnvZone zone) {
+    if (zones->count >= zones->capacity) {
+        int cap = zones->capacity ? zones->capacity * 2 : ZONE_LIST_INITIAL_CAP;
+        EnvZone *grown = realloc(zones->items, (size_t)cap * sizeof(EnvZone));
+        if (!grown) {
+            return false;
+        }
+        zones->items = grown;
+        zones->capacity = cap;
+    }
+    zones->items[zones->count++] = zone;
+    return true;
+}
+
+bool zone_from_keys(EnvZone *zone, Vec3 lo, Vec3 hi, const Environment *base,
+                    const char *args) {
+    *zone = (EnvZone){.lo = lo, .hi = hi, .env = *base};
+
+    char value[ZONE_FOG_MAX];
+    if (kv_string(args, "ambient", value, sizeof(value)) &&
+        environment_set(&zone->env, "ambient", value)) {
+        zone->sets |= ZONE_SETS_AMBIENT;
+    }
+    if (kv_string(args, "fog", value, sizeof(value)) &&
+        environment_set(&zone->env, "fog", value)) {
+        zone->sets |= ZONE_SETS_FOG;
+    }
+    return zone->sets != 0;
+}
+
+static bool zone_contains(const EnvZone *z, Vec3 p) {
+    return p.x >= z->lo.x && p.x <= z->hi.x && p.y >= z->lo.y && p.y <= z->hi.y &&
+           p.z >= z->lo.z && p.z <= z->hi.z;
+}
+
+/* The last-listed zone containing p that sets `what`: later zones sit on
+ * top, so a small zone inside a big one can be listed after it */
+static const EnvZone *zone_at(const ZoneList *zones, Vec3 p, unsigned what) {
+    for (int i = zones->count - 1; i >= 0; i--) {
+        const EnvZone *z = &zones->items[i];
+        if ((z->sets & what) && zone_contains(z, p)) {
+            return z;
+        }
+    }
+    return NULL;
+}
+
+float environment_ambient_at(const Environment *base, const ZoneList *zones, Vec3 p) {
+    const EnvZone *z = zone_at(zones, p, ZONE_SETS_AMBIENT);
+    return z ? z->env.ambient : base->ambient;
+}
+
+Environment environment_for_view(const Environment *base, const ZoneList *zones, Vec3 p) {
+    Environment env = *base;
+    const EnvZone *z = zone_at(zones, p, ZONE_SETS_FOG);
+    if (z) {
+        env.fog_color = z->env.fog_color;
+        env.fog_start = z->env.fog_start;
+        env.fog_end = z->env.fog_end;
+    }
+    return env;
 }

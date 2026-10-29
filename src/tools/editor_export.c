@@ -114,6 +114,12 @@ static void write_builtin_classes(FILE *out) {
           "@SolidClass = func_group : \"Group (static geometry)\" []\n"
           "@SolidClass = func_detail : \"Detail (static geometry)\" []\n\n", out);
 
+    fputs("@SolidClass color(80 120 160) = env_zone : \"Area with its own light level and fog "
+          "(texture it trigger)\"\n[\n"
+          "\tambient(float) : \"Light everywhere inside (empty = level's)\" : \"\"\n"
+          "\tfog(string) : \"Fog while the camera is inside: start end (units) r g b\" : \"\"\n]\n\n",
+          out);
+
     fprintf(out, "@PointClass size(-16 -16 0, 16 16 %d) color(0 255 0) = info_player_start : "
                  "\"Player spawn (origin = feet)\"\n[\n"
                  "\tangle(integer) : \"Facing, degrees (0 = east, 90 = north)\" : 0\n]\n\n",

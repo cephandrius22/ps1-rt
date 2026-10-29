@@ -74,6 +74,74 @@ TEST(test_env_from_map_worldspawn) {
     scene_free(&s);
 }
 
+/* Ambient per surface from its zone; fog from the eye's zone; a later
+ * zone inside an earlier one wins */
+TEST(test_env_zones) {
+    Environment base = environment_default();
+    ZoneList zones;
+    zone_list_init(&zones);
+    EnvZone room, closet;
+    ASSERT(zone_from_keys(&room, vec3(0, 0, 0), vec3(10, 3, 10), &base,
+                          "zone ambient=0.2 fog=\"1 5 0 0.3 0\""));
+    ASSERT(zone_from_keys(&closet, vec3(2, 0, 2), vec3(3, 3, 3), &base, "ambient=0.01"));
+    EnvZone empty;
+    ASSERT(!zone_from_keys(&empty, vec3(0, 0, 0), vec3(1, 1, 1), &base, "nothing=1"));
+    zone_add(&zones, room);
+    zone_add(&zones, closet);
+
+    ASSERT_NEAR(environment_ambient_at(&base, &zones, vec3(5, 1, 5)), 0.2f, 1e-6f);
+    ASSERT_NEAR(environment_ambient_at(&base, &zones, vec3(2.5f, 1, 2.5f)), 0.01f, 1e-6f);
+    ASSERT_NEAR(environment_ambient_at(&base, &zones, vec3(-5, 1, 0)), base.ambient, 1e-6f);
+
+    /* The closet sets no fog, so the room's fog still applies inside it */
+    Environment view = environment_for_view(&base, &zones, vec3(2.5f, 1, 2.5f));
+    ASSERT_NEAR(view.fog_end, 5.0f, 1e-6f);
+    ASSERT_NEAR(environment_for_view(&base, &zones, vec3(-5, 1, 0)).fog_end, base.fog_end, 1e-6f);
+    zone_list_free(&zones);
+}
+
+TEST(test_env_blend) {
+    Environment a = environment_default();
+    Environment b = a;
+    environment_set(&b, "fog", "2 4 1 1 1");
+    Environment mid = environment_blend(&a, &b, 0.5f);
+    ASSERT_NEAR(mid.fog_start, (a.fog_start + 2) * 0.5f, 1e-5f);
+    ASSERT_NEAR(mid.fog_color.x, (a.fog_color.x + 1) * 0.5f, 1e-5f);
+}
+
+/* Zones from both formats; .map fog distances are in units */
+TEST(test_env_zone_loading) {
+    FILE *f = fopen(LEVEL_TMP, "w");
+    fputs("zone 0 0 0 4 3 4 ambient=0.3 fog=\"1 2 0 0 0\"\n", f);
+    fclose(f);
+    Scene s;
+    scene_init(&s);
+    LevelInfo info;
+    level_load(&s, LEVEL_TMP, &info);
+    remove(LEVEL_TMP);
+    ASSERT_EQ_INT(s.zones.count, 1);
+    ASSERT_NEAR(s.zones.items[0].env.fog_end, 2.0f, 1e-6f);
+    scene_free(&s);
+
+    f = fopen(MAP_TMP, "w");
+    fputs("{\n\"classname\" \"worldspawn\"\n}\n"
+          "{\n\"classname\" \"env_zone\"\n\"fog\" \"32 64 0 0 0\"\n{\n"
+          "( 64 1 0 ) ( 64 0 0 ) ( 64 0 1 ) trigger 0 0 0 1 1\n"
+          "( 0 0 1 ) ( 0 0 0 ) ( 0 1 0 ) trigger 0 0 0 1 1\n"
+          "( 0 64 1 ) ( 0 64 0 ) ( 1 64 0 ) trigger 0 0 0 1 1\n"
+          "( 1 0 0 ) ( 0 0 0 ) ( 0 0 1 ) trigger 0 0 0 1 1\n"
+          "( 1 0 96 ) ( 0 0 96 ) ( 0 1 96 ) trigger 0 0 0 1 1\n"
+          "( 0 1 0 ) ( 0 0 0 ) ( 1 0 0 ) trigger 0 0 0 1 1\n}\n}\n", f);
+    fclose(f);
+    scene_init(&s);
+    mapfile_load(&s, MAP_TMP, &info);
+    remove(MAP_TMP);
+    ASSERT_EQ_INT(s.zones.count, 1);
+    ASSERT_NEAR(s.zones.items[0].env.fog_start, 1.0f, 1e-5f);
+    ASSERT_NEAR(s.zones.items[0].hi.y, 3.0f, 1e-5f);   /* 96 units tall */
+    scene_free(&s);
+}
+
 int main(void) {
     TEST_SUITE("environment");
     RUN_TEST(test_env_defaults_and_sky);
@@ -81,5 +149,8 @@ int main(void) {
     RUN_TEST(test_env_rejects_bad_values);
     RUN_TEST(test_env_from_level_file);
     RUN_TEST(test_env_from_map_worldspawn);
+    RUN_TEST(test_env_zones);
+    RUN_TEST(test_env_blend);
+    RUN_TEST(test_env_zone_loading);
     TEST_REPORT();
 }
