@@ -5,11 +5,13 @@ void scene_init(Scene *s) {
     s->static_bvh.nodes = NULL;
     s->static_bvh.node_count = 0;
     s->static_bvh.tris = NULL;
+    s->static_bvh.order = NULL;
     s->static_bvh.tri_count = 0;
 
     s->dynamic_bvh.nodes = NULL;
     s->dynamic_bvh.node_count = 0;
     s->dynamic_bvh.tris = NULL;
+    s->dynamic_bvh.order = NULL;
     s->dynamic_bvh.tri_count = 0;
     s->dynamic_tris = NULL;
     s->dynamic_tri_count = 0;
@@ -89,15 +91,12 @@ static void rebuild_sprites(Scene *s) {
 void scene_rebuild_dynamic(Scene *s) {
     rebuild_sprites(s);
 
-    /* Free previous dynamic BVH */
-    if (s->has_dynamic) {
-        bvh_free(&s->dynamic_bvh);
-        s->has_dynamic = false;
-    }
-
-    /* Count needed triangles */
     int needed = entity_count_triangles(&s->entities, &s->entity_meshes);
     if (needed == 0) {
+        if (s->has_dynamic) {
+            bvh_free(&s->dynamic_bvh);
+            s->has_dynamic = false;
+        }
         s->dynamic_tri_count = 0;
         return;
     }
@@ -113,11 +112,20 @@ void scene_rebuild_dynamic(Scene *s) {
         s->dynamic_tri_cap = new_cap;
     }
 
-    /* Build transformed triangles */
+    /* Posed entity triangles this tick */
     s->dynamic_tri_count = entity_build_triangles(
         &s->entities, &s->entity_meshes, s->dynamic_tris, s->dynamic_tri_cap);
 
-    /* Build BVH */
+    /* Same entities as last tick, only moved (doors, bobbing pickups):
+     * refit the tree in place. One came or went: build it afresh. */
+    if (s->has_dynamic && bvh_same_layout(&s->dynamic_bvh, s->dynamic_tris, s->dynamic_tri_count)) {
+        bvh_refit(&s->dynamic_bvh, s->dynamic_tris);
+        return;
+    }
+    if (s->has_dynamic) {
+        bvh_free(&s->dynamic_bvh);
+        s->has_dynamic = false;
+    }
     if (s->dynamic_tri_count > 0) {
         bvh_build(&s->dynamic_bvh, s->dynamic_tris, s->dynamic_tri_count);
         s->has_dynamic = true;

@@ -3,7 +3,8 @@
  *
  * The static BVH holds world geometry (built once). The dynamic BVH holds
  * transformed entity geometry and the sprite list holds billboards, both
- * rebuilt each game tick. scene_trace() tests all three and returns the
+ * updated each game tick (the BVH refit in place while the same entities
+ * just move, rebuilt when one comes or goes). scene_trace() tests all three and returns the
  * closest hit; its mask decides whether ghost sprites (corpses) count.
  * The nav grid (nav.h) is derived from the static BVH at load.
  */
@@ -67,7 +68,8 @@ void scene_free(Scene *s);
 /* Build the static BVH from world triangles (call once) */
 void scene_build_static(Scene *s, Triangle *tris, int count);
 
-/* Rebuild dynamic BVH from active entities (call each tick) */
+/* Pose active entities into the dynamic BVH (call each tick): refit when
+ * only positions changed, rebuild otherwise; sprites rebuilt */
 void scene_rebuild_dynamic(Scene *s);
 
 /* Add an entity during play: reuses an inactive slot of the same type,

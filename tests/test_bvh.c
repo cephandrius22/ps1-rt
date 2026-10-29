@@ -162,6 +162,53 @@ TEST(test_bvh_closest_hit) {
     bvh_free(&bvh);
 }
 
+/* A row of triangles facing +z at x = 0, 2, 4, ... (owner = index + 1) */
+static void tri_row(Triangle *tris, int count, float dz) {
+    for (int i = 0; i < count; i++) {
+        tris[i] = make_tri_at(i * 2.0f, 0, dz);
+        tris[i].owner = i + 1;
+    }
+}
+
+/* Refit follows moved triangles: hits where they are now, misses where
+ * they were, and finds the same triangle a fresh build would */
+TEST(test_bvh_refit_follows_moves) {
+    enum { COUNT = 12 };
+    Triangle tris[COUNT];
+    tri_row(tris, COUNT, 0);
+    BVH bvh;
+    bvh_build(&bvh, tris, COUNT);
+
+    tri_row(tris, COUNT, -3); /* everything 3 m back */
+    ASSERT(bvh_same_layout(&bvh, tris, COUNT));
+    bvh_refit(&bvh, tris);
+
+    for (int i = 0; i < COUNT; i++) {
+        Ray ray = {vec3(i * 2.0f, 0.3f, 5), vec3(0, 0, -1)};
+        HitRecord rec = bvh_intersect(&bvh, ray, 0.001f, 100.0f);
+        ASSERT(rec.hit);
+        ASSERT_NEAR(rec.t, 8.35f, 1e-4f); /* the triangle leans back: z = -3.35 at y 0.3 */
+        ASSERT_EQ_INT(rec.owner, i + 1);
+        ASSERT(bvh_occluded(&bvh, ray, 0.001f, 100.0f));
+        ASSERT(!bvh_occluded(&bvh, ray, 0.001f, 7.0f)); /* the old spot is empty */
+    }
+    bvh_free(&bvh);
+}
+
+/* A different count, or a different triangle in a slot, can't refit */
+TEST(test_bvh_layout_changes) {
+    enum { COUNT = 6 };
+    Triangle tris[COUNT];
+    tri_row(tris, COUNT, 0);
+    BVH bvh;
+    bvh_build(&bvh, tris, COUNT);
+
+    ASSERT(!bvh_same_layout(&bvh, tris, COUNT - 1));
+    tris[2].owner = 99;
+    ASSERT(!bvh_same_layout(&bvh, tris, COUNT));
+    bvh_free(&bvh);
+}
+
 int main(void) {
     TEST_SUITE("AABB intersection");
     RUN_TEST(test_aabb_hit_basic);
@@ -179,5 +226,7 @@ int main(void) {
     RUN_TEST(test_bvh_intersect_miss);
     RUN_TEST(test_bvh_matches_brute_force);
     RUN_TEST(test_bvh_closest_hit);
+    RUN_TEST(test_bvh_refit_follows_moves);
+    RUN_TEST(test_bvh_layout_changes);
     TEST_REPORT();
 }

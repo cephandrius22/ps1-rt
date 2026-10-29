@@ -29,12 +29,23 @@ typedef struct {
     int node_count;
     int capacity;
     Triangle *tris;  // sorted copy of triangles
+    int *order;      // tris[i] is the builder's input triangle order[i] (for refit)
     int tri_count;
 } BVH;
 
 /* Build over a private copy of tris (caller keeps ownership of its array) */
 void bvh_build(BVH *bvh, const Triangle *tris, int count);
 void bvh_free(BVH *bvh);
+
+/* Could tris refit this BVH: as many as it was built from, each with the
+ * owner of the one in its place? (Entities moved but none came or went.) */
+bool bvh_same_layout(const BVH *bvh, const Triangle *tris, int count);
+
+/* Take the moved triangles (same layout as at build) and recompute every
+ * box bottom-up; the tree's shape stays. Far cheaper than a rebuild for
+ * things that shift a little each tick (doors, bobbing pickups); boxes
+ * grow as things spread, so rebuild when the layout changes. */
+void bvh_refit(BVH *bvh, const Triangle *tris);
 
 /* Closest hit in [t_min, t_max]; .hit = false if none. Empty BVH = miss. */
 HitRecord bvh_intersect(const BVH *bvh, Ray ray, float t_min, float t_max);

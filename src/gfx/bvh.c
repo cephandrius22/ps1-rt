@@ -99,6 +99,16 @@ static int alloc_node(BVH *bvh) {
     return idx;
 }
 
+/* Swap two triangles, keeping track of where each came from */
+static void swap_tris(BVH *bvh, int i, int j) {
+    Triangle t = bvh->tris[i];
+    bvh->tris[i] = bvh->tris[j];
+    bvh->tris[j] = t;
+    int o = bvh->order[i];
+    bvh->order[i] = bvh->order[j];
+    bvh->order[j] = o;
+}
+
 static int build_recursive(BVH *bvh, int start, int count) {
     int node_idx = alloc_node(bvh);
 
@@ -139,9 +149,7 @@ static int build_recursive(BVH *bvh, int start, int count) {
                     cj = centj.z;
                 }
                 if (cj < ci) {
-                    Triangle tmp = bvh->tris[i];
-                    bvh->tris[i] = bvh->tris[j];
-                    bvh->tris[j] = tmp;
+                    swap_tris(bvh, i, j);
                 }
             }
         }
@@ -186,9 +194,7 @@ static int build_recursive(BVH *bvh, int start, int count) {
                 cj = centj.z;
             }
             if (cj < ci) {
-                Triangle tmp = bvh->tris[i];
-                bvh->tris[i] = bvh->tris[j];
-                bvh->tris[j] = tmp;
+                swap_tris(bvh, i, j);
             }
         }
     }
@@ -203,6 +209,10 @@ void bvh_build(BVH *bvh, const Triangle *tris, int count) {
     bvh->tri_count = count;
     bvh->tris = malloc(sizeof(Triangle) * count);
     memcpy(bvh->tris, tris, sizeof(Triangle) * count);
+    bvh->order = malloc(sizeof(int) * (count > 0 ? count : 1));
+    for (int i = 0; i < count; i++) {
+        bvh->order[i] = i;
+    }
 
     bvh->capacity = count * 2;
     bvh->nodes = malloc(sizeof(BVHNode) * bvh->capacity);
@@ -216,8 +226,46 @@ void bvh_build(BVH *bvh, const Triangle *tris, int count) {
 void bvh_free(BVH *bvh) {
     free(bvh->nodes);
     free(bvh->tris);
+    free(bvh->order);
     bvh->nodes = NULL;
     bvh->tris = NULL;
+    bvh->order = NULL;
+}
+
+bool bvh_same_layout(const BVH *bvh, const Triangle *tris, int count) {
+    if (!bvh->order || count != bvh->tri_count) {
+        return false;
+    }
+    for (int i = 0; i < count; i++) {
+        if (tris[bvh->order[i]].owner != bvh->tris[i].owner) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* Children are allocated after their parent, so walking the nodes from
+ * last to first visits every child before the node that holds it */
+void bvh_refit(BVH *bvh, const Triangle *tris) {
+    for (int i = 0; i < bvh->tri_count; i++) {
+        bvh->tris[i] = tris[bvh->order[i]];
+    }
+    for (int n = bvh->node_count - 1; n >= 0; n--) {
+        BVHNode *node = &bvh->nodes[n];
+        if (node->tri_count > 0) {
+            AABB box = tri_bounds(&bvh->tris[node->tri_start]);
+            for (int i = 1; i < node->tri_count; i++) {
+                box = aabb_union(box, tri_bounds(&bvh->tris[node->tri_start + i]));
+            }
+            node->bbox = box;
+            continue;
+        }
+        AABB box = bvh->nodes[node->left].bbox;
+        if (node->right >= 0) {
+            box = aabb_union(box, bvh->nodes[node->right].bbox);
+        }
+        node->bbox = box;
+    }
 }
 
 /* --- Traversal --- */
