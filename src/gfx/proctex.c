@@ -1,47 +1,7 @@
-#include "proctex.h"
-#include <stdlib.h>
+#include "proctex_internal.h"
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>
-
-/* --- Hash-based noise --- */
-
-/* Unsigned math: it must wrap, and signed overflow is undefined
- * (GCC optimizes on it; textures would differ between compilers) */
-static uint32_t hash2d(int x, int y) {
-    uint32_t h = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u;
-    h = (h ^ (h >> 13)) * 1274126177;
-    return h ^ (h >> 16);
-}
-
-static float noise01(int x, int y) {
-    return (float)(hash2d(x, y) & 0xFFFF) / 65535.0f;
-}
-
-/* --- Texture allocation helper --- */
-
-static void tex_alloc(Texture *tex, int w, int h) {
-    tex->width = w;
-    tex->height = h;
-    tex->pixels = malloc((size_t)(w * h * 3));
-}
-
-static void tex_set(Texture *tex, int x, int y, uint8_t r, uint8_t g, uint8_t b) {
-    int i = (y * tex->width + x) * 3;
-    tex->pixels[i] = r;
-    tex->pixels[i + 1] = g;
-    tex->pixels[i + 2] = b;
-}
-
-static uint8_t clamp8(float v) {
-    if (v < 0) {
-        return 0;
-    }
-    if (v > 255) {
-        return 255;
-    }
-    return (uint8_t)v;
-}
 
 /* --- Texture generators --- */
 
@@ -314,10 +274,6 @@ static void gen_barrel(Texture *tex) {
 
 #define GHOUL_W 32
 #define GHOUL_H 48
-
-typedef struct {
-    uint8_t r, g, b;
-} Rgb;
 
 static const Rgb GHOUL_SKIN  = {120, 132, 108}; /* sickly grey-green */
 static const Rgb GHOUL_DARK  = {48, 52, 44};    /* shadowed legs, ribs */
@@ -621,17 +577,45 @@ static void gen_screen(Texture *tex) {
 /* --- Public API --- */
 
 static const char *proctex_names[PTEX_COUNT] = {
-    "concrete", "brick", "metal_panel", "metal_grate",
-    "rust", "floor_tile", "pipe", "barrel", "ghoul", "spitter",
-    "view_pistol", "view_shotgun", "view_launcher", "projectiles", "keycards",
-    "slime", "water", "screen"
+    [PTEX_CONCRETE]      = "concrete",
+    [PTEX_BRICK]         = "brick",
+    [PTEX_METAL_PANEL]   = "metal_panel",
+    [PTEX_METAL_GRATE]   = "metal_grate",
+    [PTEX_RUST]          = "rust",
+    [PTEX_FLOOR_TILE]    = "floor_tile",
+    [PTEX_PIPE]          = "pipe",
+    [PTEX_BARREL]        = "barrel",
+    [PTEX_GHOUL]         = "ghoul",
+    [PTEX_SPITTER]       = "spitter",
+    [PTEX_VIEW_PISTOL]   = "view_pistol",
+    [PTEX_VIEW_SHOTGUN]  = "view_shotgun",
+    [PTEX_VIEW_LAUNCHER] = "view_launcher",
+    [PTEX_PROJECTILES]   = "projectiles",
+    [PTEX_KEYCARDS]      = "keycards",
+    [PTEX_SLIME]         = "slime",
+    [PTEX_WATER]         = "water",
+    [PTEX_SCREEN]        = "screen",
 };
 
 static void (*proctex_generators[PTEX_COUNT])(Texture *) = {
-    gen_concrete, gen_brick, gen_metal_panel, gen_metal_grate,
-    gen_rust, gen_floor_tile, gen_pipe, gen_barrel, gen_ghoul, gen_spitter,
-    gen_view_pistol, gen_view_shotgun, gen_view_launcher, gen_projectiles, gen_keycards,
-    gen_slime, gen_water, gen_screen
+    [PTEX_CONCRETE]      = gen_concrete,
+    [PTEX_BRICK]         = gen_brick,
+    [PTEX_METAL_PANEL]   = gen_metal_panel,
+    [PTEX_METAL_GRATE]   = gen_metal_grate,
+    [PTEX_RUST]          = gen_rust,
+    [PTEX_FLOOR_TILE]    = gen_floor_tile,
+    [PTEX_PIPE]          = gen_pipe,
+    [PTEX_BARREL]        = gen_barrel,
+    [PTEX_GHOUL]         = gen_ghoul,
+    [PTEX_SPITTER]       = gen_spitter,
+    [PTEX_VIEW_PISTOL]   = gen_view_pistol,
+    [PTEX_VIEW_SHOTGUN]  = gen_view_shotgun,
+    [PTEX_VIEW_LAUNCHER] = gen_view_launcher,
+    [PTEX_PROJECTILES]   = gen_projectiles,
+    [PTEX_KEYCARDS]      = gen_keycards,
+    [PTEX_SLIME]         = gen_slime,
+    [PTEX_WATER]         = gen_water,
+    [PTEX_SCREEN]        = gen_screen,
 };
 
 const char *proctex_name(ProceduralTextureID id) {
