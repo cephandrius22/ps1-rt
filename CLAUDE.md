@@ -53,7 +53,8 @@ on the include path, so headers are included by bare name (`"scene.h"`).
                   OverlayMenu, nothing else
   game/  render/  game, player, movement, weapon, ai, logic, projectile, damage,
                   inventory, cmd, events | shading, overlay, font, particles, screenfx
-  world/          scene, entity, sprite, light, environment, nav grid, level loader
+  world/          scene, entity, sprite, light, environment, nav grid, shadow
+                  cache, level loader
   gfx/            camera, mesh, bvh, texture, proctex, ps1_effects
   core/           math3d (Vec3, Ray, Pose), threadpool, kv
   platform/       SDL: display (window, present), input, audio, clock; file
@@ -77,7 +78,7 @@ on the include path, so headers are included by bare name (`"scene.h"`).
 - `GAME_DEAD`: AI and projectiles keep running, view sinks; attack/use after `GAME_CONTINUE_DELAY` restarts the map with the loadout it was entered with (`Game.entry`)
 - `GAME_LEVEL_END`: frozen, intermission shown (map title, kills, secrets, time from `Game.map_time`, next map); attack/use after the delay loads the next map of the episode, carrying health, ammo and weapons (not keycards); after the last map, `GAME_EPISODE_END`, whose continue starts the episode fresh
 
-Rendering path: `camera_ray()` → `scene_intersect()` (two-level BVH + sprites) → `shade_pixel_lit()` (material motion, optional affine UVs, zone ambient + glow, `shade_light()` per light, view fog) → PS1 dither → framebuffer → `particles_draw()` → `overlay_draw()` (viewmodel, desaturation, HUD, death tint, level-end kill count)
+Rendering path (per 16x16 tile, `render_tiles()`): `camera_ray()` → `scene_intersect_in()` (two-level BVH + the tile's sprites) → `shade_pixel_lit()` (material motion, optional affine UVs, zone ambient + glow, `shade_light()` per light with `light_visible()`: shadow cache or shadow ray, view fog, the tile's bulbs) → PS1 dither → framebuffer → `particles_draw()` → `overlay_draw()` (viewmodel, desaturation, HUD, death tint, level-end kill count)
 
 ### Module Map
 
@@ -230,7 +231,7 @@ Setup once: `make editor`, then in TrenchBroom Preferences → RT → Game Path 
 
 ### Adding Content
 
-**New level:** Build it in TrenchBroom (see above), save as `levels/<name>.map` and add a `map` line to `levels/episode1.txt`; or hand-write a `.level` (`tests/test.level` is a small example) and convert it with `./rt --convert in.level out.map` (`tools/level_convert.c`: rooms become wall slabs, everything else maps 1:1; `quad`, `obj` and flat-color materials don't convert). Budgets: 30k triangles, 32 lights, 40 sprites (`levelcheck.h`; measured: ~0.12 ms per light, ~0.11 ms per sprite).
+**New level:** Build it in TrenchBroom (see above), save as `levels/<name>.map` and add a `map` line to `levels/episode1.txt`; or hand-write a `.level` (`tests/test.level` is a small example) and convert it with `./rt --convert in.level out.map` (`tools/level_convert.c`: rooms become wall slabs, everything else maps 1:1; `quad`, `obj` and flat-color materials don't convert). Budgets: 30k triangles, 32 lights, 40 sprites (`levelcheck.h`; measured after Phase 7: ~0.15-0.35 ms per light, ~0.05 ms per sprite; the shadow cache only covers the first 32 lights).
 
 **New procedural texture:** Add to `ProceduralTextureID` enum in `proctex.h`, write the generator in `proctex.c` (or a themed file like `proctex_church.c`, declared in `proctex_internal.h`), add a row to `proctex_names[]` and `proctex_generators[]`. Tiling textures must repeat seamlessly: hash noise per pixel, `tiled_noise()` for smooth noise, whole sine periods per tile (`test_proctex` checks the church set). A texture that should glow or scroll gets a `texture_motions[]` row in `matlib.c`. Sprite textures fill empty pixels with the color key; preview with an offscreen render, since tests can't judge looks.
 

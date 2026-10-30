@@ -16,8 +16,9 @@
  * (triangles, lights, sprites). Unknown names and keys are reported by
  * the loaders themselves.
  *
- * Budgets come from measurements on the dev machine (Phase 1.5): frame
- * time grows ~0.12 ms per light and ~0.11 ms per sprite; triangles are
+ * Budgets come from measurements on the dev machine (./rt --bench, after
+ * Phase 7, 8 threads): a light costs ~0.15-0.35 ms of frame time (more
+ * the more of the view it reaches), a sprite ~0.05 ms; triangles are
  * cheap thanks to the BVH.
  */
 #ifndef LEVELCHECK_H

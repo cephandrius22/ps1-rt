@@ -1,10 +1,13 @@
 /*
  * render.h — Raytraced scene rendering to a 320x240 framebuffer.
  *
- * Per pixel: camera ray → scene_intersect() (static + dynamic BVH) →
- * material/texture → ambient + sun + scene lights (shadow rays) + the
- * light the viewer carries (flashlight), all through one light model
- * (light.h) → distance fog → light billboards → PS1 dither. Sun and
+ * The frame is drawn in 16x16 tiles shared out across threads; each tile
+ * keeps only the sprites and bulbs that project onto it. Per pixel:
+ * camera ray → scene_intersect_in() (static + dynamic BVH, the tile's
+ * sprites) → material/texture → ambient + sun + scene lights + the light
+ * the viewer carries (flashlight), all through one light model (light.h);
+ * shadows from the scene's shadow cache for fixed lights, else shadow
+ * rays → distance fog → light billboards → PS1 dither. Sun and
  * ambient come from the level (scene->env, its zones per surface); fog
  * and sky from the RenderView, so the caller can blend them as the
  * camera crosses zones.

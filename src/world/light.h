@@ -23,7 +23,8 @@
 #include "math3d.h"
 #include <stdbool.h>
 
-#define MAX_SHADOW_LIGHTS 4  /* max lights that cast shadow rays per pixel */
+#define MAX_SHADOW_LIGHTS 4  /* max traced shadow rays per pixel (cached
+                              * fixed lights don't count; shadowcache.h) */
 #define LIGHT_NAME_MAX    32
 #define LIGHT_FALLOFF_DEF 0.5f /* per meter, inside the radius window */
 

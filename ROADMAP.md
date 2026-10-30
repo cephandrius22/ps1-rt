@@ -33,8 +33,9 @@ playable soonest. Each phase ends in something you can play.
 - Church theme: textures, decor sprites (a candelabra that lights
   itself, gravestones, a statue), wind/organ/bell ambience, and
   `levels/chapel.map` to try them
-- Multithreaded tiled rendering; refit dynamic BVH; camera smoothed
-  between ticks; `./rt --bench`
+- Multithreaded tiled rendering; faster BVH traversal and refit;
+  cached soft shadows for fixed lights; camera smoothed between ticks;
+  `./rt --bench`
 
 ## Phase 0: Structure ✅
 
@@ -121,7 +122,8 @@ Make levels cheap to build and iterate on before designing them for real.
   `EntityDef` key table), game config symlinked into TrenchBroom
 - ✅ Level checker: spawn/exit present, player/enemies not stuck or
   floating, unknown keys/classes/textures, budget line
-- ✅ Budgets measured: ~0.12 ms per light, ~0.11 ms per sprite, triangles
+- ✅ Budgets measured: ~0.12 ms per light, ~0.11 ms per sprite (after
+  Phase 7: ~0.15-0.35 ms per light, ~0.05 ms per sprite), triangles
   cheap; warn above 30k triangles / 32 lights / 40 sprites
 - ✅ F3 debug overlay: work time, budget use, position in meters and map
   units
@@ -155,8 +157,9 @@ Carried forward:
 
 - ~~Phase 3: enemies walk straight at you on a fixed height~~ (done);
   no infighting (projectiles hurt any enemy, but enemies don't retaliate).
-- Phase 7: projectile glows are lights refreshed per tick; fine at
-  current counts, watch the light budget with many spitters.
+- Still open (see Phase 7): projectile glows are lights refreshed per
+  tick; fine at current counts, watch the light budget with many
+  spitters.
 - Particles land on the player's floor height, not real geometry.
 - Playtest: balance (damage, ammo, spitter cadence) is set from numbers,
   not long play sessions.
@@ -226,9 +229,9 @@ Carried forward:
 
 Carried forward:
 
-- Phase 7: sound isn't occluded by walls (the nav grid could muffle it,
-  as it does for enemy hearing); no doppler or HRTF.
-- Phase 7: affine warp falls back to true UVs on triangles reaching
+- Still open: sound isn't occluded by walls (the nav grid could muffle
+  it, as it does for enemy hearing); no doppler or HRTF.
+- Still open: affine warp falls back to true UVs on triangles reaching
   behind the camera; PS1 games subdivided large polygons instead.
 - Playtest: fog, zone and battery numbers are set by eye on a few
   screenshots, not long play sessions.
@@ -374,6 +377,25 @@ Carried forward:
   with many spitters.
 - Not performance, kept from the old list: sound isn't occluded by
   walls; affine warp falls back on triangles behind the camera.
+
+## Next (not yet planned)
+
+Every planned phase is done. Candidates, gathered from the carried-
+forward notes above:
+
+- **Playtest and balance.** Phase 6's menus and saves, the chapel, Phase
+  7's soft shadows and smooth camera, and fight balance overall have had
+  scripted checks, not long play.
+- **Shell polish.** Key rebinding, invert mouse, confirmations before
+  overwriting a save or quitting, a versioned save format that survives
+  updates.
+- **Monsters.** Infighting, climbing (only drop links today), flying or
+  dodging enemies, a third enemy type.
+- **Content.** A second episode (the church theme is ready for it),
+  a Victorian manor texture set, ground textures (grass, earth).
+- **Polish.** Smooth monsters, doors and projectiles between ticks (only
+  the camera is), sound occlusion by walls, subdividing large polygons
+  for the affine warp.
 
 ## Design notes
 
